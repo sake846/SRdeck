@@ -1,0 +1,189 @@
+<UserControl x:Class="SRdeck.Views.MainOverlays"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1280">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- Global Overlay -->
+        <Grid Background="#80000000" Visibility="{Binding ExportingOverlayVisibility}" Panel.ZIndex="999">
+            <Border Background="{StaticResource BgDarkBrush}" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,20">
+                <StackPanel>
+                    <TextBlock Text="過去録音データを書き出し中..." Foreground="White" FontSize="16" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" />
+                    <TextBlock Text="しばらくお待ちください" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Shutting Down Overlay -->
+        <Grid Background="#E61A1A1A" Visibility="{Binding ShuttingDownOverlayVisibility}" Panel.ZIndex="4000">
+            <Border Background="{StaticResource BgDarkBrush}" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,20">
+                <StackPanel>
+                    <TextBlock Text="終了処理中..." Foreground="White" FontSize="16" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" />
+                    <TextBlock Text="しばらくお待ちください" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- SDR Error Overlay -->
+        <Grid Background="#E61A1A1A" Visibility="{Binding SdrErrorOverlayVisibility}" Panel.ZIndex="5000">
+            <Border Background="{StaticResource BgDarkBrush}" BorderBrush="#FFFF6464" BorderThickness="1" CornerRadius="5"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,25" MaxWidth="500">
+                <StackPanel>
+                    <TextBlock Text="⚠ SDRエラー" Foreground="#FFFF6464" FontSize="16" FontWeight="Bold" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding SdrErrorMessageText}" Foreground="White" FontSize="13" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" Margin="0,15,0,0" TextWrapping="Wrap"/>
+                    <Button Content="閉じる" Command="{Binding CloseSdrErrorCommand}" Width="100" Height="30" Margin="0,20,0,0" HorizontalAlignment="Center"
+                            Background="#FF303030" Foreground="#FFFF6464" BorderBrush="#FFFF6464" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="1">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Common Message Overlay -->
+        <Grid Background="#E61A1A1A" Visibility="{Binding CommonOverlayVisibility}" Panel.ZIndex="3500">
+            <Border Background="{StaticResource BgDarkBrush}" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,25" MaxWidth="500">
+                <StackPanel>
+                    <TextBlock Text="{Binding CommonOverlayTitle}" Foreground="#FF88CC00" FontSize="16" FontWeight="Bold" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding CommonOverlayMessageText}" Foreground="White" FontSize="13" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" Margin="0,15,0,0" TextWrapping="Wrap"/>
+                    <Button Content="閉じる" Command="{Binding CloseCommonOverlayCommand}" Width="100" Height="30" Margin="0,20,0,0" HorizontalAlignment="Center"
+                            Background="#FF303030" Foreground="White" BorderBrush="{StaticResource ControlBorderBrush}" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="1">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Confirm Message Overlay -->
+        <Grid Background="#E61A1A1A" Visibility="{Binding ConfirmOverlayVisibility}" Panel.ZIndex="3600">
+            <Border Background="{StaticResource BgDarkBrush}" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,25" MaxWidth="500">
+                <StackPanel>
+                    <TextBlock Text="{Binding ConfirmOverlayTitle}" Foreground="#FF88CC00" FontSize="16" FontWeight="Bold" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding ConfirmOverlayMessageText}" Foreground="White" FontSize="13" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" Margin="0,15,0,0" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,25,0,0">
+                        <Button Content="はい" Command="{Binding ConfirmOverlayOkCommand}" Width="100" Height="30" Margin="0,0,10,0"
+                                Background="#FF303030" Foreground="White" BorderBrush="{StaticResource ControlBorderBrush}" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="1">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button Content="いいえ" Command="{Binding CloseConfirmOverlayCommand}" Width="100" Height="30"
+                                Background="#FF303030" Foreground="White" BorderBrush="{StaticResource ControlBorderBrush}" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="1">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Help Overlay -->
+        <Button HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Panel.ZIndex="3000"
+                Visibility="{Binding IsHelpVisible, Converter={StaticResource BoolToVis}}"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                Command="{Binding CloseHelpCommand}"
+                Focusable="False"
+                IsTabStop="False">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter />
+                </ControlTemplate>
+            </Button.Template>
+            <Border Background="{StaticResource PanelBaseBrush}" CornerRadius="3" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="24" Width="680">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.5"/>
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="SRdeck 簡易操作説明" Foreground="#FF88CC00" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15" FontFamily="{StaticResource MainFontFamily}" />
+                    <Rectangle Fill="{StaticResource ControlBorderBrush}" Height="1" Margin="0,0,0,15" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="マウス・基本操作ガイド" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" FontFamily="{StaticResource MainFontFamily}" />
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Click" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="目的の周波数へ瞬時にチューニング" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Wheel" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数枠上で桁ごとの周波数変更" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Drag" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="スペクトラム領域ドラッグで帯域を移動" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
+                            </Grid>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="キーボードショートカット" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" FontFamily="{StaticResource MainFontFamily}" />
+                            <Grid Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="O" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="受信開始" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="F" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数入力" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="P" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="スパン幅変更" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                            </Grid>
+                            <Grid Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="←→" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
+                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数移動" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="クリックで閉じる" Foreground="#FF7A7A7A" FontSize="10" HorizontalAlignment="Center" Margin="0,10,0,0" FontFamily="{StaticResource MainFontFamily}" />
+                </StackPanel>
+            </Border>
+        </Button>
+    </Grid>
+</UserControl>

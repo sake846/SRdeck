@@ -1,0 +1,23 @@
+# SRdeck Wiki
+
+- [ホーム](Home)
+- [はじめに](Getting-Started)
+  - [システム要件](System-Requirements)
+  - [インストール](Installation)
+- [画面と操作](UI-Overview)
+  - [SDR入力設定](SDR-Source-Settings)
+  - [スペクトラム／ウォーターフォール](Spectrum-and-Waterfall)
+  - [音声出力・IQ録音](Audio-and-Recording)
+- [プラグイン](Plugin-Management)
+  - [公式プラグイン一覧](Plugins-Overview)
+  - [Meshtastic（ソース公開・バイナリ配布対象外）](Plugins-Meshtastic)
+  - [Wi-SUN](Plugins-WiSun)
+  - [アナログ復調](Plugins-Analog)
+- [トラブルシューティング](Troubleshooting)
+- [FAQ](FAQ)
+- 開発者向け
+  - [開発概要](Developer-Overview)
+  - [開発環境](Development-Environment)
+  - [最初のプラグイン](Creating-First-Plugin)
+  - [右ペインUI設計](Right-Pane-UI-Design)
+  - [テストと配布](Testing-and-Distribution)

@@ -1,0 +1,164 @@
+<UserControl x:Class="SRdeck.Views.SettingsTabs.StartupSettingsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="600"
+             Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="5,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT COLUMN: DISPLAY & FFT -->
+            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                <!-- Display Section Card -->
+                <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Header_DisplayStartup}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                        <Grid Margin="0,4,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_SdrDeviceType}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding SdrDeviceTypeOptions}" 
+                                      SelectedItem="{Binding SelectedSdrDeviceType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_GridTop}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding GridTopDbOptions}" 
+                                      SelectedItem="{Binding SelectedGridTopDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_DebugDraw}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding DebugDrawOptions}" 
+                                      SelectedItem="{Binding SelectedDebugDraw, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- FFT Section Card -->
+                <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Header_FftStartup}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                        <Grid Margin="0,4,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_GpuUse}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding IsGpuFftEnabledOptions}" 
+                                      SelectedItem="{Binding SelectedIsGpuFftEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_FftPoints}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding FftResolutionModeOptions}" 
+                                      SelectedItem="{Binding SelectedFftResolutionMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+                        <CheckBox Content="{DynamicResource Label_ResidualDcRemoval}"
+                                  IsChecked="{Binding IsResidualDcRemovalEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Demodulation Section Card -->
+                <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Header_DemodStartup}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                        
+                        <Grid Margin="0,4,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_DemodGpuLight}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding DemodChannelAccelerationOptions}" 
+                                      SelectedItem="{Binding SelectedDemodLightGpu, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_DemodGpuStandard}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding DemodChannelAccelerationOptions}" 
+                                      SelectedItem="{Binding SelectedDemodStandardGpu, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_DemodGpuHeavy}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="11" />
+                            <ComboBox Grid.Column="1" Width="100" Height="22" FontSize="11"
+                                      ItemsSource="{Binding DemodChannelAccelerationOptions}" 
+                                      SelectedItem="{Binding SelectedDemodHeavyGpu, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- RIGHT COLUMN: WEB STARTUP, ECO, AGC -->
+            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+
+
+                <!-- Power and Eco Section Card -->
+                <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Header_PowerEco}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                        <CheckBox Content="{DynamicResource Label_PreventSleepAc}" IsChecked="{Binding IsPreventSleepOnAc, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Foreground="White" Margin="0,0,0,8" />
+                        <CheckBox Content="{DynamicResource Label_PreventSleepBattery}" IsChecked="{Binding IsPreventSleepOnBattery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FontSize="12" Foreground="White" Margin="0,0,0,8" />
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource Label_StartupProcessPriority}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12" />
+                            <ComboBox Grid.Column="1" Width="120" Height="22" FontSize="11"
+                                      ItemsSource="{Binding StartupProcessPriorityOptions}" 
+                                      SelectedItem="{Binding StartupProcessPriority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Label" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

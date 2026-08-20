@@ -1,0 +1,111 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <ApplicationIcon>SRdeck.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <NativeCMakeExe Condition="'$(CMAKE_EXE)' != ''">$(CMAKE_EXE)</NativeCMakeExe>
+    <NativeCMakeExe Condition="'$(NativeCMakeExe)' == '' and Exists('C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</NativeCMakeExe>
+    <NativeCMakeExe Condition="'$(NativeCMakeExe)' == '' and Exists('C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</NativeCMakeExe>
+    <NativeCMakeExe Condition="'$(NativeCMakeExe)' == '' and Exists('C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</NativeCMakeExe>
+    <!-- Fall back to CMake on PATH so a standard CMake installation is also used. -->
+    <NativeCMakeExe Condition="'$(NativeCMakeExe)' == ''">cmake</NativeCMakeExe>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- GPL/LGPL等のライセンス分離用: 個別ドライバーを含める場合は true、除外する場合は false を指定します -->
+    <EnableRtlSdr>true</EnableRtlSdr>
+    <DefineConstants Condition="'$(EnableRtlSdr)' == 'true'">$(DefineConstants);ENABLE_RTLSDR</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="SRdeck.ico" />
+    <Resource Include="Resources\title_splash.png" />
+    <Resource Include="Resources\srdeck_logo_trans.png" />
+    <Resource Include="Resources\srdeck_icon_emblem.png" />
+    <Resource Include="Resources\srdeck_logo_option1.png" />
+    <Resource Include="Resources\srdeck_logo_option1_trans.png" />
+    <Resource Include="Resources\srdeck_logo_option2.png" />
+    <Resource Include="Resources\srdeck_logo_option2_trans.png" />
+    <Resource Include="Resources\srdeck_logo_option3.png" />
+    <Resource Include="Resources\srdeck_logo_option3_trans.png" />
+    <Resource Include="Resources\srdeck_logo_option4.png" />
+    <Resource Include="Resources\srdeck_logo_option4_trans.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.142" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Fonts\**\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableRtlSdr)' != 'true'">
+    <Compile Remove="SDR\RtlSdrApi.cs" />
+    <Compile Remove="SDR\RtlSdrController.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SRdeckCore.SignalProcessing\SRdeckCore.SignalProcessing.csproj" />
+    <ProjectReference Include="..\SRdeckPlugin.Contracts\SRdeckPlugin.Contracts.csproj" />
+    <ProjectReference Include="..\SRdeckPlugin.Sdk\SRdeckPlugin.Sdk.csproj" />
+    <ProjectReference Include="..\SRdeckPlugin.Wpf\SRdeckPlugin.Wpf.csproj" />
+  </ItemGroup>
+
+  <!-- The development monorepo imports the built-in plugin aggregator.  The
+       public SRdeck source snapshot intentionally omits that file so the host
+       can be built without checking out SRdeckPlugins. -->
+  <Import Project="..\SRdeckPlugin.Build.props"
+          Condition="Exists('..\SRdeckPlugin.Build.props')" />
+
+  <ItemGroup>
+    <Content Remove="Strings\**" />
+    <None Remove="Strings\**" />
+    <EmbeddedResource Include="Strings\Strings_ja.json" />
+    <EmbeddedResource Include="Strings\Strings_en.json" />
+  </ItemGroup>
+
+  <Target Name="BuildNativeFftDlls" BeforeTargets="Build"
+          Condition="'$(OS)' == 'Windows_NT'">
+    <Exec Command="&quot;$(NativeCMakeExe)&quot; -S &quot;$(MSBuildProjectDirectory)\native\sr_fft&quot; -B &quot;$(MSBuildProjectDirectory)\native\sr_fft\build&quot; -A x64" />
+    <Exec Command="&quot;$(NativeCMakeExe)&quot; --build &quot;$(MSBuildProjectDirectory)\native\sr_fft\build&quot; --config $(Configuration)" />
+    <Exec Command="&quot;$(NativeCMakeExe)&quot; -S &quot;$(MSBuildProjectDirectory)\native\sr_gpu&quot; -B &quot;$(MSBuildProjectDirectory)\native\sr_gpu\build&quot; -A x64" />
+    <Exec Command="&quot;$(NativeCMakeExe)&quot; --build &quot;$(MSBuildProjectDirectory)\native\sr_gpu\build&quot; --config $(Configuration)" />
+  </Target>
+
+  <Target Name="CopyNativeFftDlls" AfterTargets="Build;Publish">
+    <PropertyGroup>
+      <NativeGpuFftDll>$(MSBuildProjectDirectory)\native\sr_gpu\build\$(Configuration)\sr_gpu.dll</NativeGpuFftDll>
+      <NativeGpuFftDll Condition="!Exists('$(NativeGpuFftDll)')">$(MSBuildProjectDirectory)\native\sr_gpu\build\sr_gpu.dll</NativeGpuFftDll>
+      <NativeCpuFftDll>$(MSBuildProjectDirectory)\native\sr_fft\build\$(Configuration)\sr_fft.dll</NativeCpuFftDll>
+      <NativeCpuFftDll Condition="!Exists('$(NativeCpuFftDll)')">$(MSBuildProjectDirectory)\native\sr_fft\build\sr_fft.dll</NativeCpuFftDll>
+    </PropertyGroup>
+    <Copy SourceFiles="$(NativeGpuFftDll)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(NativeGpuFftDll)')" />
+    <Copy SourceFiles="$(NativeCpuFftDll)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(NativeCpuFftDll)')" />
+    <Copy SourceFiles="$(NativeGpuFftDll)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="'$(PublishDir)' != '' and '$(PublishDir)' != '$(OutDir)' and Exists('$(NativeGpuFftDll)')" />
+    <Copy SourceFiles="$(NativeCpuFftDll)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="'$(PublishDir)' != '' and '$(PublishDir)' != '$(OutDir)' and Exists('$(NativeCpuFftDll)')" />
+  </Target>
+
+</Project>

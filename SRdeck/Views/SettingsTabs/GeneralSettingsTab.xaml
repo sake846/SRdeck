@@ -1,0 +1,142 @@
+<UserControl x:Class="SRdeck.Views.SettingsTabs.GeneralSettingsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="600"
+             Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}">
+    <StackPanel Margin="5,8">
+        <!-- RF Gain Card -->
+        <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Header_RfGain}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Label_GainValue}" Foreground="#FF8A8A8A" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Label Content="{Binding SdrPlayRfGainDb}" ContentStringFormat="{}{0} dB" FontSize="14" Foreground="White" FontWeight="Bold" VerticalContentAlignment="Center" Padding="0" FontFamily="{StaticResource MainFontFamily}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▼" FontSize="11" Width="26" Height="26" Command="{Binding ChangeSdrPlayGainCommand}" CommandParameter="-1" Margin="3,0" />
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▲" FontSize="11" Width="26" Height="26" Command="{Binding ChangeSdrPlayGainCommand}" CommandParameter="1" Margin="3,0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- LNA State Card -->
+        <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Header_LnaState}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Label_LnaStateDesc}" Foreground="#FF8A8A8A" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="State " Foreground="#FFFFFFFF" FontWeight="Bold" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedLnaState}" Foreground="#FFFFFFFF" FontWeight="Bold" FontSize="11" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▼" FontSize="11" Width="26" Height="26" Command="{Binding ChangeLnaStateCommand}" CommandParameter="-1" Margin="3,0" />
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▲" FontSize="11" Width="26" Height="26" Command="{Binding ChangeLnaStateCommand}" CommandParameter="1" Margin="3,0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Notch Filter Card -->
+        <Border Visibility="{Binding SdrPlayNotchVisibility}" Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Header_NotchFilter}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Label_NotchFilterDesc}" Foreground="#FF8A8A8A" VerticalAlignment="Center" FontSize="11" TextWrapping="Wrap"/>
+                    <ComboBox Grid.Column="1" Width="140" Height="24" Margin="8,0,0,0"
+                              ItemsSource="{Binding SdrPlayNotchOptions}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                              SelectedValue="{Binding SelectedNotchFilter, Mode=TwoWay}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- SDRplay model-specific controls -->
+        <Border Visibility="{Binding SdrPlayDeviceSettingsVisibility}" Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="機種別 SDRplay 設定" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+
+                <CheckBox Visibility="{Binding SdrPlayBiasTVisibility}" Content="Bias-T 給電" IsChecked="{Binding SdrPlayBiasTEnabled, Mode=TwoWay}" Margin="0,0,0,7" />
+
+                <Grid Visibility="{Binding SdrPlayAntennaVisibility}" Margin="0,0,0,7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="アンテナ入力" Foreground="#FF8A8A8A" VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="1" Width="140" Height="24" SelectedIndex="{Binding SdrPlayAntennaIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="A" />
+                        <ComboBoxItem Content="B" />
+                        <ComboBoxItem Visibility="{Binding IsSdrPlayAntennaCVisible}" Content="C" />
+                    </ComboBox>
+                </Grid>
+
+                <Grid Visibility="{Binding SdrPlayAmPortVisibility}" Margin="0,0,0,7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="AM ポート" Foreground="#FF8A8A8A" VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="1" Width="140" Height="24" SelectedIndex="{Binding SdrPlayAmPortIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="ポート 1" />
+                        <ComboBoxItem Content="ポート 2" />
+                    </ComboBox>
+                </Grid>
+
+                <CheckBox Visibility="{Binding SdrPlayExternalReferenceVisibility}" Content="外部基準クロック出力" IsChecked="{Binding SdrPlayExternalReferenceOutputEnabled, Mode=TwoWay}" Margin="0,0,0,7" />
+
+                <Grid Visibility="{Binding SdrPlayHdrVisibility}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Content="HDR モード" IsChecked="{Binding SdrPlayHdrEnabled, Mode=TwoWay}" VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="1" Width="140" Height="24" SelectedIndex="{Binding SdrPlayHdrBandwidthIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="0.2 MHz" />
+                        <ComboBoxItem Content="0.5 MHz" />
+                        <ComboBoxItem Content="1.2 MHz" />
+                        <ComboBoxItem Content="1.7 MHz" />
+                    </ComboBox>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- PPM Card -->
+        <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Header_Ppm}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Label_PpmValue}" Foreground="#FF8A8A8A" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Label Content="{Binding Tuner.TotalPpmDisplay}" FontFamily="{StaticResource MainFontFamily}" FontSize="13" Foreground="White" FontWeight="Bold" VerticalContentAlignment="Center" Padding="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▼" FontSize="11" Width="26" Height="26" Command="{Binding Tuner.AdjustPpmCorrectionCommand}" CommandParameter="-0.01" Margin="3,0" />
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▲" FontSize="11" Width="26" Height="26" Command="{Binding Tuner.AdjustPpmCorrectionCommand}" CommandParameter="0.01" Margin="3,0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+    </StackPanel>
+</UserControl>

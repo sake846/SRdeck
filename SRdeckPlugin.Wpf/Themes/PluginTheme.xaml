@@ -1,0 +1,69 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:display="clr-namespace:SRdeckPlugin.Wpf">
+
+    <!-- Display Accent Brushes
+         These are presentation accents, not operation or health states. -->
+    <SolidColorBrush x:Key="PluginDisplayAccentPrimaryBrush" Color="{x:Static display:PluginDisplayColors.Primary}" />
+    <SolidColorBrush x:Key="PluginDisplayAccentSecondaryBrush" Color="{x:Static display:PluginDisplayColors.Secondary}" />
+    <SolidColorBrush x:Key="PluginDisplayAccentTertiaryBrush" Color="{x:Static display:PluginDisplayColors.Tertiary}" />
+
+    <!-- Status Brushes
+         Status colors intentionally differ from display accents. -->
+    <!-- Running State -->
+    <SolidColorBrush x:Key="PluginStatusRunningForegroundBrush" Color="#FF7AA2FF" />
+    <SolidColorBrush x:Key="PluginStatusRunningBackgroundBrush" Color="#207AA2FF" />
+    <SolidColorBrush x:Key="PluginStatusRunningBorderBrush" Color="#807AA2FF" />
+
+    <!-- Success State -->
+    <SolidColorBrush x:Key="PluginStatusSuccessForegroundBrush" Color="#FF88CC00" />
+    <SolidColorBrush x:Key="PluginStatusSuccessBackgroundBrush" Color="#2088CC00" />
+    <SolidColorBrush x:Key="PluginStatusSuccessBorderBrush" Color="#8088CC00" />
+
+    <!-- Info State -->
+    <SolidColorBrush x:Key="PluginStatusInfoForegroundBrush" Color="#FFB0BEC5" />
+    <SolidColorBrush x:Key="PluginStatusInfoBackgroundBrush" Color="#20B0BEC5" />
+    <SolidColorBrush x:Key="PluginStatusInfoBorderBrush" Color="#80B0BEC5" />
+
+    <!-- Warning State -->
+    <SolidColorBrush x:Key="PluginStatusWarningForegroundBrush" Color="#FFFFD166" />
+    <SolidColorBrush x:Key="PluginStatusWarningBackgroundBrush" Color="#30FFD166" />
+    <SolidColorBrush x:Key="PluginStatusWarningBorderBrush" Color="#80FFD166" />
+
+    <!-- Error State -->
+    <SolidColorBrush x:Key="PluginStatusErrorForegroundBrush" Color="#FFFF6B6B" />
+    <SolidColorBrush x:Key="PluginStatusErrorBackgroundBrush" Color="#30FF6B6B" />
+    <SolidColorBrush x:Key="PluginStatusErrorBorderBrush" Color="#80FF6B6B" />
+
+    <!-- Critical State -->
+    <SolidColorBrush x:Key="PluginStatusCriticalForegroundBrush" Color="#FFFF5555" />
+    <SolidColorBrush x:Key="PluginStatusCriticalBackgroundBrush" Color="#50800000" />
+    <SolidColorBrush x:Key="PluginStatusCriticalBorderBrush" Color="#FFFF5555" />
+
+    <!-- Data Series Palette (For charts, maps, and categories) -->
+    <SolidColorBrush x:Key="PluginDataSeries1Brush" Color="#FF4DD0E1" />
+    <SolidColorBrush x:Key="PluginDataSeries2Brush" Color="#FFAB47BC" />
+    <SolidColorBrush x:Key="PluginDataSeries3Brush" Color="#FFFFB74D" />
+    <SolidColorBrush x:Key="PluginDataSeries4Brush" Color="#FF26A69A" />
+    <SolidColorBrush x:Key="PluginDataSeries5Brush" Color="#FFEC407A" />
+    <SolidColorBrush x:Key="PluginDataSeries6Brush" Color="#FF7E57C2" />
+
+    <!-- Tab & Selector Brushes -->
+    <SolidColorBrush x:Key="PluginTabHoverBrush" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="PluginTabSelectedBrush" Color="#26FFFFFF" />
+
+    <!-- Keyboard Focus Visual Border -->
+    <SolidColorBrush x:Key="PluginFocusBorderBrush" Color="#FF00FDFF" />
+
+    <!-- Layout & Spacing Tokens -->
+    <Thickness x:Key="PluginPaneMargin">6</Thickness>
+    <Thickness x:Key="PluginPanePadding">8</Thickness>
+    <Thickness x:Key="PluginCardMargin">3</Thickness>
+    <Thickness x:Key="PluginCardPadding">10,7</Thickness>
+    <CornerRadius x:Key="PluginCardCornerRadius">3</CornerRadius>
+    <!-- Match the host's FlatRaisedPanelStyle used by the left pane. -->
+    <CornerRadius x:Key="PluginOuterPanelCornerRadius">5</CornerRadius>
+    <CornerRadius x:Key="PluginOuterPanelTopCornerRadius">5,5,0,0</CornerRadius>
+    <CornerRadius x:Key="PluginOuterPanelBottomCornerRadius">0,0,5,5</CornerRadius>
+
+</ResourceDictionary>

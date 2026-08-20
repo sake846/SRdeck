@@ -1,0 +1,11 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="PluginTheme.xaml" />
+        <ResourceDictionary Source="PluginControls.Panels.xaml" />
+        <ResourceDictionary Source="PluginControls.Status.xaml" />
+        <ResourceDictionary Source="PluginControls.Inputs.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

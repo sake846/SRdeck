@@ -1,0 +1,94 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Colors.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- 2. SolidColorBrushes -->
+
+    <SolidColorBrush x:Key="BrandCyanBrush" Color="{StaticResource BrandCyan}" />
+    <SolidColorBrush x:Key="PanelBaseBrush" Color="{StaticResource PanelBase}" />
+    <SolidColorBrush x:Key="PanelSurfaceBrush" Color="{StaticResource PanelSurface}" />
+    <SolidColorBrush x:Key="ControlBaseBrush" Color="{StaticResource ControlBase}" />
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="{StaticResource ControlBorder}" />
+    <SolidColorBrush x:Key="InstrumentBaseBrush" Color="{StaticResource InstrumentBase}" />
+    <SolidColorBrush x:Key="RaisedPanelBrush" Color="{StaticResource RaisedPanel}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
+    <SolidColorBrush x:Key="TextDimBrush" Color="{StaticResource TextDim}" />
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabled}" />
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="{StaticResource TextOnAccent}" />
+    
+    <!-- Standard Theme UI Brushes -->
+    <SolidColorBrush x:Key="BgHoverBrush" Color="#FF444444" />
+    <SolidColorBrush x:Key="BgActiveBrush" Color="#FF3B4C0F" />
+    <SolidColorBrush x:Key="BorderActiveBrush" Color="#FFAAE611" />
+    <SolidColorBrush x:Key="BorderOffBrush" Color="#FF555555" />
+    <!-- Legacy name retained for existing control styles; "off" is still readable. -->
+    <SolidColorBrush x:Key="TextOffBrush" Color="{StaticResource TextSecondary}" />
+    
+    <!-- Amber/YellowGreen Theme Specific Brushes -->
+    <SolidColorBrush x:Key="BgActiveAmberBrush" Color="#FF3B4C0F" />
+    <SolidColorBrush x:Key="BgHoverAmberBrush" Color="#FF7B9C18" />
+    <SolidColorBrush x:Key="BgPressedAmberBrush" Color="#FF587011" />
+    <SolidColorBrush x:Key="BgOffHoverBrush" Color="#FF505050" />
+    
+    <!-- New Tokenized Brushes -->
+    <SolidColorBrush x:Key="BgDarkBrush" Color="{StaticResource BgDark}" />
+    <SolidColorBrush x:Key="LedOffBrush" Color="{StaticResource LedOff}" />
+    <SolidColorBrush x:Key="BgPopupBrush" Color="{StaticResource BgPopup}" />
+    <SolidColorBrush x:Key="BgSelectedDarkBrush" Color="{StaticResource BgSelectedDark}" />
+    <SolidColorBrush x:Key="BgMediumGrayBrush" Color="{StaticResource BgMediumGray}" />
+    <SolidColorBrush x:Key="BgActiveHoverAmberBrush" Color="#FF4A6115" />
+    <SolidColorBrush x:Key="BrandTitleCloseBrush" Color="{StaticResource BrandTitleClose}" />
+    <SolidColorBrush x:Key="BrandTitleClosePressedBrush" Color="{StaticResource BrandTitleClosePressed}" />
+    <SolidColorBrush x:Key="BrandAmberBrush" Color="{StaticResource LedYellowGreen}" />
+    <SolidColorBrush x:Key="TextActiveBrush" Color="{StaticResource LedYellowGreen}" />
+    
+    <LinearGradientBrush x:Key="LcdPanelGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Color="#FF1A221A" Offset="0"/>
+        <GradientStop Color="#FF2A352A" Offset="0.05"/>
+        <GradientStop Color="#FF081008" Offset="0.5"/>
+        <GradientStop Color="#FF2A352A" Offset="0.95"/>
+        <GradientStop Color="#FF1A221A" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- VFD (Vacuum Fluorescent Display) Style Colors -->
+    <SolidColorBrush x:Key="LcdBackgroundBrush" Color="#FF050A0A" />
+    <SolidColorBrush x:Key="LcdTextActiveBrush" Color="#FF00FDFF" />
+    <SolidColorBrush x:Key="LcdTextOffBrush" Color="#0800FDFF" />
+
+    <!-- VFD Glow effect -->
+    <RadialGradientBrush x:Key="VfdGlowBrush">
+        <GradientStop Color="#4400FDFF" Offset="0" />
+        <GradientStop Color="#0000FDFF" Offset="1" />
+    </RadialGradientBrush>
+
+    <RadialGradientBrush x:Key="LcdLeftGlowBrush" Center="0,0.5" GradientOrigin="0,0.5" RadiusX="0.5" RadiusY="0.9">
+        <GradientStop Color="#5500FDFF" Offset="0"/>
+        <GradientStop Color="Transparent" Offset="1"/>
+    </RadialGradientBrush>
+
+    <RadialGradientBrush x:Key="LcdRightGlowBrush" Center="1,0.5" GradientOrigin="1,0.5" RadiusX="0.5" RadiusY="0.9">
+        <GradientStop Color="#5500FDFF" Offset="0"/>
+        <GradientStop Color="Transparent" Offset="1"/>
+    </RadialGradientBrush>
+    
+    <SolidColorBrush x:Key="OverlayHoverBrush" Color="#50FF6464" />
+    
+    <!-- Dot Matrix Pattern Overlay -->
+    <VisualBrush x:Key="DotMatrixBrush" TileMode="Tile" Viewport="0,0,3,3" ViewportUnits="Absolute">
+        <VisualBrush.Visual>
+            <Canvas Width="3" Height="3" Background="Transparent">
+                <Ellipse Width="1.5" Height="1.5" Fill="#25000000" Canvas.Left="0.75" Canvas.Top="0.75" />
+            </Canvas>
+        </VisualBrush.Visual>
+    </VisualBrush>
+
+    <SolidColorBrush x:Key="LedGreenBrush" Color="{StaticResource LedGreen}" />
+    <SolidColorBrush x:Key="LedAmberBrush" Color="{StaticResource LedAmber}" />
+    <SolidColorBrush x:Key="LedBlueBrush" Color="{StaticResource LedBlue}" />
+    <SolidColorBrush x:Key="LedRedBrush" Color="{StaticResource LedRed}" />
+    <SolidColorBrush x:Key="LedYellowGreenBrush" Color="{StaticResource LedYellowGreen}" />
+    <SolidColorBrush x:Key="LedWarmBrush" Color="{StaticResource LedWarm}" />
+</ResourceDictionary>

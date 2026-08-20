@@ -1,0 +1,102 @@
+<UserControl x:Class="SRdeck.Views.SettingsTabs.SystemSettingsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="600"
+             Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="10,12">
+            <!-- Language Option Card -->
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Header_Language}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,2" />
+                    <TextBlock Text="{DynamicResource Desc_Language}" Foreground="{StaticResource TextDimBrush}" FontSize="10" />
+                </StackPanel>
+                <ComboBox Grid.Column="1" Width="100" Height="26" SelectedValuePath="Tag" SelectedValue="{Binding Language, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Background="#FF151515" Foreground="White" BorderBrush="#FF333333">
+                    <ComboBoxItem Content="日本語" Tag="ja" />
+                    <ComboBoxItem Content="English" Tag="en" />
+                </ComboBox>
+            </Grid>
+
+            <!-- Current Process Priority Card -->
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Header_ProcessPriority}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,2" />
+                    <TextBlock Text="{DynamicResource Desc_ProcessPriority}" Foreground="{StaticResource TextDimBrush}" FontSize="10" />
+                </StackPanel>
+                <ComboBox Grid.Column="1" Width="120" Height="26"
+                          ItemsSource="{Binding ProcessPriorityOptions}" 
+                          SelectedItem="{Binding SelectedProcessPriority}" 
+                          DisplayMemberPath="Label" 
+                          Background="#FF151515" Foreground="White" BorderBrush="#FF333333" FontSize="11" />
+            </Grid>
+
+
+            <!-- Section Separator Line -->
+            <Border BorderBrush="#FF333333" BorderThickness="0,0,0,1" Margin="0,5,0,20" />
+
+            <!-- Specific Reset Rows (WPF: Standard Look) -->
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Header_ResetState}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,2" />
+                    <TextBlock Text="{DynamicResource Desc_ResetState}" Foreground="{StaticResource TextDimBrush}" FontSize="10" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="{DynamicResource Btn_Execute}" Style="{StaticResource FlatButtonStyle}" Width="60" Height="26" Command="{Binding ResetSettingsCommand}" />
+            </Grid>
+
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Header_ResetApp}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,2" />
+                    <TextBlock Text="{DynamicResource Desc_ResetApp}" Foreground="{StaticResource TextDimBrush}" FontSize="10" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="{DynamicResource Btn_Execute}" Style="{StaticResource FlatButtonStyle}" Width="60" Height="26" Command="{Binding ResetAppSettingsCommand}" />
+            </Grid>
+
+            <Grid Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource Header_ResetHardware}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,2" />
+                    <TextBlock Text="{DynamicResource Desc_ResetHardware}" Foreground="{StaticResource TextDimBrush}" FontSize="10" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="{DynamicResource Btn_Execute}" Style="{StaticResource FlatButtonStyle}" Width="60" Height="26" Command="{Binding ResetHardwareSettingsCommand}" />
+            </Grid>
+
+            <Rectangle Fill="#FF333333" Height="1" Margin="0,5,0,15" />
+
+            <Border Background="#FF151515" BorderBrush="#FFFF5555" BorderThickness="1" CornerRadius="4" Padding="12,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Header_ResetAll}" Foreground="#FFFF5555" FontSize="12" FontWeight="Bold" Margin="0,0,0,4" />
+                        <TextBlock Text="{DynamicResource Desc_ResetAll}" Foreground="#FFFF5555" FontSize="10" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="{DynamicResource Btn_ResetAll}" Style="{StaticResource FlatButtonStyle}" Width="80" Height="26" Foreground="#FFFF5555" BorderBrush="#FFFF5555" Command="{Binding ResetAllCommand}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
