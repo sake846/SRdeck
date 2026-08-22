@@ -1066,6 +1066,15 @@
         <Setter Property="FontFamily" Value="{DynamicResource DisplayFontFamily}" />
     </Style>
 
+    <!-- Compact protocol values in list/timeline cells use the same readable
+         display face and overflow behavior as the detail panes. -->
+    <Style x:Key="PluginTimelineCellTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource DisplayFontFamily}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <Style x:Key="PluginTimelineTimestampCellStyle" TargetType="DataGridCell"
            BasedOn="{StaticResource PluginDataGridCellStyle}">
         <Setter Property="VerticalContentAlignment" Value="Top" />
@@ -1073,10 +1082,22 @@
     </Style>
 
     <Style x:Key="PluginTimelineIdentityTextStyle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource PluginDisplayAccentPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PluginDisplayAccentTertiaryBrush}" />
         <Setter Property="FontFamily" Value="{DynamicResource MainFontFamily}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <Style x:Key="PluginAccentDataGridColumnHeaderStyle"
+           TargetType="DataGridColumnHeader"
+           BasedOn="{StaticResource PluginDataGridColumnHeaderStyle}">
+        <Setter Property="Foreground" Value="{DynamicResource PluginDisplayAccentPrimaryBrush}" />
+    </Style>
+
+    <!-- Names and other human-readable identifiers use the tertiary display
+         accent consistently in overview, list and timeline detail panes. -->
+    <Style x:Key="PluginIdentityTextStyle"
+           TargetType="TextBlock"
+           BasedOn="{StaticResource PluginTimelineIdentityTextStyle}" />
 
     <!-- Implicit Styles for Plugin Controls -->
     <Style TargetType="TabControl" BasedOn="{StaticResource PluginTabControlStyle}" />

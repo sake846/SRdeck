@@ -81,7 +81,7 @@
         <Setter Property="Foreground" Value="{DynamicResource PluginDisplayAccentPrimaryBrush}" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Margin" Value="0,0,0,7" />
+        <Setter Property="Margin" Value="0,8,0,7" />
     </Style>
 
     <Style x:Key="PluginSettingsFieldLabelStyle" TargetType="TextBlock">
@@ -113,6 +113,19 @@
         <Setter Property="Margin" Value="0,5,0,0" />
     </Style>
 
+    <!-- Standard vertical rhythm for explanatory text and action rows in the
+         plugin settings tab. Individual views should not invent their own
+         section spacing. -->
+    <Style x:Key="PluginSettingsDescriptionStyle"
+           TargetType="TextBlock"
+           BasedOn="{StaticResource PluginSettingsHintStyle}">
+        <Setter Property="Margin" Value="0,5,0,8" />
+    </Style>
+
+    <Style x:Key="PluginSettingsActionRowStyle" TargetType="Grid">
+        <Setter Property="Margin" Value="0,5,0,8" />
+    </Style>
+
     <Style x:Key="PluginSettingsActionStatusStyle"
            TargetType="TextBlock"
            BasedOn="{StaticResource PluginSettingsValueStyle}">
@@ -137,11 +150,11 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <!-- The selected item's heading repeats the identity highlighted in the
-         list table, so both surfaces deliberately use the primary accent. -->
+    <!-- The selected item's heading is a detail-section label, so it uses the
+         secondary accent consistently with the fields in the detail pane. -->
     <Style x:Key="PluginSelectionDetailHeaderStyle"
            TargetType="TextBlock"
-           BasedOn="{StaticResource PluginPrimarySectionHeaderStyle}" />
+           BasedOn="{StaticResource PluginSecondarySectionHeaderStyle}" />
 
     <!-- Metric Card Border Style -->
     <Style x:Key="PluginMetricCardStyle" TargetType="Border">
@@ -186,8 +199,20 @@
     </Style>
 
     <Style x:Key="PluginTimelineDetailLabelStyle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PluginDisplayAccentSecondaryBrush}" />
         <Setter Property="FontSize" Value="10" />
+    </Style>
+
+    <Style x:Key="PluginTimelineDetailTimestampStyle"
+           TargetType="TextBlock"
+           BasedOn="{StaticResource PluginTimelineDetailLabelStyle}">
+        <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
+    </Style>
+
+    <Style x:Key="PluginSelectionDetailLabelStyle"
+           TargetType="TextBlock"
+           BasedOn="{StaticResource PluginTimelineDetailLabelStyle}">
+        <Setter Property="Foreground" Value="{DynamicResource PluginDisplayAccentSecondaryBrush}" />
     </Style>
 
     <Style x:Key="PluginTimelineDetailValueStyle" TargetType="TextBlock">

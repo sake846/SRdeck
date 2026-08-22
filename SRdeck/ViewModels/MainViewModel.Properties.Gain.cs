@@ -120,7 +120,8 @@ public partial class MainViewModel : ObservableObject
 
     public void SyncDeviceIndicatorMode(string modelName)
     {
-        IsRtlDevice = modelName.Contains("RTL", StringComparison.OrdinalIgnoreCase);
+        IsRtlDevice = _engine?.SdrDevice?.Capabilities.IsRtlSdr == true ||
+                      modelName.Contains("RTL", StringComparison.OrdinalIgnoreCase);
 
         GainPrimaryLabel = IsRtlDevice ? "GAIN" : "GR";
         GainPrimaryUnit = IsRtlDevice ? "" : "dB";

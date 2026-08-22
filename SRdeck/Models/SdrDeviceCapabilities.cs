@@ -18,4 +18,6 @@ public interface ISdrStreamingDiagnostics
     long CallbackCount { get; }
     long DroppedCallbackCount { get; }
     double LastCallbackAgeSeconds { get; }
+    int LastCallbackLengthBytes => 0;
+    long UnexpectedCallbackLengthCount => 0;
 }

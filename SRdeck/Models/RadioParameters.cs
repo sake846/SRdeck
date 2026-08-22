@@ -249,4 +249,6 @@ public struct RadioDiagnostics
     public long SdrCallbackCount;
     public long SdrDroppedCallbackCount;
     public double SdrLastCallbackAgeSeconds;
+    public int SdrLastCallbackLengthBytes;
+    public long SdrUnexpectedCallbackLengthCount;
 }

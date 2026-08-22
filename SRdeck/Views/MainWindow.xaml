@@ -183,10 +183,6 @@
 
                 <!-- Right: active plugin workspace -->
                 <Grid Grid.Row="0" Grid.RowSpan="2" Grid.Column="1">
-                    <TextBlock Text="{Binding PluginWorkspace.Status}"
-                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                                Foreground="{StaticResource TextDimBrush}"
-                                TextAlignment="Center" TextWrapping="Wrap" Margin="24" />
                     <ContentControl Content="{Binding PluginWorkspace.ActiveContent}" />
                 </Grid>
 

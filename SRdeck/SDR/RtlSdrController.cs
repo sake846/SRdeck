@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -11,10 +10,14 @@ using SRdeck.Models;
 
 namespace SRdeck.SDR;
 
-public class RtlSdrController : ISdrDevice
+public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
 {
     private const int DeviceSampleRateHz = 2_000_000;
     private const int DefaultBufferLen = 16 * 16384;
+    // The librtlsdr default is 15 transfers (about 0.98 s at 2 MS/s). Keep
+    // twice that coverage so a long Windows GC/scheduler pause does not exhaust
+    // every outstanding USB transfer before managed callbacks can resume.
+    private const uint AsyncTransferBufferCount = 32;
 
     public SdrDeviceCapabilities Capabilities { get; } = new(SdrDeviceKind.RtlSdr);
     public int FsHz { get; set; } = DeviceSampleRateHz;
@@ -22,8 +25,32 @@ public class RtlSdrController : ISdrDevice
     public int MaxGainReduction { get; private set; } = 100;
     public int RfGainDb { get; set; } = 50;
     public bool RfAgcEnabled { get; set; }
-    public float PpmAdjustment { get; set; }
-    public float BiasPpm { get; set; }
+    public string ModelName { get; private set; } = "RTL-SDR";
+    private float _ppmAdjustment;
+    private float _biasPpm;
+    private int? _appliedPpm;
+
+    public float PpmAdjustment
+    {
+        get => _ppmAdjustment;
+        set
+        {
+            if (_ppmAdjustment.Equals(value)) return;
+            _ppmAdjustment = value;
+            ApplyPpmCorrection();
+        }
+    }
+
+    public float BiasPpm
+    {
+        get => _biasPpm;
+        set
+        {
+            if (_biasPpm.Equals(value)) return;
+            _biasPpm = value;
+            ApplyPpmCorrection();
+        }
+    }
     public int LnaState { get; set; }
     public int NotchFilterMode { get; set; }
 
@@ -41,14 +68,24 @@ public class RtlSdrController : ISdrDevice
     private bool _isDisposed;
     internal bool SuppressErrors { get; set; }
     private readonly RtlSdrApi.RtlSdrReadAsyncCbT _readCallback;
+    private readonly RtlSdrSampleDispatcher _sampleDispatcher;
     private List<int> _tunerGains = new();
-    private readonly ArrayPool<byte> _bytePool = ArrayPool<byte>.Shared;
-    private readonly ArrayPool<short> _shortPool = ArrayPool<short>.Shared;
+
+    public int QueuedSampleBlockCount => _sampleDispatcher.QueuedBlockCount;
+    public long CallbackCount => _sampleDispatcher.CallbackCount;
+    public long DroppedCallbackCount => _sampleDispatcher.DroppedCallbackCount;
+    public double LastCallbackAgeSeconds => _sampleDispatcher.LastCallbackAgeSeconds;
+    public int LastCallbackLengthBytes => _sampleDispatcher.LastCallbackLength;
+    public long UnexpectedCallbackLengthCount => _sampleDispatcher.UnexpectedCallbackLengthCount;
 
     public RtlSdrController(bool suppressErrors = false)
     {
         SuppressErrors = suppressErrors;
         _readCallback = OnReadAsync;
+        _sampleDispatcher = new RtlSdrSampleDispatcher(
+            (samplesI, samplesQ, sampleCount) =>
+                SamplesReceived?.Invoke(samplesI, samplesQ, sampleCount),
+            DefaultBufferLen);
     }
 
     public bool Open()
@@ -120,11 +157,23 @@ public class RtlSdrController : ISdrDevice
             return false;
         }
 
+        // Detection opens the device before the session starts. Re-apply the
+        // current center frequency here as the hardware may still be tuned to
+        // the frequency used during detection. A later UI retune also calls
+        // FreqChange(), which is why this was previously corrected by swiping.
+        FreqChange();
+
         _isStopping = false;
+        _sampleDispatcher.Start();
         _isStreaming = true;
         _readTask = Task.Run(() =>
         {
-            int result = RtlSdrApi.rtlsdr_read_async(_device, _readCallback, IntPtr.Zero, 0, DefaultBufferLen);
+            int result = RtlSdrApi.rtlsdr_read_async(
+                _device,
+                _readCallback,
+                IntPtr.Zero,
+                AsyncTransferBufferCount,
+                DefaultBufferLen);
             if (!_isStopping && result != 0)
             {
                 DeviceRemoved?.Invoke();
@@ -171,6 +220,7 @@ public class RtlSdrController : ISdrDevice
         }
 
         _readTask = null;
+        _sampleDispatcher.Stop();
         _isStreaming = false;
         _isStopping = false;
     }
@@ -180,6 +230,7 @@ public class RtlSdrController : ISdrDevice
         if (_isDisposed) return;
         Stop();
         CloseDevice();
+        _sampleDispatcher.Dispose();
         _isDisposed = true;
         GC.SuppressFinalize(this);
     }
@@ -196,6 +247,7 @@ public class RtlSdrController : ISdrDevice
         try { RtlSdrApi.rtlsdr_close(_device); }
         catch { /* best effort during probing/cleanup */ }
         _device = IntPtr.Zero;
+        _appliedPpm = null;
     }
 
     public void GainChange()
@@ -221,16 +273,25 @@ public class RtlSdrController : ISdrDevice
         // RTL2832U does not support SDRplay-style LNA/notch controls.
     }
 
-    private void ApplyPpmCorrection()
+    protected virtual void ApplyPpmCorrection()
     {
         if (_device == IntPtr.Zero) return;
-        int ppm = (int)Math.Round(BiasPpm + PpmAdjustment);
+        int ppm = CalculatePpmCorrection(BiasPpm, PpmAdjustment);
+        if (_appliedPpm == ppm) return;
         int result = RtlSdrApi.rtlsdr_set_freq_correction(_device, ppm);
-        if (result != 0)
+        // librtlsdr returns -2 when this exact correction is already active.
+        if (result is 0 or -2)
+        {
+            _appliedPpm = ppm;
+        }
+        else
         {
             Debug.WriteLine($"rtlsdr_set_freq_correction failed: {result}");
         }
     }
+
+    internal static int CalculatePpmCorrection(float biasPpm, float adjustmentPpm) =>
+        (int)Math.Round(biasPpm + adjustmentPpm);
 
     private void LoadSupportedTunerGains()
     {
@@ -315,32 +376,20 @@ public class RtlSdrController : ISdrDevice
 
     private void OnReadAsync(IntPtr buffer, uint length, IntPtr context)
     {
-        if (_isStopping || length < 2) return;
+        if (_isStopping || length > int.MaxValue) return;
+        _sampleDispatcher.TryEnqueue(buffer, (int)length);
+    }
 
-        int inputSampleCount = (int)(length / 2);
-        int byteLen = (int)length;
-        byte[] raw = _bytePool.Rent(byteLen);
-        short[] iSamples = _shortPool.Rent(inputSampleCount);
-        short[] qSamples = _shortPool.Rent(inputSampleCount);
-        try
-        {
-            Marshal.Copy(buffer, raw, 0, byteLen);
-
-            for (int n = 0; n < inputSampleCount; n++)
-            {
-                short i = (short)((raw[2 * n] - 127) << 8);
-                short q = (short)((raw[2 * n + 1] - 127) << 8);
-                iSamples[n] = i;
-                qSamples[n] = q;
-            }
-            SamplesReceived?.Invoke(iSamples, qSamples, (uint)inputSampleCount);
-        }
-        finally
-        {
-            _shortPool.Return(iSamples, clearArray: false);
-            _shortPool.Return(qSamples, clearArray: false);
-            _bytePool.Return(raw, clearArray: false);
-        }
+    /// <summary>
+    /// Converts the RTL2832U's unsigned 8-bit I/Q sample to the signed
+    /// 16-bit representation used by the signal pipeline.  Clamp the scaled
+    /// value before narrowing: ADC code 255 would otherwise produce +32768,
+    /// which wraps to <see cref="short.MinValue"/>.
+    /// </summary>
+    internal static short ConvertUnsignedSample(byte sample)
+    {
+        int scaled = (sample - 127) << 8;
+        return (short)Math.Clamp(scaled, short.MinValue, short.MaxValue);
     }
 
     private void TrySetDirectSamplingOff()
@@ -373,7 +422,7 @@ public class RtlSdrController : ISdrDevice
 
     private void NotifyDeviceInfo()
     {
-        string model = "RTL2832U";
+        string model = "RTL-SDR";
         string serial = string.Empty;
 
         try
@@ -400,6 +449,7 @@ public class RtlSdrController : ISdrDevice
             // ignore
         }
 
+        ModelName = model;
         WeakReferenceMessenger.Default.Send(new SdrDeviceInfoMessage(model, serial, RfGainDb));
     }
 

@@ -8,7 +8,7 @@ normal development and review process for product changes.
 
 ## Release metadata
 
-- Release version: `1.0.0`
+- Release version: `1.0.1`
 
 ## Contents
 
@@ -37,8 +37,8 @@ are published separately in the `SRdeckPlugins` repository.
 
 The matching GitHub Release provides framework-dependent Windows x64 packages:
 
-- `SRdeck-1.0.0-win-x64-host-only.zip` — host application without optional plugins.
-- `SRdeck-1.0.0-win-x64-with-plugins.zip` — host application with the published plugin set.
+- `SRdeck-1.0.1-win-x64-host-only.zip` — host application without optional plugins.
+- `SRdeck-1.0.1-win-x64-with-plugins.zip` — host application with the published plugin set.
 
 The packages include `SRdeck.exe`, legal/security documents, dependency notices,
 and a `PACKAGE-MANIFEST.json`. Install the .NET 10 Desktop Runtime (x64) before

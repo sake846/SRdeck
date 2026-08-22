@@ -10,6 +10,8 @@
     <ApplicationIcon>SRdeck.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SRdeckVersionFile>$(MSBuildThisFileDirectory)..\version.txt</SRdeckVersionFile>
+    <SRdeckVersion>$([System.IO.File]::ReadAllText('$(SRdeckVersionFile)').Trim())</SRdeckVersion>
     <NativeCMakeExe Condition="'$(CMAKE_EXE)' != ''">$(CMAKE_EXE)</NativeCMakeExe>
     <NativeCMakeExe Condition="'$(NativeCMakeExe)' == '' and Exists('C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</NativeCMakeExe>
     <NativeCMakeExe Condition="'$(NativeCMakeExe)' == '' and Exists('C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</NativeCMakeExe>
@@ -17,6 +19,10 @@
     <!-- Fall back to CMake on PATH so a standard CMake installation is also used. -->
     <NativeCMakeExe Condition="'$(NativeCMakeExe)' == ''">cmake</NativeCMakeExe>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="SRdeckVersion" Value="$(SRdeckVersion)" />
+  </ItemGroup>
 
   <PropertyGroup>
     <!-- GPL/LGPL等のライセンス分離用: 個別ドライバーを含める場合は true、除外する場合は false を指定します -->

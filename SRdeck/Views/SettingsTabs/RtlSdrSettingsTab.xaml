@@ -26,5 +26,29 @@
                 </Grid>
             </StackPanel>
         </Border>
+
+        <!-- PPM Card -->
+        <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="12,10">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Header_Ppm}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Label_PpmValue}" Foreground="#FF8A8A8A" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox Text="{Binding Tuner.TotalPpm, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.00}}"
+                                 Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                                 Width="78" Height="26" HorizontalContentAlignment="Right" />
+                        <TextBlock Text="ppm" Foreground="#FF8A8A8A" VerticalAlignment="Center" Margin="6,0,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▼" FontSize="11" Width="26" Height="26" Command="{Binding Tuner.AdjustPpmCorrectionCommand}" CommandParameter="-0.01" Margin="3,0" />
+                        <Button Style="{StaticResource FlatButtonStyle}" Content="▲" FontSize="11" Width="26" Height="26" Command="{Binding Tuner.AdjustPpmCorrectionCommand}" CommandParameter="0.01" Margin="3,0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
     </StackPanel>
 </UserControl>

@@ -13,7 +13,9 @@ public readonly record struct SdrStreamingDiagnosticsSnapshot(
     int QueuedSampleBlockCount,
     long CallbackCount,
     long DroppedCallbackCount,
-    double LastCallbackAgeSeconds);
+    double LastCallbackAgeSeconds,
+    int LastCallbackLengthBytes,
+    long UnexpectedCallbackLengthCount);
 
 public readonly record struct ProcessingCycleDiagnosticsSnapshot(
     int AudioBufferedBytes,
@@ -65,6 +67,8 @@ public sealed class RadioDiagnosticsCollector : IRadioDiagnosticsCollector
             diagnostics.SdrCallbackCount = streaming.CallbackCount;
             diagnostics.SdrDroppedCallbackCount = streaming.DroppedCallbackCount;
             diagnostics.SdrLastCallbackAgeSeconds = streaming.LastCallbackAgeSeconds;
+            diagnostics.SdrLastCallbackLengthBytes = streaming.LastCallbackLengthBytes;
+            diagnostics.SdrUnexpectedCallbackLengthCount = streaming.UnexpectedCallbackLengthCount;
         }
     }
 }

@@ -122,7 +122,9 @@ public partial class CoreEngine
                 streamingDiagnosticsDevice.QueuedSampleBlockCount,
                 streamingDiagnosticsDevice.CallbackCount,
                 streamingDiagnosticsDevice.DroppedCallbackCount,
-                streamingDiagnosticsDevice.LastCallbackAgeSeconds);
+                streamingDiagnosticsDevice.LastCallbackAgeSeconds,
+                streamingDiagnosticsDevice.LastCallbackLengthBytes,
+                streamingDiagnosticsDevice.UnexpectedCallbackLengthCount);
         }
 
         _diagnosticsStore.ApplyProcessingCycle(

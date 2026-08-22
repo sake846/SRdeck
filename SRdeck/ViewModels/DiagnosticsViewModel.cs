@@ -275,6 +275,7 @@ public partial class DiagnosticsViewModel : ObservableObject
         rightTextBuilder.AppendLine("[SDR Stream]");
         rightTextBuilder.AppendLine($"Cb  : {diagnostics.SdrCallbackCount,11:N0}  Q:{diagnostics.SdrQueuedSampleBlockCount}");
         rightTextBuilder.AppendLine($"Drop: {diagnostics.SdrDroppedCallbackCount,11:N0}");
+        rightTextBuilder.AppendLine($"Len : {diagnostics.SdrLastCallbackLengthBytes,11:N0} B  Var:{diagnostics.SdrUnexpectedCallbackLengthCount:N0}");
         rightTextBuilder.AppendLine($"Age : {diagnostics.SdrLastCallbackAgeSeconds,11:F3} sec");
         rightTextBuilder.AppendLine();
         rightTextBuilder.AppendLine($"{"FpsFFT",-12} {diagnostics.FftFps,5:0.0} fps");

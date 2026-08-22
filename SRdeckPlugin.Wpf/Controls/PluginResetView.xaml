@@ -6,15 +6,22 @@
              mc:Ignorable="d" 
              Foreground="{DynamicResource TextPrimaryBrush}"
              FontSize="10">
-    <Grid Margin="0,0,0,10">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="プラグイン設定の初期化" Style="{DynamicResource PluginSettingsSectionHeaderStyle}" />
+        <Grid Grid.Row="1" HorizontalAlignment="Left">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <TextBlock Text="プラグイン設定の初期化" Style="{DynamicResource PluginSecondarySectionHeaderStyle}" Margin="0,0,0,7" />
-                <TextBlock Text="プラグインの各種動作設定（settings.json）を初期状態に戻します。" Style="{DynamicResource PluginSettingsHintStyle}" />
-            </StackPanel>
-            <Button Grid.Column="1" Content="設定を初期化" Style="{DynamicResource PluginButtonStyle}" Width="92" Height="26" VerticalAlignment="Center" Margin="16,0,0,0" Command="{Binding ResetPluginSettingsCommand}" />
+            <TextBlock Text="プラグインの各種動作設定（settings.json）を初期状態に戻します。"
+                       Style="{DynamicResource PluginSettingsDescriptionStyle}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="設定を初期化" Style="{DynamicResource PluginButtonStyle}" Width="92" Height="26"
+                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0"
+                    Command="{Binding ResetPluginSettingsCommand}" />
+        </Grid>
     </Grid>
 </UserControl>

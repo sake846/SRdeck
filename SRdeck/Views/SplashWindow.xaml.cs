@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
 
@@ -12,18 +14,26 @@ public partial class SplashWindow : Window
     public SplashWindow()
     {
         InitializeComponent();
-        SetVersionInfo(DateTime.Today.ToShortDateString(), "Ver.1.0.0");
+        SetVersionInfo(GetVersionText());
     }
 
-    public void SetVersionInfo(string dateText, string versionText = "Ver.1.0.0")
+    private static string GetVersionText()
+    {
+        return typeof(SplashWindow).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == "SRdeckVersion")?.Value
+            ?? throw new InvalidOperationException("The SRdeck version metadata is missing.");
+    }
+
+    public void SetVersionInfo(string versionText)
     {
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.Invoke(() => SetVersionInfo(dateText, versionText));
+            Dispatcher.Invoke(() => SetVersionInfo(versionText));
             return;
         }
 
-        VersionInfoText.Text = $"{versionText} ({dateText})";
+        VersionInfoText.Text = versionText;
     }
 
     public void SetCalibrationStatus(string text)

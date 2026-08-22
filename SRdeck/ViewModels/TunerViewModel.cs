@@ -169,6 +169,7 @@ public sealed partial class TunerViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPpmDisplay))]
+    [NotifyPropertyChangedFor(nameof(TotalPpm))]
     private float _ppmAdjustment = 0f;
 
     partial void OnPpmAdjustmentChanged(float value)
@@ -184,7 +185,18 @@ public sealed partial class TunerViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPpmDisplay))]
+    [NotifyPropertyChangedFor(nameof(TotalPpm))]
     private float _basePpm = 0f;
+
+    public float TotalPpm
+    {
+        get => BasePpm + PpmAdjustment;
+        set
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value)) return;
+            PpmAdjustment = value - BasePpm;
+        }
+    }
 
     public string TotalPpmDisplay => (BasePpm + PpmAdjustment).ToString("0.00");
 

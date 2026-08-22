@@ -74,6 +74,7 @@ public partial class MainViewModel : ObservableObject
         };
 
         Receivers.Add(new ReceiverContext(this, _engine, 1));
+        Tuner.PropertyChanged += OnPrimaryTunerPropertyChanged;
 
         SyncButtonStates();
 

@@ -126,7 +126,9 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                DeviceName = isRtl ? "RTL-SDR" : "SDRplay";
+                DeviceName = detectedDevice is RtlSdrController rtlSdr
+                    ? rtlSdr.ModelName
+                    : (isRtl ? "RTL-SDR" : "SDRplay");
             }
 
             var hardwareType = isRtl ? SdrDeviceType.RtlSdr : SdrDeviceType.SdrPlay;
@@ -134,6 +136,7 @@ public partial class MainViewModel : ObservableObject
             _engine.RfCalibrationOffset = hardwareSettings.RfCalibrationOffset;
             _engine.SystemGainOffset = hardwareSettings.SystemGainOffset;
             _engine.SdrBiasPpm = hardwareSettings.SdrBiasPpm;
+            LoadPpmDisplayValue();
             _engine.MinGainReduction = hardwareSettings.MinGainReduction;
             _engine.RfAgcEnabled = hardwareSettings.RfAgcEnabled;
             _engine.AgcReleaseMode = hardwareSettings.AgcReleaseMode;
