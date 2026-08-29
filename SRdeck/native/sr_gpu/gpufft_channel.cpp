@@ -60,13 +60,58 @@ public:
     ComPtr<ID3D11DeviceContext> context;
     ComPtr<ID3D11ComputeShader> csMix;
     ComPtr<ID3D11ComputeShader> csFilter;
+    ComPtr<ID3D11ComputeShader> csBatchMix;
+    ComPtr<ID3D11ComputeShader> csBatchFilter;
+    ComPtr<ID3D11Buffer> cbBatch;
+    ComPtr<ID3D11Buffer> bufBatchRaw;
+    ComPtr<ID3D11ShaderResourceView> srvBatchRaw;
+    ComPtr<ID3D11Buffer> bufBatchPhases;
+    ComPtr<ID3D11ShaderResourceView> srvBatchPhases;
+    ComPtr<ID3D11Buffer> bufBatchMixed;
+    ComPtr<ID3D11ShaderResourceView> srvBatchMixed;
+    ComPtr<ID3D11UnorderedAccessView> uavBatchMixed;
+    ComPtr<ID3D11Buffer> bufBatchMap;
+    ComPtr<ID3D11ShaderResourceView> srvBatchMap;
+    ComPtr<ID3D11Buffer> bufBatchOutput;
+    ComPtr<ID3D11UnorderedAccessView> uavBatchOutput;
+    ComPtr<ID3D11Buffer> stagingBatchOutput;
+    ComPtr<ID3D11Query> batchQuery;
+    int batchInputCapacity = 0;
+    int batchOutputCapacity = 0;
+    int batchChannelCapacity = 0;
+
+    void ResetBatchBuffers()
+    {
+        srvBatchRaw.Reset();
+        bufBatchRaw.Reset();
+        srvBatchPhases.Reset();
+        bufBatchPhases.Reset();
+        srvBatchMixed.Reset();
+        uavBatchMixed.Reset();
+        bufBatchMixed.Reset();
+        srvBatchMap.Reset();
+        bufBatchMap.Reset();
+        uavBatchOutput.Reset();
+        bufBatchOutput.Reset();
+        stagingBatchOutput.Reset();
+        batchInputCapacity = 0;
+        batchOutputCapacity = 0;
+        batchChannelCapacity = 0;
+    }
 
     HRESULT EnsureCreated()
     {
         if (device != nullptr && context != nullptr &&
-            csMix != nullptr && csFilter != nullptr)
+            csMix != nullptr && csFilter != nullptr &&
+            csBatchMix != nullptr && csBatchFilter != nullptr &&
+            cbBatch != nullptr && batchQuery != nullptr)
         {
             if (SUCCEEDED(device->GetDeviceRemovedReason())) return S_OK;
+            ResetBatchBuffers();
+            batchQuery.Reset();
+            cbBatch.Reset();
+            csBatchFilter.Reset();
+            csBatchMix.Reset();
             csFilter.Reset();
             csMix.Reset();
             context.Reset();
@@ -77,6 +122,10 @@ public:
         ComPtr<ID3D11DeviceContext> newContext;
         ComPtr<ID3D11ComputeShader> newMix;
         ComPtr<ID3D11ComputeShader> newFilter;
+        ComPtr<ID3D11ComputeShader> newBatchMix;
+        ComPtr<ID3D11ComputeShader> newBatchFilter;
+        ComPtr<ID3D11Buffer> newBatchConstants;
+        ComPtr<ID3D11Query> newBatchQuery;
         D3D_FEATURE_LEVEL requested[] = { D3D_FEATURE_LEVEL_11_0 };
         D3D_FEATURE_LEVEL obtained = D3D_FEATURE_LEVEL_11_0;
         HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
@@ -88,11 +137,88 @@ public:
         if (FAILED(hr)) return hr;
         hr = CompileCs(newDevice.Get(), kShaderChannelFilter, &newFilter);
         if (FAILED(hr)) return hr;
+        hr = CompileCs(newDevice.Get(), kShaderChannelBatchMix, &newBatchMix);
+        if (FAILED(hr)) return hr;
+        hr = CompileCs(newDevice.Get(), kShaderChannelBatchFilter, &newBatchFilter);
+        if (FAILED(hr)) return hr;
+        D3D11_BUFFER_DESC constantBuffer = {};
+        constantBuffer.ByteWidth = sizeof(ChannelBatchParams);
+        constantBuffer.Usage = D3D11_USAGE_DEFAULT;
+        constantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        hr = newDevice->CreateBuffer(&constantBuffer, nullptr, &newBatchConstants);
+        if (FAILED(hr)) return hr;
+        D3D11_QUERY_DESC queryDesc = {};
+        queryDesc.Query = D3D11_QUERY_EVENT;
+        hr = newDevice->CreateQuery(&queryDesc, &newBatchQuery);
+        if (FAILED(hr)) return hr;
 
         device = newDevice;
         context = newContext;
         csMix = newMix;
         csFilter = newFilter;
+        csBatchMix = newBatchMix;
+        csBatchFilter = newBatchFilter;
+        cbBatch = newBatchConstants;
+        batchQuery = newBatchQuery;
+        return S_OK;
+    }
+
+    HRESULT EnsureBatchBuffers(int inputCount, int outputCount, int channelCount)
+    {
+        if (inputCount <= batchInputCapacity && outputCount <= batchOutputCapacity &&
+            channelCount <= batchChannelCapacity)
+            return S_OK;
+
+        int newInputCapacity = std::max(inputCount, std::max(1024, batchInputCapacity * 2));
+        int newOutputCapacity = std::max(outputCount, std::max(1024, batchOutputCapacity * 2));
+        int newChannelCapacity = std::max(channelCount, std::max(4, batchChannelCapacity * 2));
+        int64_t mixedElements = static_cast<int64_t>(newInputCapacity) * newChannelCapacity;
+        int64_t outputElements = static_cast<int64_t>(newOutputCapacity) * newChannelCapacity;
+        if (mixedElements > INT_MAX || outputElements > INT_MAX ||
+            outputElements * static_cast<int64_t>(sizeof(Float2)) > UINT_MAX)
+            return E_OUTOFMEMORY;
+
+        ResetBatchBuffers();
+        HRESULT hr = CreateStructuredBuffer<Float2>(device.Get(), newInputCapacity,
+            D3D11_BIND_SHADER_RESOURCE, &bufBatchRaw);
+        if (FAILED(hr)) return hr;
+        hr = CreateSrv(device.Get(), bufBatchRaw.Get(), newInputCapacity, &srvBatchRaw);
+        if (FAILED(hr)) return hr;
+        hr = CreateStructuredBuffer<ChannelBatchPhase>(device.Get(), newChannelCapacity,
+            D3D11_BIND_SHADER_RESOURCE, &bufBatchPhases);
+        if (FAILED(hr)) return hr;
+        hr = CreateSrv(device.Get(), bufBatchPhases.Get(), newChannelCapacity, &srvBatchPhases);
+        if (FAILED(hr)) return hr;
+        hr = CreateStructuredBuffer<Float2>(device.Get(), static_cast<int>(mixedElements),
+            D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS, &bufBatchMixed);
+        if (FAILED(hr)) return hr;
+        hr = CreateSrv(device.Get(), bufBatchMixed.Get(), static_cast<int>(mixedElements),
+            &srvBatchMixed);
+        if (FAILED(hr)) return hr;
+        hr = CreateUav(device.Get(), bufBatchMixed.Get(), static_cast<int>(mixedElements),
+            &uavBatchMixed);
+        if (FAILED(hr)) return hr;
+        hr = CreateStructuredBuffer<ChannelMapEntry>(device.Get(), newOutputCapacity,
+            D3D11_BIND_SHADER_RESOURCE, &bufBatchMap);
+        if (FAILED(hr)) return hr;
+        hr = CreateSrv(device.Get(), bufBatchMap.Get(), newOutputCapacity, &srvBatchMap);
+        if (FAILED(hr)) return hr;
+        hr = CreateStructuredBuffer<Float2>(device.Get(), static_cast<int>(outputElements),
+            D3D11_BIND_UNORDERED_ACCESS, &bufBatchOutput);
+        if (FAILED(hr)) return hr;
+        hr = CreateUav(device.Get(), bufBatchOutput.Get(), static_cast<int>(outputElements),
+            &uavBatchOutput);
+        if (FAILED(hr)) return hr;
+        D3D11_BUFFER_DESC staging = {};
+        staging.ByteWidth = static_cast<UINT>(sizeof(Float2) * outputElements);
+        staging.Usage = D3D11_USAGE_STAGING;
+        staging.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        hr = device->CreateBuffer(&staging, nullptr, &stagingBatchOutput);
+        if (FAILED(hr)) return hr;
+
+        batchInputCapacity = newInputCapacity;
+        batchOutputCapacity = newOutputCapacity;
+        batchChannelCapacity = newChannelCapacity;
         return S_OK;
     }
 };
@@ -313,14 +439,15 @@ __declspec(dllexport) int gpuchannel_create(
     int inputSampleRate,
     int outputSampleRate,
     double frequencyOffsetHz,
-    int bandwidthHz,
+    double cutoffHz,
     int coarseFactor,
     int fineFactor,
     int firTaps,
     int cicStages,
     void** handle)
 {
-    if (!handle || inputSampleRate <= 0 || outputSampleRate <= 0 || bandwidthHz <= 0 ||
+    if (!handle || inputSampleRate <= 0 || outputSampleRate <= 0 ||
+        !std::isfinite(cutoffHz) || cutoffHz <= 0 ||
         coarseFactor <= 0 || fineFactor <= 0 || firTaps < 2 || cicStages <= 0 ||
         !std::isfinite(frequencyOffsetHz) || std::abs(frequencyOffsetHz) > inputSampleRate * 0.5)
         return -201;
@@ -341,7 +468,6 @@ __declspec(dllexport) int gpuchannel_create(
     c->resamplerDecimationFactor = static_cast<int>(inputSampleRate / divisor);
     c->phaseCount = std::min(c->interpolationFactor, 256);
     double intermediateRate = inputSampleRate / static_cast<double>(c->totalFactor);
-    double cutoffHz = bandwidthHz * 0.5;
     if (!(cutoffHz > 0.0 && cutoffHz < std::min(intermediateRate, static_cast<double>(outputSampleRate)) * 0.5) ||
         !BuildEffectiveChannelTaps(c, cutoffHz))
     {
@@ -491,7 +617,11 @@ static int SubmitChannel(
         static_cast<uint32_t>(c->combinedInput.size()),
         static_cast<float>(startPhase),
         static_cast<float>(step),
-        0u
+        static_cast<float>(std::remainder(step * 256.0, TwoPi)),
+        static_cast<float>(std::remainder(step * 65536.0, TwoPi)),
+        0.0f,
+        0.0f,
+        0.0f
     };
     started = std::chrono::steady_clock::now();
     c->context->UpdateSubresource(c->cbMix.Get(), 0, nullptr, &mixParams, 0, 0);
@@ -618,6 +748,232 @@ __declspec(dllexport) int gpuchannel_process(
     int result = SubmitChannel(c, input, inputCount, outputCapacity, outputCount);
     if (result != 0 || *outputCount == 0) return result;
     return CollectChannel(c, output, outputCapacity, outputCount);
+}
+
+__declspec(dllexport) int gpuchannel_process_batch(
+    void** handles,
+    int handleCount,
+    const Float2* input,
+    int inputCount,
+    Float2* output,
+    int outputStride,
+    int outputCapacity,
+    int* outputCounts)
+{
+    if (!handles || handleCount < 2 || !input || inputCount <= 0 || !output ||
+        outputStride <= 0 || !outputCounts ||
+        static_cast<int64_t>(outputStride) * handleCount > outputCapacity)
+        return -212;
+
+    std::lock_guard<std::mutex> guard(g_channelDevice.mutex);
+    std::vector<GpuChannelContext*> channels(static_cast<size_t>(handleCount));
+    for (int index = 0; index < handleCount; ++index)
+    {
+        outputCounts[index] = 0;
+        channels[index] = reinterpret_cast<GpuChannelContext*>(handles[index]);
+        if (!channels[index] || channels[index]->outputPending) return -218;
+    }
+
+    GpuChannelContext* first = channels[0];
+    for (int index = 1; index < handleCount; ++index)
+    {
+        GpuChannelContext* current = channels[index];
+        bool compatible =
+            current->inputSampleRate == first->inputSampleRate &&
+            current->outputSampleRate == first->outputSampleRate &&
+            current->coarseFactor == first->coarseFactor &&
+            current->fineFactor == first->fineFactor &&
+            current->totalFactor == first->totalFactor &&
+            current->interpolationFactor == first->interpolationFactor &&
+            current->resamplerDecimationFactor == first->resamplerDecimationFactor &&
+            current->effectiveTapCount == first->effectiveTapCount &&
+            current->phaseCount == first->phaseCount &&
+            current->effectiveTaps == first->effectiveTaps &&
+            current->totalInputSamples == first->totalInputSamples &&
+            current->nextOutputNumerator == first->nextOutputNumerator &&
+            current->history.size() == first->history.size() &&
+            (current->history.empty() || memcmp(
+                current->history.data(), first->history.data(),
+                current->history.size() * sizeof(Float2)) == 0);
+        if (!compatible) return 1;
+    }
+
+    int64_t historyStartGlobal =
+        first->totalInputSamples - static_cast<int64_t>(first->history.size());
+    first->combinedInput.clear();
+    first->combinedInput.reserve(first->history.size() + inputCount);
+    first->combinedInput.insert(
+        first->combinedInput.end(), first->history.begin(), first->history.end());
+    first->combinedInput.insert(first->combinedInput.end(), input, input + inputCount);
+
+    int64_t newTotal = first->totalInputSamples + inputCount;
+    int64_t maximumIntermediateIndex = newTotal / first->totalFactor - 1;
+    int64_t localNextNumerator = first->nextOutputNumerator;
+    first->outputMap.clear();
+    while (localNextNumerator / first->interpolationFactor <= maximumIntermediateIndex)
+    {
+        int64_t sourceIndex = localNextNumerator / first->interpolationFactor;
+        int64_t anchorGlobal = (sourceIndex + 1) * first->totalFactor - 1;
+        int64_t anchor = anchorGlobal - historyStartGlobal;
+        if (anchor < 0 || anchor >= static_cast<int64_t>(first->combinedInput.size()))
+            return -213;
+        int64_t remainder = localNextNumerator % first->interpolationFactor;
+        int phase = static_cast<int>((remainder * first->phaseCount +
+            first->interpolationFactor / 2LL) / first->interpolationFactor) % first->phaseCount;
+        first->outputMap.push_back({
+            static_cast<uint32_t>(anchor), static_cast<uint32_t>(phase)
+        });
+        localNextNumerator += first->resamplerDecimationFactor;
+    }
+
+    int outputCount = static_cast<int>(first->outputMap.size());
+    if (outputCount > outputStride) return -214;
+    if (outputCount > D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION) return 1;
+    for (int index = 0; index < handleCount; ++index) outputCounts[index] = outputCount;
+
+    constexpr double TwoPi = 6.283185307179586476925286766559;
+    auto commitState = [&](GpuChannelContext* channel)
+    {
+        double step = -TwoPi * channel->frequencyOffsetHz / channel->inputSampleRate;
+        channel->totalInputSamples = newTotal;
+        channel->nextOutputNumerator = localNextNumerator;
+        channel->nextInputPhase = std::fmod(
+            channel->nextInputPhase + step * static_cast<double>(inputCount), TwoPi);
+        size_t keep = std::min(first->combinedInput.size(),
+            static_cast<size_t>(std::max(0, channel->effectiveTapCount - 1)));
+        channel->history.assign(
+            first->combinedInput.end() - keep, first->combinedInput.end());
+    };
+    if (outputCount == 0)
+    {
+        for (GpuChannelContext* channel : channels) commitState(channel);
+        return 0;
+    }
+
+    HRESULT hr = g_channelDevice.EnsureBatchBuffers(
+        static_cast<int>(first->combinedInput.size()), outputCount, handleCount);
+    if (FAILED(hr)) return -225;
+
+    std::vector<ChannelBatchPhase> phases(static_cast<size_t>(handleCount));
+    for (int index = 0; index < handleCount; ++index)
+    {
+        GpuChannelContext* channel = channels[index];
+        double step = -TwoPi * channel->frequencyOffsetHz / channel->inputSampleRate;
+        double startPhase = std::fmod(
+            channel->nextInputPhase - step * static_cast<double>(channel->history.size()),
+            TwoPi);
+        phases[index] = {
+            static_cast<float>(startPhase),
+            static_cast<float>(step),
+            static_cast<float>(std::remainder(step * 256.0, TwoPi)),
+            static_cast<float>(std::remainder(step * 65536.0, TwoPi))
+        };
+    }
+
+    auto started = std::chrono::steady_clock::now();
+    D3D11_BOX rawRange = {
+        0u, 0u, 0u,
+        static_cast<UINT>(sizeof(Float2) * first->combinedInput.size()), 1u, 1u
+    };
+    D3D11_BOX phaseRange = {
+        0u, 0u, 0u,
+        static_cast<UINT>(sizeof(ChannelBatchPhase) * phases.size()), 1u, 1u
+    };
+    D3D11_BOX mapRange = {
+        0u, 0u, 0u,
+        static_cast<UINT>(sizeof(ChannelMapEntry) * first->outputMap.size()), 1u, 1u
+    };
+    g_channelDevice.context->UpdateSubresource(
+        g_channelDevice.bufBatchRaw.Get(), 0, &rawRange, first->combinedInput.data(), 0, 0);
+    g_channelDevice.context->UpdateSubresource(
+        g_channelDevice.bufBatchPhases.Get(), 0, &phaseRange, phases.data(), 0, 0);
+    g_channelDevice.context->UpdateSubresource(
+        g_channelDevice.bufBatchMap.Get(), 0, &mapRange, first->outputMap.data(), 0, 0);
+    double uploadMs = ElapsedMs(started);
+
+    ChannelBatchParams parameters = {
+        static_cast<uint32_t>(first->combinedInput.size()),
+        static_cast<uint32_t>(outputCount),
+        static_cast<uint32_t>(first->effectiveTapCount),
+        static_cast<uint32_t>(first->phaseCount),
+        static_cast<uint32_t>(handleCount),
+        static_cast<uint32_t>(g_channelDevice.batchInputCapacity),
+        static_cast<uint32_t>(g_channelDevice.batchOutputCapacity),
+        0u
+    };
+    g_channelDevice.context->UpdateSubresource(
+        g_channelDevice.cbBatch.Get(), 0, nullptr, &parameters, 0, 0);
+    ID3D11Buffer* constants[] = { g_channelDevice.cbBatch.Get() };
+
+    started = std::chrono::steady_clock::now();
+    ID3D11ShaderResourceView* mixSrvs[] = {
+        g_channelDevice.srvBatchRaw.Get(), g_channelDevice.srvBatchPhases.Get()
+    };
+    ID3D11UnorderedAccessView* mixUavs[] = { g_channelDevice.uavBatchMixed.Get() };
+    g_channelDevice.context->CSSetShader(g_channelDevice.csBatchMix.Get(), nullptr, 0);
+    g_channelDevice.context->CSSetConstantBuffers(0, 1, constants);
+    g_channelDevice.context->CSSetShaderResources(0, 2, mixSrvs);
+    g_channelDevice.context->CSSetUnorderedAccessViews(0, 1, mixUavs, nullptr);
+    g_channelDevice.context->Dispatch(
+        CeilDiv(static_cast<UINT>(first->combinedInput.size()), 64),
+        static_cast<UINT>(handleCount), 1);
+    UnbindChannel(g_channelDevice.context.Get());
+
+    ID3D11ShaderResourceView* filterSrvs[] = {
+        g_channelDevice.srvBatchMixed.Get(), first->srvTaps.Get(),
+        g_channelDevice.srvBatchMap.Get()
+    };
+    ID3D11UnorderedAccessView* filterUavs[] = { g_channelDevice.uavBatchOutput.Get() };
+    g_channelDevice.context->CSSetShader(g_channelDevice.csBatchFilter.Get(), nullptr, 0);
+    g_channelDevice.context->CSSetConstantBuffers(0, 1, constants);
+    g_channelDevice.context->CSSetShaderResources(0, 3, filterSrvs);
+    g_channelDevice.context->CSSetUnorderedAccessViews(0, 1, filterUavs, nullptr);
+    g_channelDevice.context->Dispatch(
+        static_cast<UINT>(outputCount),
+        static_cast<UINT>(handleCount), 1);
+    UnbindChannel(g_channelDevice.context.Get());
+    g_channelDevice.context->CopyResource(
+        g_channelDevice.stagingBatchOutput.Get(), g_channelDevice.bufBatchOutput.Get());
+    g_channelDevice.context->End(g_channelDevice.batchQuery.Get());
+    g_channelDevice.context->Flush();
+
+    constexpr auto MaximumGpuWait = std::chrono::milliseconds(250);
+    auto waitStarted = std::chrono::steady_clock::now();
+    for (;;)
+    {
+        HRESULT queryResult = g_channelDevice.context->GetData(
+            g_channelDevice.batchQuery.Get(), nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH);
+        if (queryResult == S_OK) break;
+        if (FAILED(queryResult) ||
+            std::chrono::steady_clock::now() - waitStarted >= MaximumGpuWait)
+            return -220;
+        SwitchToThread();
+    }
+    double dispatchMs = ElapsedMs(started);
+
+    started = std::chrono::steady_clock::now();
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    hr = g_channelDevice.context->Map(
+        g_channelDevice.stagingBatchOutput.Get(), 0, D3D11_MAP_READ, 0, &mapped);
+    if (FAILED(hr)) return -216;
+    const auto* mappedOutput = static_cast<const Float2*>(mapped.pData);
+    for (int index = 0; index < handleCount; ++index)
+    {
+        memcpy(output + static_cast<int64_t>(index) * outputStride,
+            mappedOutput + static_cast<int64_t>(index) * g_channelDevice.batchOutputCapacity,
+            sizeof(Float2) * outputCount);
+    }
+    g_channelDevice.context->Unmap(g_channelDevice.stagingBatchOutput.Get(), 0);
+    double readbackMs = ElapsedMs(started);
+
+    for (GpuChannelContext* channel : channels)
+    {
+        channel->lastUploadMs = uploadMs;
+        channel->lastDispatchMs = dispatchMs;
+        channel->lastReadbackMs = readbackMs;
+        commitState(channel);
+    }
+    return 0;
 }
 
 __declspec(dllexport) int gpuchannel_get_last_timings(

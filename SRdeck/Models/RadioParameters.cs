@@ -212,6 +212,8 @@ public struct RadioDiagnostics
     public double TimeGpuReadback;
     public double GpuAppUsagePercent;
     public double GpuUsagePercent;
+    public double CpuAppUsagePercent;
+    public double CpuTotalUsagePercent;
     public double FftFps;
     public double WpfFps;
     public double DemodFps;

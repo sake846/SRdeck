@@ -4,4 +4,6 @@ These packages provide the contracts, SDK helpers, shared WPF controls, and sign
 
 The packages are GPL-3.0-only. Review `LICENSE`, `THIRD-PARTY-NOTICES.md`, `SECURITY.md`, and `PATENT-NOTICE.md` in each package before use or redistribution.
 
-Documentation and release artifacts: <https://github.com/sake846/SRdeck>
+Documentation and Wiki: <https://github.com/sake846/SRdeck/wiki>
+Release artifacts and source: <https://github.com/sake846/SRdeck>
+

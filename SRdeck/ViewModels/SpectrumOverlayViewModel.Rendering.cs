@@ -8,7 +8,7 @@ namespace SRdeck.ViewModels
 {
     public partial class SpectrumOverlayViewModel
     {
-        private void SyncWaterfallColorScale(RadioControl radioControl, RadioState radioState, int spectrumBiasAdj, int waterfallBiasAdj)
+        private void SyncWaterfallColorScale(RadioControl radioControl, RadioState radioState, int waterfallBiasAdj)
         {
             var colorLookUpTable = ColorLUT.GetLutBgr32(radioControl.WaterfallColorMode);
             var gradientBrush = new LinearGradientBrush
@@ -17,19 +17,19 @@ namespace SRdeck.ViewModels
                 EndPoint = new Point(0, 1)
             };
 
-            for (int i = 0; i <= 10; i++)
+            const int steps = 20;
+            for (int i = 0; i <= steps; i++)
             {
-                double offset = i / 10.0;
+                double offset = (double)i / steps;
                 
-                // Y軸の物理ラベル L を計算 (上端 -50, 下端 -130 の 80dB 幅を仮定)
-                // L = -80.0 * offset - 50.0 + SpectrumBias
-                double physicalLevel = -80.0 * offset - 50.0 - spectrumBiasAdj;
+                // Y軸の物理レベル L を計算 (上端 GridTopDb, レンジ SPECTRUM_VIEW_RANGE_DB)
+                double physicalLevel = GridTopDb - AppConstants.SPECTRUM_VIEW_RANGE_DB * offset;
                 
                 // ウォーターフォールのインデックス計算式と完全同期
-                // 受信停止中 (radioState.Min2FftPwr == 0) の場合は、標準的なノイズフロア (-120dBm) を仮定して表示する
-                float noiseFloor = (radioState.Min2FftPwr == 0) ? -120.0f : radioState.Min2FftPwr;
-                int index = (int)((physicalLevel - noiseFloor) * 4.0 + waterfallBiasAdj);
-                index = Math.Clamp(index, 0, 255);
+                // 受信停止中やリセット時 (MIN_RSSI_DB または 0) の場合は、標準的なノイズフロア (-120dBm) を仮定して表示する。
+                // MIN_RSSI_DB より小さい値は実測された有効なノイズフロアなので、未初期化扱いしない。
+                float noiseFloor = WaterfallColorScale.ResolveNoiseFloor(radioState);
+                int index = WaterfallColorScale.GetColorIndex((float)physicalLevel, noiseFloor, waterfallBiasAdj);
                 
                 uint bgrColor = colorLookUpTable[index];
                 byte red = (byte)((bgrColor >> 16) & 0xFF);

@@ -77,6 +77,7 @@ public partial class MainViewModel : ObservableObject
         Tuner.PropertyChanged += OnPrimaryTunerPropertyChanged;
 
         SyncButtonStates();
+        UpdateSampleRateOptions();
 
         FrequencyDisplayOptions.Add(new FrequencyDisplayOption { Mode = FrequencyDisplayMode.Both, Label = "バンド・局名表示" });
         FrequencyDisplayOptions.Add(new FrequencyDisplayOption { Mode = FrequencyDisplayMode.BandOnly, Label = "バンド表示" });

@@ -22,6 +22,9 @@ public sealed class ChannelExamplePlugin :
             BandwidthHz: 12_000,
             OutputSampleRateHz: 48_000,
             AllowRawIqFallback: false)
+        {
+            StopbandBandwidthHz = 24_000
+        }
     ];
     private readonly IqStreamContinuityTracker continuity = new();
 

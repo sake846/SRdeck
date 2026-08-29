@@ -24,6 +24,7 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
 {
     private readonly object _sync = new();
     private readonly IGpuUsageMonitor _gpuUsageMonitor;
+    private readonly ICpuUsageMonitor _cpuUsageMonitor;
     private readonly IRadioDiagnosticsCollector _collector;
     private RadioDiagnostics _snapshot;
     private long _fftFpsWindowStartTicks = Stopwatch.GetTimestamp();
@@ -32,9 +33,11 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
 
     public RadioDiagnosticsStore(
         IGpuUsageMonitor gpuUsageMonitor,
+        ICpuUsageMonitor cpuUsageMonitor,
         IRadioDiagnosticsCollector collector)
     {
         _gpuUsageMonitor = gpuUsageMonitor ?? throw new ArgumentNullException(nameof(gpuUsageMonitor));
+        _cpuUsageMonitor = cpuUsageMonitor ?? throw new ArgumentNullException(nameof(cpuUsageMonitor));
         _collector = collector ?? throw new ArgumentNullException(nameof(collector));
     }
 
@@ -76,8 +79,7 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
             _snapshot.EffectiveSampleRateHz = source.EffectiveSampleRateHz;
             _snapshot.TimeProcCycle = timeProcCycle;
             SyncGpuUsage();
-
-
+            SyncCpuUsage();
 
             _snapshot.BufferWPtr = source.BufferWPtr;
             _snapshot.BufferRPtr = source.BufferRPtr;
@@ -144,5 +146,12 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
         var gpuUsage = _gpuUsageMonitor.GetUsage();
         _snapshot.GpuAppUsagePercent = gpuUsage.AppUsagePercent;
         _snapshot.GpuUsagePercent = gpuUsage.TotalUsagePercent;
+    }
+
+    private void SyncCpuUsage()
+    {
+        var cpuUsage = _cpuUsageMonitor.GetUsage();
+        _snapshot.CpuAppUsagePercent = cpuUsage.AppUsagePercent;
+        _snapshot.CpuTotalUsagePercent = cpuUsage.TotalUsagePercent;
     }
 }

@@ -113,8 +113,19 @@ public partial class MainViewModel : ObservableObject
             _engine.SdrDevice = detectedDevice;
 
             bool isRtl = detectedDevice.Capabilities.Kind == SdrDeviceKind.RtlSdr;
-            int sampleRateHz = isRtl ? 2_000_000 : NormalizeSdrPlaySampleRate(SdrPlaySampleRateHz);
+            int sampleRateHz = NormalizeSdrPlaySampleRate(SdrPlaySampleRateHz);
             detectedDevice.FsHz = sampleRateHz;
+            if (isRtl && detectedDevice is RtlSdrController rtlController)
+            {
+                if (!rtlController.ApplySampleRate(sampleRateHz))
+                {
+                    detectedDevice.Dispose();
+                    IsSdrDetected = false;
+                    WeakReferenceMessenger.Default.Send(new SdrErrorMessage(
+                        $"RTL-SDRのサンプルレート設定に失敗しました ({sampleRateHz / 1_000_000.0:F1} Msps)。"));
+                    return;
+                }
+            }
             IsRtlDevice = isRtl;
             if (detectedDevice is SdrController sdrPlay)
             {
@@ -147,7 +158,7 @@ public partial class MainViewModel : ObservableObject
 
             if (isRtl)
             {
-                SdrPlaySampleRateHz = 2_000_000;
+                SdrPlaySampleRateHz = sampleRateHz;
             }
 
             RadioControl control = _engine.Control;
@@ -186,7 +197,7 @@ public partial class MainViewModel : ObservableObject
 
     private static int NormalizeSdrPlaySampleRate(int value) => value switch
     {
-        8_000_000 or 6_000_000 or 4_000_000 or 2_000_000 or 1_600_000 => value,
+        10_000_000 or 8_000_000 or 6_000_000 or 4_000_000 or 2_400_000 or 2_000_000 or 1_600_000 => value,
         _ => 8_000_000
     };
 

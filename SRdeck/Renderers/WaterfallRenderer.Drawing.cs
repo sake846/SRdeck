@@ -65,7 +65,7 @@ internal partial class WaterfallRenderer
         float normFactor = fullFftSize / fullBw;
 
         float sysDb = float.IsFinite(p.SystemDb) ? p.SystemDb : 0f;
-        float minFloor = float.IsFinite(r.Min2FftPwr) ? r.Min2FftPwr : -120f;
+        float minFloor = WaterfallColorScale.ResolveNoiseFloor(r);
 
         fixed (uint* pData = _waterfallData)
         fixed (byte* pBytes = _rowByteBuffer)
@@ -98,7 +98,7 @@ internal partial class WaterfallRenderer
                 }
 
                 float physicalLevel = pMax - sysDb + _rfCalOffset;
-                int colorIdx = Math.Clamp((int)((physicalLevel - minFloor) * 4.0f + _biasDb), 0, 255);
+                int colorIdx = WaterfallColorScale.GetColorIndex(physicalLevel, minFloor, _biasDb);
                 uint argb = lut[colorIdx];
                 
                 pData[rowOffset + l] = argb;

@@ -1,10 +1,12 @@
-﻿using System;
+using System;
+using System.Collections.ObjectModel;
 using SRdeckPlugin.Contracts;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Configuration;
 using SRdeck.Messages;
 using SRdeck.Models;
+using SRdeck.SDR;
 
 namespace SRdeck.ViewModels;
 
@@ -224,11 +226,33 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _sdrPlaySampleRateHz;
     private bool _isSynchronizingSampleRateSelection;
 
+    public record SampleRateOption(string Label, int Value);
+    public ObservableCollection<SampleRateOption> SampleRateOptions { get; } = new();
+
+    public void UpdateSampleRateOptions()
+    {
+        SampleRateOptions.Clear();
+        if (IsRtlDevice)
+        {
+            SampleRateOptions.Add(new SampleRateOption("2 MS/s", 2000000));
+            SampleRateOptions.Add(new SampleRateOption("2.4 MS/s", 2400000));
+        }
+        else
+        {
+            SampleRateOptions.Add(new SampleRateOption("1.6 MS/s", 1600000));
+            SampleRateOptions.Add(new SampleRateOption("2 MS/s", 2000000));
+            SampleRateOptions.Add(new SampleRateOption("4 MS/s", 4000000));
+            SampleRateOptions.Add(new SampleRateOption("6 MS/s", 6000000));
+            SampleRateOptions.Add(new SampleRateOption("8 MS/s", 8000000));
+            SampleRateOptions.Add(new SampleRateOption("10 MS/s", 10000000));
+        }
+    }
+
     partial void OnSdrPlaySampleRateHzChanged(int value)
     {
         if (_isSynchronizingSampleRateSelection || _engine?.InitialAppSettings == null) return;
         value = NormalizeSdrPlaySampleRate(value);
-        if (IsRtlDevice && value != 2_000_000)
+        if (IsRtlDevice && value is not (2_000_000 or 2_400_000))
         {
             SdrPlaySampleRateHz = 2_000_000;
             return;
@@ -240,7 +264,20 @@ public partial class MainViewModel : ObservableObject
             _settingsService.SaveSettings(_engine.InitialAppSettings);
         }
 
-        if (_engine.SdrDevice != null && _engine.SdrDevice.Capabilities.Kind == SdrDeviceKind.SdrPlay)
+        if (_engine.SdrDevice is RtlSdrController rtlSdr)
+        {
+            if (!rtlSdr.ApplySampleRate(value))
+            {
+                SdrPlaySampleRateHz = rtlSdr.FsHz;
+                return;
+            }
+            var rtlControl = _engine.Control;
+            rtlControl.FsHz = value;
+            _engine.Control = rtlControl;
+            _engine.EnsureIqBufferCapacity();
+            SyncMainSpanOptionsToFs(value, isRtlDevice: true, selectFullSpan: true);
+        }
+        else if (_engine.SdrDevice != null && _engine.SdrDevice.Capabilities.Kind == SdrDeviceKind.SdrPlay)
         {
             if (!settingsChanged &&
                 _engine.SdrDevice.FsHz == value &&

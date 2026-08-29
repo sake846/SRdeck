@@ -147,6 +147,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsRtlDeviceChanged(bool value)
     {
         ApplyFftResolutionLimit();
+        UpdateSampleRateOptions();
         OnPropertyChanged(nameof(IsSampleRateSelectionEnabled));
     }
 

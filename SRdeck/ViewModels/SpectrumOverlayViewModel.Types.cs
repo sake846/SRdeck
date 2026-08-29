@@ -1,3 +1,4 @@
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace SRdeck.ViewModels
@@ -38,5 +39,6 @@ namespace SRdeck.ViewModels
         [ObservableProperty] private double _xRight;
         [ObservableProperty] private double _y;
         [ObservableProperty] private string _textColor = "#FFD6D6D6";
+        [ObservableProperty] private Visibility _visibility = Visibility.Visible;
     }
 }

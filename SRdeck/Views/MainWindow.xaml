@@ -167,7 +167,7 @@
 
                         <localViews:SpectrumView Grid.Row="0" Margin="0" x:Name="_spectrumView">
                             <b:Interaction.Behaviors>
-                                <localBehaviors:MouseWheelBehavior HorizontalDeltaCommand="{Binding SpectrumManipulationDeltaCommand}" HorizontalMultiplier="-1.0" CtrlVerticalDeltaCommand="{Binding MainViewZoomWheelCommand}" />
+                                <localBehaviors:MouseWheelBehavior HorizontalDeltaCommand="{Binding SpectrumManipulationDeltaCommand}" HorizontalMultiplier="-1.0" VerticalDeltaCommand="{Binding SpectrumWheelCommand}" CtrlVerticalDeltaCommand="{Binding MainViewZoomWheelCommand}" />
                             </b:Interaction.Behaviors>
                         </localViews:SpectrumView>
 
@@ -175,7 +175,7 @@
                                                   VerticalAlignment="Stretch" ClipToBounds="True"
                                                   x:Name="_waterfallView">
                             <b:Interaction.Behaviors>
-                                <localBehaviors:MouseWheelBehavior HorizontalDeltaCommand="{Binding WaterfallManipulationDeltaCommand}" HorizontalMultiplier="-1.0" VerticalDeltaCommand="{Binding WaterfallManipulationDeltaCommand}" VerticalMultiplier="-0.025" CtrlVerticalDeltaCommand="{Binding MainViewZoomWheelCommand}" />
+                                <localBehaviors:MouseWheelBehavior HorizontalDeltaCommand="{Binding WaterfallManipulationDeltaCommand}" HorizontalMultiplier="-1.0" VerticalDeltaCommand="{Binding WaterfallWheelCommand}" CtrlVerticalDeltaCommand="{Binding MainViewZoomWheelCommand}" />
                             </b:Interaction.Behaviors>
                         </localViews:WaterfallView>
                     </Grid>
@@ -265,12 +265,18 @@
                                  <!-- Controls -->
                                 <ComboBox Grid.Row="0" Grid.Column="1" Width="112" Height="22" FontSize="10" Margin="3,4"
                                            ItemsSource="{Binding PluginWorkspace.Plugins}"
-                                           DisplayMemberPath="Descriptor.DisplayName"
                                            SelectedValuePath="Descriptor.Id"
                                            SelectedValue="{Binding SelectedPluginId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            IsEnabled="{Binding IsPluginSelectionEnabled}"
                                            Focusable="False" IsTabStop="False"
-                                           Style="{DynamicResource PluginComboBoxStyle}" />
+                                           Style="{DynamicResource PluginComboBoxStyle}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Descriptor.DisplayName}"
+                                                       Style="{DynamicResource PluginSelectorTextStyle}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
 
                                  <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
                                      <Button Style="{DynamicResource PluginLeftStepButtonStyle}" Content="▼" Width="27" Height="22" FontSize="10" Command="{Binding Display.AdjustSpectrumIntensityOffsetCommand}" CommandParameter="-10" Focusable="False" IsTabStop="False" />
@@ -293,16 +299,13 @@
                                  </StackPanel>
 
                                 <ComboBox Grid.Row="1" Grid.Column="1" x:Name="_cmbSampleRate" Width="90" Height="22" FontSize="10" Margin="3,4" HorizontalAlignment="Left"
-                                           SelectedValuePath="Tag"
+                                           ItemsSource="{Binding SampleRateOptions}"
+                                           DisplayMemberPath="Label"
+                                           SelectedValuePath="Value"
                                            SelectedValue="{Binding SdrPlaySampleRateHz, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                            IsEnabled="{Binding IsSampleRateSelectionEnabled}"
                                            Focusable="False" IsTabStop="False"
                                             Style="{DynamicResource PluginComboBoxStyle}">
-                                    <ComboBoxItem Content="1.6 MS/s"><ComboBoxItem.Tag><sys:Int32>1600000</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
-                                    <ComboBoxItem Content="2 MS/s"><ComboBoxItem.Tag><sys:Int32>2000000</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
-                                    <ComboBoxItem Content="4 MS/s"><ComboBoxItem.Tag><sys:Int32>4000000</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
-                                    <ComboBoxItem Content="6 MS/s"><ComboBoxItem.Tag><sys:Int32>6000000</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
-                                    <ComboBoxItem Content="8 MS/s"><ComboBoxItem.Tag><sys:Int32>8000000</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
                                 </ComboBox>
                             </Grid>
 

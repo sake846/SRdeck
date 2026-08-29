@@ -290,6 +290,14 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
         }
     }
 
+    internal bool ApplySampleRate(int sampleRateHz)
+    {
+        if (_device == IntPtr.Zero || sampleRateHz <= 0) return false;
+        if (RtlSdrApi.rtlsdr_set_sample_rate(_device, (uint)sampleRateHz) != 0) return false;
+        FsHz = sampleRateHz;
+        return true;
+    }
+
     internal static int CalculatePpmCorrection(float biasPpm, float adjustmentPpm) =>
         (int)Math.Round(biasPpm + adjustmentPpm);
 

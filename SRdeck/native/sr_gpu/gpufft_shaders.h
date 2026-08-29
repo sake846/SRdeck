@@ -93,7 +93,9 @@ cbuffer ChannelMixParams : register(b0)
     uint inputCount;
     float phaseStart;
     float phaseStep;
-    uint _pad;
+    float phaseStep256;
+    float phaseStep65536;
+    float3 _pad;
 }
 StructuredBuffer<float2> rawInput : register(t0);
 RWStructuredBuffer<float2> mixedOutput : register(u0);
@@ -102,7 +104,13 @@ void main(uint3 tid : SV_DispatchThreadID)
 {
     uint index = tid.x;
     if (index >= inputCount) return;
-    float angle = phaseStart + phaseStep * (float)index;
+    uint lowIndex = index & 255u;
+    uint middleIndex = (index >> 8u) & 255u;
+    uint highIndex = index >> 16u;
+    float angle = phaseStart +
+        phaseStep * (float)lowIndex +
+        phaseStep256 * (float)middleIndex +
+        phaseStep65536 * (float)highIndex;
     float s, c;
     sincos(angle, s, c);
     float2 v = rawInput[index];
@@ -136,6 +144,88 @@ void main(uint3 tid : SV_DispatchThreadID)
     for (uint tap = 0; tap < available; ++tap)
         sum += mixedInput[anchor - tap] * taps[tapBase + tap];
     outputIq[outputIndex] = sum;
+}
+)";
+
+static const char* kShaderChannelBatchMix = R"(
+cbuffer ChannelBatchParams : register(b0)
+{
+    uint inputCount;
+    uint outputCount;
+    uint tapCount;
+    uint phaseCount;
+    uint channelCount;
+    uint inputStride;
+    uint outputStride;
+    uint _pad;
+}
+StructuredBuffer<float2> rawInput : register(t0);
+StructuredBuffer<float4> channelPhases : register(t1);
+RWStructuredBuffer<float2> mixedOutput : register(u0);
+[numthreads(64,1,1)]
+void main(uint3 tid : SV_DispatchThreadID)
+{
+    uint index = tid.x;
+    uint channel = tid.y;
+    if (index >= inputCount || channel >= channelCount) return;
+    float4 phases = channelPhases[channel];
+    uint lowIndex = index & 255u;
+    uint middleIndex = (index >> 8u) & 255u;
+    uint highIndex = index >> 16u;
+    float angle = phases.x +
+        phases.y * (float)lowIndex +
+        phases.z * (float)middleIndex +
+        phases.w * (float)highIndex;
+    float s, c;
+    sincos(angle, s, c);
+    float2 v = rawInput[index];
+    mixedOutput[channel * inputStride + index] =
+        float2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+)";
+
+static const char* kShaderChannelBatchFilter = R"(
+cbuffer ChannelBatchParams : register(b0)
+{
+    uint inputCount;
+    uint outputCount;
+    uint tapCount;
+    uint phaseCount;
+    uint channelCount;
+    uint inputStride;
+    uint outputStride;
+    uint _pad;
+}
+StructuredBuffer<float2> mixedInput : register(t0);
+StructuredBuffer<float> taps : register(t1);
+StructuredBuffer<uint2> outputMap : register(t2);
+RWStructuredBuffer<float2> outputIq : register(u0);
+groupshared float2 partialSums[64];
+[numthreads(64,1,1)]
+void main(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
+{
+    uint outputIndex = groupId.x;
+    uint channel = groupId.y;
+    if (outputIndex >= outputCount || channel >= channelCount) return;
+    uint2 mapping = outputMap[outputIndex];
+    uint anchor = mapping.x;
+    uint phase = min(mapping.y, phaseCount - 1);
+    uint tapBase = phase * tapCount;
+    uint inputBase = channel * inputStride;
+    float2 sum = float2(0.0, 0.0);
+    uint available = min(tapCount, anchor + 1);
+    for (uint tap = groupIndex; tap < available; tap += 64)
+        sum += mixedInput[inputBase + anchor - tap] * taps[tapBase + tap];
+    partialSums[groupIndex] = sum;
+    GroupMemoryBarrierWithGroupSync();
+    for (uint width = 32; width > 0; width >>= 1)
+    {
+        if (groupIndex < width)
+            partialSums[groupIndex] += partialSums[groupIndex + width];
+        GroupMemoryBarrierWithGroupSync();
+    }
+    if (groupIndex == 0)
+        outputIq[channel * outputStride + outputIndex] = partialSums[0];
 }
 )";
 

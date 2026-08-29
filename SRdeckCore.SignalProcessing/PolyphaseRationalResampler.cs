@@ -120,6 +120,29 @@ public sealed class PolyphaseRationalResampler
         }
     }
 
+    /// <summary>
+    /// Processes one complex input sample and writes every available output
+    /// directly to caller-owned storage.
+    /// </summary>
+    public int Process(float inputI, float inputQ, Span<float> interleavedOutput)
+    {
+        EnsureConfigured();
+        int required = GetOutputCountCore(1);
+        if (required > interleavedOutput.Length / 2)
+            throw new ArgumentException("The resampler output buffer is too small.",
+                nameof(interleavedOutput));
+        Store(inputI, inputQ);
+        return EmitAvailable(interleavedOutput);
+    }
+
+    /// <summary>Returns the exact output count for the next input block.</summary>
+    public int GetOutputCount(int inputCount)
+    {
+        EnsureConfigured();
+        if (inputCount < 0) throw new ArgumentOutOfRangeException(nameof(inputCount));
+        return GetOutputCountCore(inputCount);
+    }
+
     public void Reset()
     {
         EnsureConfigured();
@@ -134,6 +157,31 @@ public sealed class PolyphaseRationalResampler
         historyI[historyPosition + tapsPerPhase] = inputI;
         historyQ[historyPosition + tapsPerPhase] = inputQ;
         inputIndex++;
+    }
+
+    private int EmitAvailable(Span<float> interleavedOutput)
+    {
+        int written = 0;
+        while (nextOutputNumerator / interpolationFactor <= inputIndex)
+        {
+            long sourceIndex = nextOutputNumerator / interpolationFactor;
+            Filter(sourceIndex, out float outputI, out float outputQ);
+            nextOutputNumerator += decimationFactor;
+            interleavedOutput[written * 2] = outputI;
+            interleavedOutput[written * 2 + 1] = outputQ;
+            written++;
+        }
+        return written;
+    }
+
+    private int GetOutputCountCore(int inputCount)
+    {
+        if (inputCount == 0) return 0;
+        long finalInputIndex = checked(inputIndex + inputCount);
+        long exclusiveLimit = checked((finalInputIndex + 1) * interpolationFactor);
+        long remaining = exclusiveLimit - nextOutputNumerator;
+        if (remaining <= 0) return 0;
+        return checked((int)((remaining + decimationFactor - 1) / decimationFactor));
     }
 
     private void Filter(long sourceIndex, out float outputI, out float outputQ)

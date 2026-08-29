@@ -206,9 +206,9 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
             float pMax = float.MinValue;
             for (int m = startIdx; m < endIdx; m++) if (_maxFftDat![m] > pMax) pMax = _maxFftDat[m];
             float systemDb = float.IsFinite(p.SystemDb) ? p.SystemDb : 0f;
-            float minFloor = float.IsFinite(r.Min2FftPwr) ? r.Min2FftPwr : -120f;
+            float minFloor = WaterfallColorScale.ResolveNoiseFloor(r);
             float physical = pMax - systemDb + RfCalOffset;
-            int colorIdx = Math.Clamp((int)((physical - minFloor) * 4.0f + BiasDb), 0, 255);
+            int colorIdx = WaterfallColorScale.GetColorIndex(physical, minFloor, BiasDb);
             _rowPixels[x] = lut[colorIdx];
         }
         ScrollUploadTopRow();

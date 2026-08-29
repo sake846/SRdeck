@@ -62,8 +62,13 @@ public enum PluginChannelAccelerationPreference
 }
 
 /// <summary>
-/// Describes a reusable host-provided baseband channel. The requested bandwidth
-/// is the occupied passband width, not a transition-band or filter-cutoff value.
+/// Describes a reusable host-provided baseband channel. <see cref="BandwidthHz"/>
+/// is the occupied passband width to preserve, not a transition-band or filter
+/// cutoff value. <see cref="StopbandBandwidthHz"/> is an optional, explicit
+/// full-width boundary at which the host channelizer's rejection begins. It is
+/// used to design the anti-alias/channel-isolation filter around rate conversion;
+/// it does not describe a post-demodulation audio filter. Zero retains the
+/// compatibility behavior of using the available output Nyquist width.
 /// </summary>
 public readonly record struct PluginChannelRequest(
     string Id,
@@ -80,7 +85,10 @@ public readonly record struct PluginChannelRequest(
     int CoarseOutputMaximumSampleRateHz = 0,
     int MaximumFineDecimationFactor = 1,
     PluginChannelAccelerationPreference AccelerationPreference =
-        PluginChannelAccelerationPreference.Auto);
+        PluginChannelAccelerationPreference.Auto)
+{
+    public int StopbandBandwidthHz { get; init; }
+}
 
 /// <summary>The exact channelizer configuration selected by the host.</summary>
 public readonly record struct AppliedChannelConfiguration(

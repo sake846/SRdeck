@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using SRdeckPlugin.Contracts;
 using SRdeck.Audio;
 using SRdeck.Configuration;
@@ -104,6 +104,7 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<IMainFftWorkerFactory, MainFftWorkerFactory>()
             .AddSingleton<IMainFftServiceFactory, MainFftServiceFactory>()
             .AddSingleton<IGpuUsageMonitor, GpuUsageMonitor>()
+            .AddSingleton<ICpuUsageMonitor, CpuUsageMonitor>()
             .AddSingleton<IRadioDiagnosticsStore, RadioDiagnosticsStore>()
             .AddSingleton<IRadioDiagnosticsCollector, RadioDiagnosticsCollector>()
             .AddSingleton<IRadioProcessingPipeline, RadioProcessingPipeline>();

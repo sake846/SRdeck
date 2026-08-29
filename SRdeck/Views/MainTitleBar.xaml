@@ -180,6 +180,34 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Margin="12,0,0,0" ToolTip="App / Total" Visibility="{Binding IsAnySourceActive, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="CPU" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,1,0" />
+                <TextBlock Text="{Binding Diagnostics.CpuAppUsagePercent, StringFormat={}{0:#0}}"
+                           Width="20"
+                           TextAlignment="Right"
+                           Foreground="{Binding Diagnostics.CpuAppUsagePercent, Converter={StaticResource CpuColorConverter}, ConverterParameter=Solid}"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="/"
+                           Foreground="White"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Diagnostics.CpuTotalUsagePercent, StringFormat={}{0:#0}}"
+                           Width="20"
+                           TextAlignment="Right"
+                           Foreground="{Binding Diagnostics.CpuTotalUsagePercent, Converter={StaticResource CpuColorConverter}, ConverterParameter=Solid}"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="%"
+                           Foreground="White"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" ToolTip="App / Total" Visibility="{Binding IsAnySourceActive, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="GPU" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,1,0" />
                 <TextBlock Text="{Binding Diagnostics.GpuAppUsagePercent, StringFormat={}{0:#0}}"
                            Width="20"

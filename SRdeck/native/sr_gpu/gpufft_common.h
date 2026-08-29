@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <chrono>
+#include <climits>
 #include <cmath>
 #include <mutex>
 #include <numeric>
@@ -52,7 +53,11 @@ struct ChannelMixParams
     uint32_t inputCount;
     float phaseStart;
     float phaseStep;
-    uint32_t pad;
+    float phaseStep256;
+    float phaseStep65536;
+    float pad0;
+    float pad1;
+    float pad2;
 };
 
 struct ChannelFilterParams
@@ -60,6 +65,26 @@ struct ChannelFilterParams
     uint32_t outputCount;
     uint32_t tapCount;
     uint32_t phaseCount;
+    uint32_t pad;
+};
+
+struct ChannelBatchPhase
+{
+    float phaseStart;
+    float phaseStep;
+    float phaseStep256;
+    float phaseStep65536;
+};
+
+struct ChannelBatchParams
+{
+    uint32_t inputCount;
+    uint32_t outputCount;
+    uint32_t tapCount;
+    uint32_t phaseCount;
+    uint32_t channelCount;
+    uint32_t inputStride;
+    uint32_t outputStride;
     uint32_t pad;
 };
 

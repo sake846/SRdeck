@@ -47,6 +47,8 @@ public partial class DiagnosticsViewModel : ObservableObject
     [ObservableProperty] private string _iqToolTip = "IQ Level";
     [ObservableProperty] private double _gpuAppUsagePercent = 0.0;
     [ObservableProperty] private double _gpuUsagePercent = 0.0;
+    [ObservableProperty] private double _cpuAppUsagePercent = 0.0;
+    [ObservableProperty] private double _cpuTotalUsagePercent = 0.0;
     [ObservableProperty] private double _coreProcessingLoad = 0.0;
     [ObservableProperty] private double _pluginProcessingLoad = 0.0;
 
@@ -141,6 +143,8 @@ public partial class DiagnosticsViewModel : ObservableObject
         WpfFftDroppedFrames = diagnostics.WpfFftDroppedFrames;
         GpuAppUsagePercent = diagnostics.GpuAppUsagePercent;
         GpuUsagePercent = diagnostics.GpuUsagePercent;
+        CpuAppUsagePercent = diagnostics.CpuAppUsagePercent;
+        CpuTotalUsagePercent = diagnostics.CpuTotalUsagePercent;
         int maxAbsI = Math.Max(Math.Abs((int)diagnostics.BufferIMaxValue), Math.Abs((int)diagnostics.BufferIMinValue));
         int maxAbsQ = Math.Max(Math.Abs((int)diagnostics.BufferQMaxValue), Math.Abs((int)diagnostics.BufferQMinValue));
         int maxAbs = Math.Max(maxAbsI, maxAbsQ);
@@ -283,6 +287,7 @@ public partial class DiagnosticsViewModel : ObservableObject
         rightTextBuilder.AppendLine($"{"FpsDm",-12} {diagnostics.DemodFps,5:0.0} fps");
 
         rightTextBuilder.AppendLine($"{"GpuUse",-12} {diagnostics.GpuAppUsagePercent,5:0.0} / {diagnostics.GpuUsagePercent,5:0.0} % (App/Total)");
+        rightTextBuilder.AppendLine($"{"CpuUse",-12} {diagnostics.CpuAppUsagePercent,5:0.0} / {diagnostics.CpuTotalUsagePercent,5:0.0} % (App/Total)");
         rightTextBuilder.AppendLine($"{"WpfSp",-12} {diagnostics.TimeWpfSpectrum,5:0.0} ms");
         rightTextBuilder.AppendLine($"  P/L/D/U    {diagnostics.TimeWpfSpectrumPrepare:0.0}/{diagnostics.TimeWpfSpectrumLock:0.0}/{diagnostics.TimeWpfSpectrumDraw:0.0}/{diagnostics.TimeWpfSpectrumUnlock:0.0} ms");
         rightTextBuilder.AppendLine($"{"WpfWf",-12} {diagnostics.TimeWpfWaterfall,5:0.0} ms");

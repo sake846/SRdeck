@@ -20,6 +20,7 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
     public bool IsAvailable => !disposed && available;
 
     internal GpuChannelTimings LastTimings { get; private set; }
+    internal bool LastBatchUsedPackedPath { get; private set; }
 
     public bool Supports(PluginChannelRequest request, IqBlockMetadata metadata, int inputSampleCount, PluginChannelAccelerationPreference? preferenceOverride = null)
     {
@@ -137,82 +138,142 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
             throw new ArgumentException(
                 "IQ metadata sample count does not match the supplied block.", nameof(metadata));
         if (requests.Count == 0) return [];
+        LastBatchUsedPackedPath = false;
 
-        var states = new ChannelState[requests.Count];
-        var outputs = new Complex32[]?[requests.Count];
-        var expectedCounts = new int[requests.Count];
+        if (requests.Count > 1)
+        {
+            try
+            {
+                if (TryProcessPackedBatch(requests, metadata, samples, out var packedBlocks))
+                {
+                    LastBatchUsedPackedPath = true;
+                    return packedBlocks;
+                }
+            }
+            catch (Exception exception) when (exception is DllNotFoundException or
+                EntryPointNotFoundException or BadImageFormatException or ExternalException or
+                SEHException)
+            {
+                Disable();
+                throw new StandardChannelUnavailableException(
+                    $"Direct3D packed channel batch processing became unavailable: " +
+                    exception.Message);
+            }
+        }
+
         var blocks = new StandardChannelProcessor.SharedChannelBlock[requests.Count];
         try
         {
             for (int index = 0; index < requests.Count; index++)
             {
-                PluginChannelRequest request = requests[index];
-                ChannelState state = GetOrCreateState(request, metadata);
-                states[index] = state;
-                int capacity = NativeMethods.GetOutputCapacity(state.Handle, samples.Length);
-                if (capacity < 0)
-                    throw new ExternalException($"GPU channel output sizing failed ({capacity}).");
-                Complex32[] output = ArrayPool<Complex32>.Shared.Rent(Math.Max(16, capacity));
-                outputs[index] = output;
-                int result;
-                unsafe
-                {
-                    fixed (Complex32* inputPointer = samples.Span)
-                        result = NativeMethods.Submit(
-                            state.Handle, inputPointer, samples.Length, output.Length,
-                            out expectedCounts[index]);
-                }
-                if (result != 0)
-                    throw new ExternalException($"GPU channel submission failed ({result}).");
-                if (expectedCounts[index] < 0 || expectedCounts[index] > output.Length)
-                    throw new ExternalException(
-                        $"GPU channel returned an invalid output count ({expectedCounts[index]}).");
+                // Keep only one channel in flight on the shared D3D11 immediate
+                // context. Some display drivers fail when several stateful
+                // channel dispatches and staging readbacks overlap.
+                blocks[index] = Process(requests[index], metadata, samples.Span);
             }
-
-            for (int index = 0; index < requests.Count; index++)
-            {
-                int outputCount = expectedCounts[index];
-                if (outputCount > 0)
-                {
-                    int result;
-                    unsafe
-                    {
-                        fixed (Complex32* outputPointer = outputs[index]!)
-                            result = NativeMethods.Collect(
-                                states[index].Handle, outputPointer, outputs[index]!.Length,
-                                out outputCount);
-                    }
-                    if (result != 0)
-                        throw new ExternalException($"GPU channel collection failed ({result}).");
-                    if (outputCount != expectedCounts[index])
-                        throw new ExternalException(
-                            $"GPU channel collected {outputCount} samples; " +
-                            $"expected {expectedCounts[index]}.");
-                }
-                blocks[index] = CreateSharedBlock(
-                    states[index], metadata, outputs[index]!, outputCount);
-                outputs[index] = null;
-            }
-            _ = NativeMethods.GetLastTimings(
-                states[^1].Handle, out double uploadMs, out double dispatchMs,
-                out double readbackMs);
-            LastTimings = new(uploadMs, dispatchMs, readbackMs);
             return blocks;
         }
-        catch (Exception exception) when (exception is DllNotFoundException or
-            EntryPointNotFoundException or BadImageFormatException or ExternalException or
-            SEHException)
+        catch
         {
             foreach (StandardChannelProcessor.SharedChannelBlock? block in blocks)
                 block?.Dispose();
-            Disable();
-            throw new StandardChannelUnavailableException(
-                $"Direct3D channel batch processing became unavailable: {exception.Message}");
+            throw;
+        }
+    }
+
+    private bool TryProcessPackedBatch(
+        IReadOnlyList<PluginChannelRequest> requests,
+        IqBlockMetadata metadata,
+        ReadOnlyMemory<Complex32> samples,
+        out IReadOnlyList<StandardChannelProcessor.SharedChannelBlock> blocks)
+    {
+        var channelStates = new ChannelState[requests.Count];
+        var nativeHandles = new IntPtr[requests.Count];
+        var handleReferences = new bool[requests.Count];
+        var outputCounts = new int[requests.Count];
+        int outputStride = 16;
+        for (int index = 0; index < requests.Count; index++)
+        {
+            ChannelState state = GetOrCreateState(requests[index], metadata);
+            channelStates[index] = state;
+            int capacity = NativeMethods.GetOutputCapacity(state.Handle, samples.Length);
+            if (capacity < 0)
+                throw new ExternalException($"GPU channel output sizing failed ({capacity}).");
+            outputStride = Math.Max(outputStride, capacity);
+        }
+
+        int packedLength = checked(outputStride * requests.Count);
+        Complex32[] packedOutput = ArrayPool<Complex32>.Shared.Rent(packedLength);
+        var createdBlocks =
+            new StandardChannelProcessor.SharedChannelBlock[requests.Count];
+        try
+        {
+            for (int index = 0; index < channelStates.Length; index++)
+            {
+                bool success = false;
+                channelStates[index].Handle.DangerousAddRef(ref success);
+                handleReferences[index] = success;
+                nativeHandles[index] = channelStates[index].Handle.DangerousGetHandle();
+            }
+
+            int result;
+            unsafe
+            {
+                fixed (IntPtr* handlesPointer = nativeHandles)
+                fixed (Complex32* inputPointer = samples.Span)
+                fixed (Complex32* outputPointer = packedOutput)
+                fixed (int* outputCountsPointer = outputCounts)
+                    result = NativeMethods.ProcessBatch(
+                        handlesPointer, nativeHandles.Length,
+                        inputPointer, samples.Length,
+                        outputPointer, outputStride, packedOutput.Length,
+                        outputCountsPointer);
+            }
+            if (result == 1)
+            {
+                blocks = [];
+                return false;
+            }
+            if (result != 0)
+                throw new ExternalException($"GPU packed channel batch failed ({result}).");
+
+            for (int index = 0; index < outputCounts.Length; index++)
+            {
+                int outputCount = outputCounts[index];
+                if (outputCount < 0 || outputCount > outputStride)
+                    throw new ExternalException(
+                        $"GPU packed channel returned an invalid output count ({outputCount}).");
+                Complex32[] output = ArrayPool<Complex32>.Shared.Rent(Math.Max(16, outputCount));
+                try
+                {
+                    packedOutput.AsSpan(index * outputStride, outputCount).CopyTo(output);
+                    createdBlocks[index] = CreateSharedBlock(
+                        channelStates[index], metadata, output, outputCount);
+                    output = null!;
+                }
+                finally
+                {
+                    if (output is not null) ArrayPool<Complex32>.Shared.Return(output);
+                }
+            }
+            _ = NativeMethods.GetLastTimings(
+                channelStates[^1].Handle, out double uploadMs, out double dispatchMs,
+                out double readbackMs);
+            LastTimings = new(uploadMs, dispatchMs, readbackMs);
+            blocks = createdBlocks;
+            return true;
+        }
+        catch
+        {
+            foreach (StandardChannelProcessor.SharedChannelBlock? block in createdBlocks)
+                block?.Dispose();
+            throw;
         }
         finally
         {
-            foreach (Complex32[]? output in outputs)
-                if (output is not null) ArrayPool<Complex32>.Shared.Return(output);
+            for (int index = 0; index < channelStates.Length; index++)
+                if (handleReferences[index]) channelStates[index].Handle.DangerousRelease();
+            ArrayPool<Complex32>.Shared.Return(packedOutput);
         }
     }
 
@@ -221,12 +282,14 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
         foreach (ChannelState state in states.Values) state.Dispose();
         states.Clear();
         LastTimings = default;
+        LastBatchUsedPackedPath = false;
     }
 
     void IStandardChannelGpuBackend.Reset()
     {
         foreach (ChannelState state in states.Values) state.MarkStreamReset();
         LastTimings = default;
+        LastBatchUsedPackedPath = false;
     }
 
     public void Dispose()
@@ -301,9 +364,8 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
                 metadata.SampleRateHz, request);
             int total = checked(coarse * fine);
             double intermediateRate = metadata.SampleRateHz / (double)total;
-            if (request.BandwidthHz * 0.5 >= Math.Min(intermediateRate, request.OutputSampleRateHz) * 0.5)
-                throw new StandardChannelUnavailableException(
-                    $"Channel '{request.Id}' bandwidth leaves no transition band at the selected rates.");
+            double cutoffHz = StandardChannelProcessor.CalculateFilterCutoffHz(
+                intermediateRate, request);
             long numerator = checked((long)request.OutputSampleRateHz * total);
             long divisor = GreatestCommonDivisor(numerator, metadata.SampleRateHz);
             int interpolation = checked((int)(numerator / divisor));
@@ -312,7 +374,7 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
                 metadata.SampleRateHz,
                 request.OutputSampleRateHz,
                 offset,
-                request.BandwidthHz,
+                cutoffHz,
                 coarse,
                 fine,
                 request.FirTaps,
@@ -424,7 +486,7 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
             int inputSampleRate,
             int outputSampleRate,
             double frequencyOffsetHz,
-            int bandwidthHz,
+            double cutoffHz,
             int coarseFactor,
             int fineFactor,
             int firTaps,
@@ -449,20 +511,16 @@ internal sealed partial class NativeStandardChannelGpuBackend : IStandardChannel
             int outputCapacity,
             out int outputCount);
 
-        [LibraryImport(LibraryName, EntryPoint = "gpuchannel_submit")]
-        internal static unsafe partial int Submit(
-            GpuChannelSafeHandle handle,
+        [LibraryImport(LibraryName, EntryPoint = "gpuchannel_process_batch")]
+        internal static unsafe partial int ProcessBatch(
+            IntPtr* handles,
+            int handleCount,
             Complex32* input,
             int inputCount,
-            int outputCapacity,
-            out int outputCount);
-
-        [LibraryImport(LibraryName, EntryPoint = "gpuchannel_collect")]
-        internal static unsafe partial int Collect(
-            GpuChannelSafeHandle handle,
             Complex32* output,
+            int outputStride,
             int outputCapacity,
-            out int outputCount);
+            int* outputCounts);
 
         [LibraryImport(LibraryName, EntryPoint = "gpuchannel_get_last_timings")]
         internal static partial int GetLastTimings(

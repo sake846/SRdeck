@@ -1,14 +1,28 @@
 # SRdeck
 
+[![Wiki](https://img.shields.io/badge/docs-SRdeck_Wiki-blue.svg)](https://github.com/sake846/SRdeck/wiki)
+[![Getting Started](https://img.shields.io/badge/guide-Getting_Started-green.svg)](https://github.com/sake846/SRdeck/wiki/Getting-Started)
+[![Plugins](https://img.shields.io/badge/plugins-Official_Plugins-orange.svg)](https://github.com/sake846/SRdeck/wiki/Plugins-Overview)
+
 SRdeck is the host application and public plugin platform for the SRdeck SDR
 suite.  This repository contains a versioned release snapshot.
 
 Do not commit product changes directly to this repository.  Use the project's
 normal development and review process for product changes.
 
+## 📖 Documentation & Wiki
+
+Comprehensive user guides, plugin documentation, troubleshooting, and developer tutorials are available on the [SRdeck Official Wiki](https://github.com/sake846/SRdeck/wiki):
+
+- 🔰 **Getting Started**: [System Requirements](https://github.com/sake846/SRdeck/wiki/System-Requirements) / [Installation](https://github.com/sake846/SRdeck/wiki/Installation) / [First Reception](https://github.com/sake846/SRdeck/wiki/Getting-Started)
+- 🎛️ **Operation & UI**: [UI Overview](https://github.com/sake846/SRdeck/wiki/UI-Overview) / [SDR Source Settings](https://github.com/sake846/SRdeck/wiki/SDR-Source-Settings) / [Spectrum & Waterfall](https://github.com/sake846/SRdeck/wiki/Spectrum-and-Waterfall)
+- 🔌 **Plugins**: [Official Plugins Overview](https://github.com/sake846/SRdeck/wiki/Plugins-Overview) / [Plugin Management](https://github.com/sake846/SRdeck/wiki/Plugin-Management)
+- ❓ **Support & FAQ**: [FAQ](https://github.com/sake846/SRdeck/wiki/FAQ) / [Troubleshooting](https://github.com/sake846/SRdeck/wiki/Troubleshooting)
+- 💻 **Plugin Development**: [Developer Overview](https://github.com/sake846/SRdeck/wiki/Developer-Overview) / [Development Environment](https://github.com/sake846/SRdeck/wiki/Development-Environment) / [Creating First Plugin](https://github.com/sake846/SRdeck/wiki/Creating-First-Plugin)
+
 ## Release metadata
 
-- Release version: `1.0.1`
+- Release version: `1.0.2`
 
 ## Contents
 
@@ -37,8 +51,8 @@ are published separately in the `SRdeckPlugins` repository.
 
 The matching GitHub Release provides framework-dependent Windows x64 packages:
 
-- `SRdeck-1.0.1-win-x64-host-only.zip` — host application without optional plugins.
-- `SRdeck-1.0.1-win-x64-with-plugins.zip` — host application with the published plugin set.
+- `SRdeck-1.0.2-win-x64-host-only.zip` — host application without optional plugins.
+- `SRdeck-1.0.2-win-x64-with-plugins.zip` — host application with the published plugin set.
 
 The packages include `SRdeck.exe`, legal/security documents, dependency notices,
 and a `PACKAGE-MANIFEST.json`. Install the .NET 10 Desktop Runtime (x64) before

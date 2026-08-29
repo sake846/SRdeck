@@ -135,10 +135,7 @@ public sealed class StandardChannelProcessor
         (int coarseFactor, int fineFactor) = SelectDecimationFactors(metadata.SampleRateHz, request);
         int totalFactor = checked(coarseFactor * fineFactor);
         double intermediateRate = metadata.SampleRateHz / (double)totalFactor;
-        double cutoffHz = request.BandwidthHz * 0.5;
-        if (cutoffHz >= Math.Min(intermediateRate, request.OutputSampleRateHz) * 0.5)
-            throw new StandardChannelUnavailableException(
-                $"Channel '{request.Id}' bandwidth leaves no transition band at the selected rates.");
+        double cutoffHz = CalculateFilterCutoffHz(intermediateRate, request);
 
         decimator.Configure(coarseFactor, request.CicStages);
         fineDecimator.Configure(fineFactor, request.CicStages);
@@ -216,6 +213,26 @@ public sealed class StandardChannelProcessor
                inputSampleRateHz / (double)factor < minimumIntermediateSampleRateHz)
             factor--;
         return factor;
+    }
+
+    internal static double CalculateFilterCutoffHz(
+        double intermediateSampleRateHz,
+        PluginChannelRequest request)
+    {
+        double passbandEdgeHz = request.BandwidthHz * 0.5;
+        double nyquistHz = Math.Min(
+            intermediateSampleRateHz, request.OutputSampleRateHz) * 0.5;
+        double stopbandEdgeHz = request.StopbandBandwidthHz > 0
+            ? Math.Min(request.StopbandBandwidthHz * 0.5, nyquistHz)
+            : nyquistHz;
+        if (passbandEdgeHz >= stopbandEdgeHz)
+            throw new StandardChannelUnavailableException(
+                $"Channel '{request.Id}' bandwidth leaves no transition band at the selected rates.");
+
+        // BandwidthHz is the occupied passband width. A windowed-sinc cutoff is
+        // the transition midpoint (approximately the -6 dB point), so placing it
+        // directly at the passband edge would attenuate wanted edge frequencies.
+        return (passbandEdgeHz + stopbandEdgeHz) * 0.5;
     }
 
     internal static (int Coarse, int Fine) SelectDecimationFactors(
@@ -303,6 +320,10 @@ public sealed class StandardChannelProcessor
             value.CoarseOutputMaximumSampleRateHz > 0 && value.CoarseOutputMinimumSampleRateHz >
             value.CoarseOutputMaximumSampleRateHz)
             throw new ArgumentException("The coarse-stage output-rate range is invalid.", nameof(value));
+        if (value.StopbandBandwidthHz < 0 ||
+            value.StopbandBandwidthHz > 0 && value.StopbandBandwidthHz <= value.BandwidthHz)
+            throw new ArgumentException(
+                "The stopband width must be greater than the occupied passband width.", nameof(value));
     }
 
     internal sealed class SharedChannelBlock(

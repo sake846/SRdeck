@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using SRdeck.Models;
 using SRdeckPlugin.Contracts;
@@ -148,14 +148,35 @@ namespace SRdeck.ViewModels
             {
                 SpColorBarLeft = Math.Round(spectrumWidth - 5);
                 SpColorBarHeight = Math.Round(spectrumHeight);
-                for (int i = 0; i < 9; i++)
+                const double rangeDb = AppConstants.SPECTRUM_VIEW_RANGE_DB;
+                int labelIndex = 0;
+                for (int db = (int)Math.Floor(GridTopDb / 10.0) * 10; db > GridTopDb - rangeDb; db -= 10)
                 {
-                    SpectrumYLabels[i].Text = Math.Round((double)(GridTopDb - 10.0 * (i + 1))).ToString();
-                    SpectrumYLabels[i].Y = Math.Round(spectrumHeight / 10.0 * (i + 1));
-                    SpectrumYLabels[i].XRight = Math.Round(spectrumWidth - 33);
-                    SpectrumYLabels[i].TextColor = "#FFD6D6D6";
+                    if (db >= GridTopDb) continue;
+                    double y = Math.Round((GridTopDb - db) / rangeDb * spectrumHeight);
+                    if (y <= 0 || y >= spectrumHeight) continue;
+
+                    while (labelIndex >= SpectrumYLabels.Count)
+                    {
+                        SpectrumYLabels.Add(new SpectrumYLabel());
+                    }
+
+                    var label = SpectrumYLabels[labelIndex];
+                    label.Text = db.ToString();
+                    label.Y = y;
+                    label.XRight = Math.Round(spectrumWidth - 33);
+                    label.TextColor = (db % 50 == 0) ? "#FFFFFFFF" : "#FFD6D6D6";
+                    label.Visibility = Visibility.Visible;
+                    labelIndex++;
                 }
-                SyncWaterfallColorScale(radioControl, radioState, spectrumBiasAdj, waterfallBiasAdj);
+
+                for (int i = labelIndex; i < SpectrumYLabels.Count; i++)
+                {
+                    SpectrumYLabels[i].Text = "";
+                    SpectrumYLabels[i].Visibility = Visibility.Collapsed;
+                }
+
+                SyncWaterfallColorScale(radioControl, radioState, waterfallBiasAdj);
                 DebugBiasText = $"S:{spectrumBiasAdj} W:{waterfallBiasAdj}";
                 DebugPwrText = $"P_fft:{radioState.AveFftPwr:F1} P_rx:{radioState.AveRxPwr:F1} MinF:{radioState.Min2FftPwr:F1}";
             }

@@ -56,7 +56,7 @@ public partial class MainViewModel : ObservableObject
 
     public bool IsStarted => SdrControl?.IsStarted ?? false;
     public bool IsStopped => SdrControl?.IsStopped ?? true;
-    public bool IsSampleRateSelectionEnabled => IsStopped && !IsRtlDevice;
+    public bool IsSampleRateSelectionEnabled => IsStopped;
     public bool IsAnySourceActive => IsStarted;
     public bool IsSdrActive => SdrControl?.StartButtonText == "動作中";
 

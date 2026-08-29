@@ -15,7 +15,8 @@ internal readonly record struct ChannelProcessingKey(
     int CoarseOutputMinimumSampleRateHz,
     int CoarseOutputMaximumSampleRateHz,
     int MaximumFineDecimationFactor,
-    PluginChannelAccelerationPreference AccelerationPreference)
+    PluginChannelAccelerationPreference AccelerationPreference,
+    int StopbandBandwidthHz)
 {
     public static ChannelProcessingKey From(PluginChannelRequest request) => new(
         request.CenterFrequencyHz,
@@ -28,7 +29,8 @@ internal readonly record struct ChannelProcessingKey(
         request.CoarseOutputMinimumSampleRateHz,
         request.CoarseOutputMaximumSampleRateHz,
         request.MaximumFineDecimationFactor,
-        request.AccelerationPreference);
+        request.AccelerationPreference,
+        request.StopbandBandwidthHz);
 }
 
 /// <summary>

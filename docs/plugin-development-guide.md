@@ -232,7 +232,10 @@ Null実装を考慮し、DSPの成立条件として必須にしない。
 
 新規プラグインは、標準チャネルサービスが方式要件を満たす場合、周波数変換、帯域制限、レート変換を
 独自実装せず標準経路を優先する。`PluginChannelRequest`で安定要求ID、中心周波数、占有帯域幅、
-出力サンプルレート、必要なら中間レート範囲、FIRタップ数、CIC段数を宣言する。ホストは
+出力サンプルレート、必要なら中間レート範囲、FIRタップ数、CIC段数、阻止帯域の開始幅を宣言する。
+`BandwidthHz`は保持すべき占有通過帯域、`StopbandBandwidthHz`は中心周波数を挟む全幅で示す停止帯域開始位置である。
+後者はレート変換時のアンチエイリアスとチャネル分離を兼ねる基幹側フィルタの仕様であり、復調後の音声・シンボル
+フィルタの帯域を表さない。`StopbandBandwidthHz`が0なら、互換動作としてホストが出力Nyquist幅を使用する。ホストは
 `IChannelIqBlockLease`の同期した集合を`ConsumeChannelsAsync`へ配送し、実際の変換比と入力サンプル単位の群遅延を
 `AppliedChannelConfiguration`へ設定する。絶対位置は
 `ChannelIqBlockMetadata.MapOutputToSource`で復元する。

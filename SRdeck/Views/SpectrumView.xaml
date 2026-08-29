@@ -152,7 +152,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Canvas>
+                        <Canvas Visibility="{Binding Visibility}">
                             <!-- Left side -->
                             <Border Background="#40000000" CornerRadius="3" Canvas.Left="1" Canvas.Top="{Binding Y}" Padding="2,2" Margin="0,-8,0,0">
                                 <TextBlock Text="{Binding Text}" Width="24" TextAlignment="Right" Foreground="{Binding TextColor}" FontFamily="{StaticResource DisplayFontFamily}" TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType" FontSize="11" />

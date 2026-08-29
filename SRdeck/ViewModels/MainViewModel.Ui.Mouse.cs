@@ -33,6 +33,50 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private double _spectrumWheelAccumulator;
+    private double _waterfallWheelAccumulator;
+
+    [RelayCommand]
+    private void SpectrumWheel(object argument)
+    {
+        double deltaY = ExtractWheelDeltaY(argument);
+        if (Math.Abs(deltaY) < double.Epsilon) return;
+
+        _spectrumWheelAccumulator += deltaY;
+        int steps = (int)(_spectrumWheelAccumulator / 120.0);
+        if (steps != 0)
+        {
+            Display.SpectrumBiasAdj += steps;
+            _spectrumWheelAccumulator -= steps * 120.0;
+        }
+    }
+
+    [RelayCommand]
+    private void WaterfallWheel(object argument)
+    {
+        double deltaY = ExtractWheelDeltaY(argument);
+        if (Math.Abs(deltaY) < double.Epsilon) return;
+
+        _waterfallWheelAccumulator += deltaY;
+        int steps = (int)(_waterfallWheelAccumulator / 120.0);
+        if (steps != 0)
+        {
+            Display.WaterfallBiasAdj += steps;
+            _waterfallWheelAccumulator -= steps * 120.0;
+        }
+    }
+
+    private static double ExtractWheelDeltaY(object argument)
+    {
+        if (argument is Vector v) return v.Y;
+        if (argument is Tuple<Vector, Point> t) return t.Item1.Y;
+        if (argument is Tuple<Vector, Point, double> t3) return t3.Item1.Y;
+        if (argument is double d) return d;
+        if (argument is int i) return i;
+        if (argument != null && double.TryParse(argument.ToString(), out var parsed)) return parsed;
+        return 0.0;
+    }
+
     [RelayCommand]
     private void SpectrumManipulationDelta(System.Windows.Vector translation)
     {

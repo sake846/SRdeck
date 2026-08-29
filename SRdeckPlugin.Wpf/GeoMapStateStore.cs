@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -14,17 +13,18 @@ public static class GeoMapStateStore
 
     public static readonly GeoMapState DefaultJapanState = new(36.2048, 138.2529, 5.0);
 
-    public static string GetPluginDataDirectory(string mapId)
+    public static string GetPluginDataDirectory(string mapId) =>
+        GetPluginDataDirectory(mapId, null);
+
+    public static string GetPluginDataDirectory(string mapId, string? pluginsDirectory)
     {
         string safeMapId = NormalizeMapId(mapId);
-        string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        string baseDir = string.IsNullOrWhiteSpace(appData)
-            ? Path.Combine(AppContext.BaseDirectory, "SRdeck", "plugins")
-            : Path.Combine(appData, "SRdeck", "plugins");
-
-        string fullBaseDir = Path.GetFullPath(baseDir);
+        string fullBaseDir = ResolvePluginsDirectory(pluginsDirectory);
         string candidate = Path.GetFullPath(Path.Combine(fullBaseDir, safeMapId));
-        if (!candidate.StartsWith(fullBaseDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        string relative = Path.GetRelativePath(fullBaseDir, candidate);
+        if (relative == ".." ||
+            relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+            Path.IsPathRooted(relative))
         {
             throw new ArgumentException("Map ID resolves outside the plugin data directory.", nameof(mapId));
         }
@@ -32,32 +32,69 @@ public static class GeoMapStateStore
     }
 
     public static string GetStateFilePath(string mapId) =>
-        Path.Combine(GetPluginDataDirectory(mapId), "settings.json");
+        GetStateFilePath(mapId, null);
 
-    public static GeoMapState GetState(string mapId)
+    public static string GetStateFilePath(string mapId, string? pluginsDirectory) =>
+        Path.Combine(GetPluginDataDirectory(mapId, pluginsDirectory), "settings.json");
+
+    public static GeoMapState GetState(string mapId) =>
+        GetState(mapId, null);
+
+    public static GeoMapState GetState(string mapId, string? pluginsDirectory)
     {
         string key = NormalizeMapId(mapId);
+        string dataDirectory = GetPluginDataDirectory(key, pluginsDirectory);
+        string cacheKey = CreateCacheKey(dataDirectory, key);
         lock (Gate)
         {
-            if (MemoryCache.TryGetValue(key, out GeoMapState? cached) && IsValidState(cached))
+            if (MemoryCache.TryGetValue(cacheKey, out GeoMapState? cached) && IsValidState(cached))
             {
                 return cached;
             }
 
-            GeoMapState state = LoadFromFile(key);
-            MemoryCache[key] = state;
+            GeoMapState state = LoadFromFile(Path.Combine(dataDirectory, "settings.json"));
+            MemoryCache[cacheKey] = state;
+            return state;
+        }
+    }
+
+    public static GeoMapState ReloadState(string mapId) =>
+        ReloadState(mapId, null);
+
+    public static GeoMapState ReloadState(string mapId, string? pluginsDirectory)
+    {
+        string key = NormalizeMapId(mapId);
+        string dataDirectory = GetPluginDataDirectory(key, pluginsDirectory);
+        string cacheKey = CreateCacheKey(dataDirectory, key);
+        lock (Gate)
+        {
+            GeoMapState state = LoadFromFile(Path.Combine(dataDirectory, "settings.json"));
+            MemoryCache[cacheKey] = state;
             return state;
         }
     }
 
     public static void SaveState(string mapId, GeoMapState state)
     {
-        if (!IsValidState(state)) return;
+        _ = TrySaveState(mapId, state);
+    }
+
+    public static bool TrySaveState(string mapId, GeoMapState state) =>
+        TrySaveState(mapId, state, null);
+
+    public static bool TrySaveState(string mapId, GeoMapState state, string? pluginsDirectory)
+    {
+        if (!IsValidState(state)) return false;
         string key = NormalizeMapId(mapId);
+        string dataDirectory = GetPluginDataDirectory(key, pluginsDirectory);
+        string cacheKey = CreateCacheKey(dataDirectory, key);
         lock (Gate)
         {
-            MemoryCache[key] = state;
-            SaveToFile(key, state);
+            if (!SaveToFile(Path.Combine(dataDirectory, "settings.json"), state))
+                return false;
+
+            MemoryCache[cacheKey] = state;
+            return true;
         }
     }
 
@@ -81,11 +118,10 @@ public static class GeoMapStateStore
         return value;
     }
 
-    private static GeoMapState LoadFromFile(string mapId)
+    private static GeoMapState LoadFromFile(string filePath)
     {
         try
         {
-            string filePath = GetStateFilePath(mapId);
             if (File.Exists(filePath))
             {
                 string json = File.ReadAllText(filePath);
@@ -126,11 +162,11 @@ public static class GeoMapStateStore
         return DefaultJapanState;
     }
 
-    private static void SaveToFile(string mapId, GeoMapState state)
+    private static bool SaveToFile(string filePath, GeoMapState state)
     {
+        string? tempPath = null;
         try
         {
-            string filePath = GetStateFilePath(mapId);
             string? dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
@@ -169,13 +205,44 @@ public static class GeoMapStateStore
             settingsObj["MapState"] = JsonSerializer.SerializeToNode(state);
 
             string outputJson = rootNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-            string tempPath = filePath + ".tmp";
+            tempPath = filePath + ".tmp";
             File.WriteAllText(tempPath, outputJson);
             File.Move(tempPath, filePath, true);
+            return true;
         }
         catch
         {
-            // Fail silently to avoid interrupting UI interactions
+            // The UI-facing SaveState method intentionally preserves the prior
+            // best-effort behavior. Tests and other callers can use TrySaveState
+            // to observe whether the file was actually persisted.
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (tempPath is not null && File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+            catch
+            {
+                // Preserve the original save result.
+            }
         }
     }
+
+    private static string ResolvePluginsDirectory(string? pluginsDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(pluginsDirectory))
+            return Path.GetFullPath(pluginsDirectory);
+
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string baseDir = string.IsNullOrWhiteSpace(appData)
+            ? Path.Combine(AppContext.BaseDirectory, "SRdeck", "plugins")
+            : Path.Combine(appData, "SRdeck", "plugins");
+        return Path.GetFullPath(baseDir);
+    }
+
+    private static string CreateCacheKey(string dataDirectory, string mapId) =>
+        $"{dataDirectory}\0{mapId}";
 }
