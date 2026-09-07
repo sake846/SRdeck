@@ -109,7 +109,7 @@ internal static class SpectrumStatisticsCalculator
         scanMinHz = (long)Math.Round(fftBandStartHz + (double)actualSourceStart * sampleRateHz / dataLength);
         scanMaxHz = (long)Math.Round(fftBandStartHz + (double)actualSourceEnd * sampleRateHz / dataLength);
 
-        float minPower = 0f;
+        float minPower = float.PositiveInfinity;
         for (int index = statisticsStart; index < statisticsEnd; index++)
         {
             int sourceStart = (int)((long)index * dataLength / statisticsBins);
@@ -123,7 +123,9 @@ internal static class SpectrumStatisticsCalculator
             }
             if (groupMax != float.MinValue && groupMax < minPower) minPower = groupMax;
         }
-        return minPower;
+        return float.IsPositiveInfinity(minPower)
+            ? AppConstants.MIN_RSSI_DB
+            : minPower;
     }
 
     private static void SyncRssi(

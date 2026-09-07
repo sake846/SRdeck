@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using SRdeckPlugin.Contracts;
 using SRdeck.Services.Plugins;
 using CommunityToolkit.Mvvm.Messaging;
@@ -17,6 +17,7 @@ public partial class MainViewModel : ObservableObject
 
     private string? _selectedPluginId;
     [ObservableProperty] private bool _isPluginSelectionBusy;
+    [ObservableProperty] private bool _isPluginSettingsExpanded = true;
 
     public string? SelectedPluginId
     {

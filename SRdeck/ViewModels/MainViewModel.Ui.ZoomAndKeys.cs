@@ -214,61 +214,10 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Hotkey(string action)
-    {
-        RadioControl radioControl = _engine.Control;
-
-        if (action.StartsWith("Q"))
-        {
-            ApplyReceiverCommand(ReceiverCommandType.SquelchToggle, ref radioControl);
-            WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
-        }
-        else if (action.StartsWith("F"))
-        {
-            OpenFrequencyInputDialog();
-        }
-        else if (action.StartsWith("M"))
-        {
-            ApplyReceiverCommand(ReceiverCommandType.MuteToggle, ref radioControl);
-            WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
-        }
-        else if (action.StartsWith("P"))
-        {
-            ApplyReceiverCommand(ReceiverCommandType.PowerToggle, ref radioControl);
-            WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
-        }
-        else if (action.StartsWith("R"))
-        {
-            ToggleReceiver1VisibilityCommand.Execute(null);
-        }
-    }
-
-    [RelayCommand]
     private void CloseHelp() => IsHelpVisible = false;
 
     [RelayCommand]
     private void ToggleHelp() => IsHelpVisible = !IsHelpVisible;
-
-    [RelayCommand]
-    internal void ArrowKey(string direction)
-    {
-        RadioControl radioControl = _engine.Control;
-        
-        bool changed = true;
-        switch (direction)
-        {
-            case "Left": radioControl.FreqOffsetHz -= radioControl.StepHz; break;
-            case "Right": radioControl.FreqOffsetHz += radioControl.StepHz; break;
-            case "Up": radioControl.HistorySec = Math.Max(0, radioControl.HistorySec - 1); break;
-            case "Down": radioControl.HistorySec = Math.Min(GetMaxHistorySec(), radioControl.HistorySec + 1); break;
-            default: changed = false; break;
-        }
-        if (changed)
-        {
-            radioControl.ApplyPrimaryReceiverTuning();
-            WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
-        }
-    }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)] private static extern bool GetCursorPos(out Win32Point lpPoint);
     [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
@@ -276,4 +225,3 @@ public partial class MainViewModel : ObservableObject
 
     private static int GetMaxHistorySec() => AppConstants.MAX_HISTORY_SEC;
 }
-

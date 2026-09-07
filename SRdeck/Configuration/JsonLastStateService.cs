@@ -1,56 +1,21 @@
-using System.IO;
+using System;
 using System.Text.Json;
 
 namespace SRdeck.Configuration;
 
-public class JsonLastStateService : ILastStateService
+public class JsonLastStateService : ILastStateService, ISettingsPersistenceNotifications
 {
-    private readonly string _filePath = UserDataPaths.LastStatePath;
+    private readonly JsonSettingsFile<LastState> _file;
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
-    public LastState LoadLastState()
-    {
-        if (!File.Exists(_filePath))
-        {
-            return new();
-        }
+    public event Action<SettingsPersistenceIssue>? PersistenceIssue;
 
-        try
-        {
-            var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<LastState>(json) ?? new();
-        }
-        catch
-        {
-            return new();
-        }
-    }
+    public JsonLastStateService() : this(UserDataPaths.LastStatePath) { }
 
-    public void SaveLastState(LastState state)
-    {
-        try
-        {
-            var json = JsonSerializer.Serialize(state, SerializerOptions);
-            File.WriteAllText(_filePath, json);
-        }
-        catch
-        {
-            // Fail silently to avoid crashing the app
-        }
-    }
+    public JsonLastStateService(string path) =>
+        _file = new(path, SerializerOptions, SerializerOptions, issue => PersistenceIssue?.Invoke(issue));
 
-    public void BackupLastState()
-    {
-        if (File.Exists(_filePath))
-        {
-            try
-            {
-                File.Copy(_filePath, _filePath + ".bak", true);
-            }
-            catch
-            {
-                // Fail silently
-            }
-        }
-    }
+    public LastState LoadLastState() => _file.Load(createIfMissing: false);
+    public void SaveLastState(LastState state) => _file.Save(state);
+    public void BackupLastState() => _file.Backup();
 }

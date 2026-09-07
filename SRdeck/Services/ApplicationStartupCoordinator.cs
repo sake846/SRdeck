@@ -141,6 +141,7 @@ internal sealed class ApplicationStartupCoordinator
         Console.WriteLine(
             $"Startup processing warm-up: " +
             $"{Stopwatch.GetElapsedTime(processingWarmupStarted).TotalMilliseconds:F0} ms");
+        engine.ResetDiagnostics();
 
         if (!isHeadless)
         {

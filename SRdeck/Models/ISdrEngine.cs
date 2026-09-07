@@ -28,7 +28,6 @@ namespace SRdeck.Models
         double SystemDb { get; set; }
 
         event Action? StateUpdated;
-        event Action? DemodHistoryUpdated;
         event Action? DeviceRemoved;
         event Action? StreamStalled;
         event Action<string?>? OnTitleChanged;

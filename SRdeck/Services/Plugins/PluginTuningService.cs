@@ -16,13 +16,15 @@ public interface IPluginTuningServiceFactory
 public sealed class PluginTuningServiceFactory(
     Func<IPluginManager> pluginManager,
     IRadioControlStore controlStore,
-    IRadioControlUpdatePublisher updatePublisher) : IPluginTuningServiceFactory
+    IRadioControlUpdatePublisher updatePublisher,
+    Func<ISdrSampleRateController>? sampleRateController = null) : IPluginTuningServiceFactory
 {
     public IPluginTuningService Create(string pluginId) => new PluginTuningService(
         pluginId,
         pluginManager,
         controlStore,
-        updatePublisher);
+        updatePublisher,
+        sampleRateController);
 }
 
 internal sealed class PluginTuningService : IPluginTuningService
@@ -32,6 +34,7 @@ internal sealed class PluginTuningService : IPluginTuningService
     private readonly Func<IPluginManager> _pluginManager;
     private readonly IRadioControlStore _controlStore;
     private readonly IRadioControlUpdatePublisher _updatePublisher;
+    private readonly Func<ISdrSampleRateController>? _sampleRateController;
     private int _isApplyingRequest;
     private int _hasAppliedRequest;
     private PluginTuningResult _current = new(
@@ -46,19 +49,21 @@ internal sealed class PluginTuningService : IPluginTuningService
         string pluginId,
         Func<IPluginManager> pluginManager,
         IRadioControlStore controlStore,
-        IRadioControlUpdatePublisher updatePublisher)
+        IRadioControlUpdatePublisher updatePublisher,
+        Func<ISdrSampleRateController>? sampleRateController)
     {
         _pluginId = pluginId;
         _pluginManager = pluginManager;
         _controlStore = controlStore;
         _updatePublisher = updatePublisher;
+        _sampleRateController = sampleRateController;
         _controlStore.Changed += OnRadioControlChanged;
     }
 
     public PluginTuningResult Current => Volatile.Read(ref _current);
     public event EventHandler<PluginTuningResult>? AppliedConfigurationChanged;
 
-    public ValueTask<PluginTuningResult> RequestAsync(
+    public async ValueTask<PluginTuningResult> RequestAsync(
         PluginTuningRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -66,38 +71,48 @@ internal sealed class PluginTuningService : IPluginTuningService
         cancellationToken.ThrowIfCancellationRequested();
         IPluginManager manager = _pluginManager();
         if (!manager.IsPluginActive(_pluginId))
-            return ValueTask.FromResult(SetCurrent(Rejected("Only an active plugin may request tuning."), false));
+            return SetCurrent(Rejected("Only an active plugin may request tuning."), false);
         if (!TryValidate(request, out string error))
-            return ValueTask.FromResult(SetCurrent(Rejected(error), false));
+            return SetCurrent(Rejected(error), false);
 
         RadioControl before = _controlStore.Snapshot;
         int sampleRateHz = before.FsHz;
         if (sampleRateHz <= 0)
-            return ValueTask.FromResult(SetCurrent(Rejected("The host sample rate is not configured."), false));
-        if (sampleRateHz < request.MinimumSampleRateHz)
-        {
-            return ValueTask.FromResult(SetCurrent(Rejected(
-                $"The host sample rate of {sampleRateHz} Hz is below the required minimum of {request.MinimumSampleRateHz} Hz.",
-                sampleRateHz), false));
-        }
+            return SetCurrent(Rejected("The host sample rate is not configured."), false);
         long lowerEdgeHz = request.Targets.Min(target => target.FrequencyHz - target.BandwidthHz / 2L);
         long upperEdgeHz = request.Targets.Max(target => target.FrequencyHz + target.BandwidthHz / 2L);
         long requiredWidthHz = upperEdgeHz - lowerEdgeHz;
-        if (requiredWidthHz > sampleRateHz * UsableNyquistRatio * 2.0)
+        bool isAdditionalPlugin = manager.ActivePluginId is string primaryPluginId && primaryPluginId != _pluginId;
+        RadioControl preparedControl = before;
+        ISdrSampleRateController? rateController = null;
+        // Only the decoder's minimum rate may trigger an automatic RATE change.
+        // A wide selection of channels must fit that rate or be narrowed by the plugin.
+        if (sampleRateHz < request.MinimumSampleRateHz)
         {
-            return ValueTask.FromResult(SetCurrent(Rejected(
-                $"The requested {requiredWidthHz} Hz span does not fit in the {sampleRateHz} Hz sample rate.",
-                sampleRateHz), false));
+            error = $"The host sample rate of {sampleRateHz} Hz is below the required minimum of {request.MinimumSampleRateHz} Hz.";
+            // An additional plugin must not interrupt or reconfigure the primary input.
+            if (isAdditionalPlugin)
+                return SetCurrent(Rejected(error + " Change the primary input RATE first.", sampleRateHz), false);
+            rateController = _sampleRateController?.Invoke();
+            if (rateController is null ||
+                !rateController.TryPrepareSampleRate(before, request.MinimumSampleRateHz, out preparedControl, out error))
+                return SetCurrent(Rejected(error, sampleRateHz), false);
+            sampleRateHz = preparedControl.FsHz;
         }
+        if (requiredWidthHz > sampleRateHz * UsableNyquistRatio * 2.0)
+            return SetCurrent(Rejected(
+                $"The requested {requiredWidthHz} Hz span does not fit in the {sampleRateHz} Hz sample rate. " +
+                "Select fewer channels or change RATE manually.", before.FsHz), false);
+        bool sampleRateChanged = sampleRateHz != before.FsHz;
 
-        if (manager.ActivePluginId is string primaryPluginId && primaryPluginId != _pluginId)
+        if (isAdditionalPlugin)
         {
             long sharedHalfWidth = (long)(sampleRateHz * UsableNyquistRatio);
             long sharedLowerHz = before.CenterFreqHz - sharedHalfWidth;
             long sharedUpperHz = before.CenterFreqHz + sharedHalfWidth;
             if (lowerEdgeHz < sharedLowerHz || upperEdgeHz > sharedUpperHz)
-                return ValueTask.FromResult(SetCurrent(Rejected(
-                    "The additional plugin targets do not fit in the active shared passband."), false));
+                return SetCurrent(Rejected(
+                    "The additional plugin targets do not fit in the active shared passband."), false);
             var sharedResult = new PluginTuningResult(
                 request.PreferredCenterFrequencyHz == before.CenterFreqHz
                     ? PluginTuningOutcome.Accepted
@@ -109,24 +124,24 @@ internal sealed class PluginTuningService : IPluginTuningService
                 sharedUpperHz,
                 TargetFrequencyHz: before.TunedFreqHz);
             Volatile.Write(ref _hasAppliedRequest, 1);
-            return ValueTask.FromResult(SetCurrent(sharedResult, true));
+            return SetCurrent(sharedResult, true);
         }
 
         long requestedCenterFrequencyHz = ResolveCenterFrequency(request, lowerEdgeHz, upperEdgeHz, sampleRateHz);
         if (requestedCenterFrequencyHz is <= 0 or > int.MaxValue)
-            return ValueTask.FromResult(SetCurrent(Rejected("The requested center frequency is outside the host range."), false));
+            return SetCurrent(Rejected("The requested center frequency is outside the host range."), false);
 
-        RadioControl requestedControl = before;
+        RadioControl requestedControl = preparedControl;
         requestedControl.CenterFreqHz = (int)requestedCenterFrequencyHz;
         requestedControl.TunedFreqHz = (int)Math.Clamp(request.Targets[0].FrequencyHz, 0, int.MaxValue);
         requestedControl.FreqOffsetHz = requestedControl.TunedFreqHz - requestedControl.CenterFreqHz;
         requestedControl.SpanHz = request.Targets.Max(target => target.BandwidthHz);
         if (request.FrequencyStepHz is > 0) requestedControl.StepHz = request.FrequencyStepHz.Value;
 
-        bool resetMainViewZoom = requestedCenterFrequencyHz != before.CenterFreqHz &&
+        bool resetMainViewZoom = sampleRateChanged || (requestedCenterFrequencyHz != before.CenterFreqHz &&
             requestedControl.BaseMainSpanHz > 0 &&
             requestedControl.MainSpanHz > 0 &&
-            requestedControl.MainSpanHz < requestedControl.BaseMainSpanHz;
+            requestedControl.MainSpanHz < requestedControl.BaseMainSpanHz);
         if (resetMainViewZoom)
         {
             requestedControl.MainSpanHz = requestedControl.BaseMainSpanHz;
@@ -157,16 +172,25 @@ internal sealed class PluginTuningService : IPluginTuningService
         long passbandLowerHz = centerFrequencyHz - passbandHalfWidth;
         long passbandUpperHz = centerFrequencyHz + passbandHalfWidth;
         if (lowerEdgeHz < passbandLowerHz || upperEdgeHz > passbandUpperHz)
-            return ValueTask.FromResult(SetCurrent(Rejected("The requested targets do not fit in the usable passband."), false));
+            return SetCurrent(Rejected("The requested targets do not fit in the usable passband.", before.FsHz), false);
 
         RadioControl applied;
         Interlocked.Exchange(ref _isApplyingRequest, 1);
         try
         {
-            applied = _controlStore.Update(control =>
+            if (sampleRateChanged)
             {
-                return requestedControl;
-            });
+                RadioSessionStartResult change = await rateController!
+                    .ApplySampleRateAsync(requestedControl, cancellationToken).ConfigureAwait(false);
+                if (!change.Success)
+                    return SetCurrent(Rejected(change.Error ?? "The sample rate could not be changed.",
+                        _controlStore.Snapshot.FsHz), false);
+                applied = _controlStore.Snapshot;
+            }
+            else
+            {
+                applied = _controlStore.Update(_ => requestedControl);
+            }
         }
         finally
         {
@@ -174,18 +198,20 @@ internal sealed class PluginTuningService : IPluginTuningService
         }
         _updatePublisher.Publish(applied, resetMainViewZoom);
 
-        bool adjusted = request.PreferredCenterFrequencyHz.HasValue &&
-                        request.PreferredCenterFrequencyHz.Value != centerFrequencyHz;
+        bool adjusted = sampleRateChanged || (request.PreferredCenterFrequencyHz.HasValue &&
+                        request.PreferredCenterFrequencyHz.Value != centerFrequencyHz);
         var result = new PluginTuningResult(
             adjusted ? PluginTuningOutcome.Adjusted : PluginTuningOutcome.Accepted,
-            adjusted ? "The host adjusted the requested tuning profile." : "The tuning profile was applied.",
+            sampleRateChanged
+                ? $"The host increased the sample rate from {before.FsHz} Hz to {sampleRateHz} Hz to apply the tuning profile."
+                : adjusted ? "The host adjusted the requested tuning profile." : "The tuning profile was applied.",
             centerFrequencyHz,
             sampleRateHz,
             passbandLowerHz,
             passbandUpperHz,
             TargetFrequencyHz: requestedControl.TunedFreqHz);
         Volatile.Write(ref _hasAppliedRequest, 1);
-        return ValueTask.FromResult(SetCurrent(result, true));
+        return SetCurrent(result, true);
     }
 
     private void OnRadioControlChanged(object? sender, RadioControlChangedEventArgs args)

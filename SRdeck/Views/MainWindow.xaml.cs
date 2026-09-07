@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Collections.Generic;
 using SRdeck.ViewModels;
 using SRdeck.Models;
+using SRdeck.Services;
 
 namespace SRdeck.Views;
 
@@ -27,6 +28,17 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         CompositionTarget.Rendering += OnRendering;
         _viewModel.UiTick += OnUiTick;
+        this.IsVisibleChanged += (s, e) =>
+        {
+            if (!this.IsVisible && _isClosing)
+            {
+                ShutdownDiagnosticLog.Write("[UI_DISAPPEARED]", "MainWindow became INVISIBLE (Window has disappeared from screen)");
+            }
+        };
+        this.Closed += (s, e) =>
+        {
+            ShutdownDiagnosticLog.Write("[WINDOW_CLOSED]", "MainWindow.Closed event fired (Window HWND destroyed)");
+        };
         InitializeComponent();
         base.DataContext = _viewModel;
     }
@@ -42,7 +54,6 @@ public partial class MainWindow : Window
         RefreshWpfFrameRate(engine);
         SyncWindowLayoutMode(engine);
         bool hasNewRenderData = engine.HasNewRenderData;
-        bool hasNewDemodRenderData = engine.HasNewDemodRenderData;
         bool needsBackgroundRedraw = engine.NeedsBackgroundRedraw;
 
 
@@ -51,10 +62,12 @@ public partial class MainWindow : Window
 
         if (hasNewRenderData || needsBackgroundRedraw)
         {
+            using MainFftFrameLease lease = engine.AcquireMainFftFrame();
+            MainFftFrame frame = lease.Frame;
             foreach (var r in _renderables)
             {
                 if (r is not UIElement ui || !ui.IsVisible) continue;
-                r.RenderFrame(engine);
+                r.RenderFrame(engine, frame);
             }
             if (hasNewRenderData)
             {
@@ -71,11 +84,6 @@ public partial class MainWindow : Window
                 });
             }
             engine.HasNewRenderData = false;
-            engine.HasNewDemodRenderData = false;
-        }
-        else if (hasNewDemodRenderData)
-        {
-            engine.HasNewDemodRenderData = false;
         }
     }
 
@@ -241,6 +249,9 @@ public partial class MainWindow : Window
         
         e.Cancel = true;
         _isClosing = true;
+
+        ShutdownDiagnosticLog.Start("Window_Closing");
+
         // Native SDR/GPU drivers are outside managed cancellation. Keep a final
         // backstop so a driver that never returns cannot leave an invisible,
         // unkillable-looking application process behind.
@@ -249,16 +260,21 @@ public partial class MainWindow : Window
         // Realtime/high process priority is useful while receiving samples, but it
         // can starve Explorer and the desktop while shutdown waits for native
         // callbacks and worker threads. Cleanup never needs elevated priority.
-        NormalizeProcessPriorityForShutdown();
+        using (ShutdownDiagnosticLog.Scope("NormalizeProcessPriorityForShutdown"))
+        {
+            NormalizeProcessPriorityForShutdown();
+        }
 
         CompositionTarget.Rendering -= OnRendering;
         _viewModel.UiTick -= OnUiTick;
         _viewModel.UiTick -= _viewModel_UiTick;
 
-        _viewModel.ShuttingDownOverlayVisibility = Visibility.Visible;
-
-        // UI描画を確実に完了させるための待機
-        await Task.Delay(200);
+        using (ShutdownDiagnosticLog.Scope("ShowShuttingDownOverlay"))
+        {
+            _viewModel.ShuttingDownOverlayVisibility = Visibility.Visible;
+            // UI描画を確実に完了させるための待機
+            await Task.Delay(200);
+        }
 
         try
         {
@@ -266,38 +282,73 @@ public partial class MainWindow : Window
             Task? disposeTask = null;
             if (engine != null)
             {
-                _viewModel.StopAudioOutputForShutdown();
-                disposeTask = Task.Run(() => engine.Dispose());
+                using (ShutdownDiagnosticLog.Scope("StopAudioOutputForShutdown"))
+                {
+                    _viewModel.StopAudioOutputForShutdown();
+                }
+                disposeTask = Task.Run(() =>
+                {
+                    using (ShutdownDiagnosticLog.Scope("CoreEngine.Dispose (Task.Run)"))
+                    {
+                        engine.Dispose();
+                    }
+                });
             }
-            Task closeTask = _viewModel.ClosingAsync();
+            Task closeTask = Task.Run(async () =>
+            {
+                using (ShutdownDiagnosticLog.Scope("ViewModel.ClosingAsync (Task.Run)"))
+                {
+                    await _viewModel.ClosingAsync();
+                }
+            });
 
             Task cleanupTask = disposeTask != null
                 ? Task.WhenAll(disposeTask, closeTask)
                 : closeTask;
-            Task completedTask = await Task.WhenAny(
-                cleanupTask, Task.Delay(TimeSpan.FromSeconds(4)));
-            if (ReferenceEquals(completedTask, cleanupTask))
-                await cleanupTask;
-            else
-                System.Diagnostics.Debug.Print(
-                    "Shutdown cleanup exceeded four seconds; continuing with UI shutdown.");
 
-
-            // 描画リソースの破棄
-            foreach (var r in _renderables)
+            using (ShutdownDiagnosticLog.Scope("WaitCleanupTasksWith4sTimeout"))
             {
-                r.DisposeRenderer();
+                Task completedTask = await Task.WhenAny(
+                    cleanupTask, Task.Delay(TimeSpan.FromSeconds(4)));
+                if (ReferenceEquals(completedTask, cleanupTask))
+                {
+                    await cleanupTask;
+                    ShutdownDiagnosticLog.Write("Cleanup tasks completed successfully within 4 seconds.");
+                }
+                else
+                {
+                    ShutdownDiagnosticLog.Write("WARNING: Cleanup tasks timed out after 4 seconds! Background tasks may still be running.");
+                    System.Diagnostics.Debug.Print(
+                        "Shutdown cleanup exceeded four seconds; continuing with UI shutdown.");
+                }
             }
 
-            try { SRdeck.Renderers.D3DImageInterop.ForceReleaseSharedDevice(); } catch { }
-            try { SRdeck.Renderers.NativeGpuDrawApi.Shutdown(); } catch { }
+            // 描画リソースの破棄
+            using (ShutdownDiagnosticLog.Scope("DisposeRenderers"))
+            {
+                foreach (var r in _renderables)
+                {
+                    r.DisposeRenderer();
+                }
+            }
+
+            using (ShutdownDiagnosticLog.Scope("D3DImageInterop.ForceReleaseSharedDevice"))
+            {
+                try { SRdeck.Renderers.D3DImageInterop.ForceReleaseSharedDevice(); } catch { }
+            }
+            using (ShutdownDiagnosticLog.Scope("NativeGpuDrawApi.Shutdown"))
+            {
+                try { SRdeck.Renderers.NativeGpuDrawApi.Shutdown(); } catch { }
+            }
         }
         catch (Exception ex)
         {
+            ShutdownDiagnosticLog.Write("ERROR during shutdown cleanup", ex.ToString());
             System.Diagnostics.Debug.Print($"Shutdown Error: {ex.Message}");
         }
         finally
         {
+            ShutdownDiagnosticLog.Write("Calling Application.Current.Shutdown() - Window will now close/disappear");
             // 全てのクリーンアップが完了したら、正常終了させる
             Application.Current.Shutdown();
         }
@@ -306,7 +357,8 @@ public partial class MainWindow : Window
     private static async Task ForceExitIfShutdownStallsAsync()
     {
         await Task.Delay(TimeSpan.FromSeconds(8)).ConfigureAwait(false);
-        Environment.Exit(0);
+        ShutdownDiagnosticLog.LogSafetyTimerTriggered();
+        ShutdownDiagnosticLog.FastExit(0);
     }
 
     private static void NormalizeProcessPriorityForShutdown()

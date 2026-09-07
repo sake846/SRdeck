@@ -1,6 +1,6 @@
 # 公式プラグイン一覧
 
-公開版の`with-plugins`パッケージには、次の8プラグインが含まれます。リリースごとの正確な同梱物はZIP内の`PACKAGE-MANIFEST.json`を確認してください。
+公開版の`with-plugins`パッケージには、次の11プラグインが含まれます。リリースごとの正確な同梱物はZIP内の`PACKAGE-MANIFEST.json`を確認してください。
 
 ## 一覧
 
@@ -10,6 +10,9 @@
 | `adsb` | ADS-B | 1090 MHz Mode S DF17／DF18 | ICAO、Callsign、高度、速度、CPR位置 | [ADS-B](Plugins-AdsB) |
 | `ais` | AIS | 161.975／162.025 MHz、GMSK | MMSI、船名、位置、速度、航跡 | [AIS](Plugins-Ais) |
 | `analog` | アナログ復調 | AM、FM、USB／LSB | 48 kHz PCM音声、信号診断 | [アナログ復調](Plugins-Analog) |
+| `cw` | CW Skimmer | 10／20／50 kHz帯域のCW | モールス復号、Callsign、SNR、注釈 | [CW Skimmer](Plugins-Cw) |
+| `maritime-vhf` | 国際VHF | VHF音声NFM、CH 70 DSC | 音声、DSC履歴、作業CH自動追尾 | [国際VHF](Plugins-Maritime-VHF) |
+| `hffax` | HF-FAX | HF気象無線模写、F3C | グレースケール画像、PNG、同期診断 | [HF-FAX](Plugins-HfFax) |
 | `ft8` | FT8 | FT8、FT4、JT65A | Callsign、Locator、SNR、メッセージ | [FT8／FT4／JT65A](Plugins-Ft8) |
 | `hfdl` | HFDL | HF Data Link、BPSK／QPSK／8PSK | SPDU／LPDU、Flight ID、位置、Payload | [HFDL](Plugins-Hfdl) |
 | `vdl` | VDL Mode 2 | 136.725～136.975 MHz、D8PSK | AVLC、ACARS上位層、Callsign、位置 | [VDL Mode 2](Plugins-Vdl) |
@@ -32,11 +35,15 @@
 
 ### 船舶を観測したい
 
-[AIS](Plugins-Ais)はAIS 1とAIS 2を同時に監視し、船舶／局を一覧と地図へ集約します。VHF海上帯に適したアンテナと見通しが重要です。
+[国際VHF](Plugins-Maritime-VHF)は音声を受信しながらDSC CH 70を監視し、有効な呼出の作業CHへ自動追尾します。[AIS](Plugins-Ais)はAIS 1とAIS 2を同時に監視し、船舶／局を一覧と地図へ集約します。用途に応じて別々のプラグインを選んでください。VHF海上帯に適したアンテナと見通しが重要です。
 
-### 弱信号通信を観測したい
+### 弱信号通信やモールス通信を観測したい
 
-[FT8／FT4／JT65A](Plugins-Ft8)を使います。UTCスロットに同期するため、PC時計の正確さと、選択モードに対応するバンド設定が重要です。
+デジタル弱信号方式には[FT8／FT4／JT65A](Plugins-Ft8)、帯域内の複数のモールス信号には[CW Skimmer](Plugins-Cw)を使います。FT8系はUTCスロットに同期するため、PC時計の正確さと、選択モードに対応するバンド設定が重要です。
+
+### HF気象ファクシミリを受信したい
+
+[HF-FAX](Plugins-HfFax)はAPT開始／停止を検出し、IOC 576／288、60／90／120 LPMの画像を生成してPNGへ保存します。放送局の周波数とスケジュール、短波伝搬を確認してください。
 
 ### 920 MHz帯のデータを解析したい
 
@@ -60,11 +67,11 @@ Wi-SUNは`概要`、`一覧`、`時系列`、`診断`、Analogは`概要`と`診
 
 ACARS、ADS-B、AIS、FT8、HFDL、VDL Mode 2は復号履歴をJSONLへ保持し、CSV／JSONエクスポートを提供します。Wi-SUNもCSV／JSONエクスポートに対応します。保存先、最大件数、フィールドは方式ごとに異なります。
 
-IQプリトリガーキャプチャはACARS、ADS-B、Analog、FT8、HFDL、VDL Mode 2で利用できます。詳細は[音声出力とIQキャプチャ](Audio-and-Recording)を参照してください。
+IQプリトリガーキャプチャはACARS、ADS-B、Analog、CW Skimmer、FT8、HFDL、VDL Mode 2で利用できます。詳細は[音声出力とIQキャプチャ](Audio-and-Recording)を参照してください。
 
 ## ソース公開・バイナリ配布対象外
 
-[Meshtastic](Plugins-Meshtastic)は`SRdeckPlugins`ソーススナップショットへ含まれますが、公式SRdeck実行ZIPへDLLを含めません。ソースツリーにある他の開発中／任意配布モジュールも、`PACKAGE-MANIFEST.json`にない限り公式パッケージの一部ではありません。
+[Meshtastic](Plugins-Meshtastic)と[ワンセグ](Plugins-OneSeg)は`SRdeckPlugins`ソーススナップショットへ含まれますが、公式SRdeck実行ZIPへDLLを含めません。ソースツリーにある他の開発中／任意配布モジュールも、`PACKAGE-MANIFEST.json`にない限り公式パッケージの一部ではありません。
 
 ## 受信時の共通注意
 
@@ -73,3 +80,7 @@ IQプリトリガーキャプチャはACARS、ADS-B、Analog、FT8、HFDL、VDL 
 - RATEは必要帯域が収まる最小値から始める
 - ゲインを上げすぎず、オーバーレイ全体が帯域内にあることを確認する
 - 結果が出ないときは`診断`を入力から順に読む
+
+---
+- **関連ガイド:** [プラグイン管理](Plugin-Management) / [音声出力とIQキャプチャ](Audio-and-Recording)
+- **個別プラグイン:** [ACARS](Plugins-Acars) | [ADS-B](Plugins-AdsB) | [AIS](Plugins-Ais) | [国際VHF](Plugins-Maritime-VHF) | [Analog](Plugins-Analog) | [CW](Plugins-Cw) | [HF-FAX](Plugins-HfFax) | [FT8](Plugins-Ft8) | [HFDL](Plugins-Hfdl) | [VDL2](Plugins-Vdl) | [Wi-SUN](Plugins-WiSun)

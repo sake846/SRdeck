@@ -1,7 +1,6 @@
 using System;
 using SRdeck.DSP;
 using SRdeck.Models;
-using SRdeck.Models.SDR;
 
 namespace SRdeck.Services;
 
@@ -14,11 +13,6 @@ public interface ISignalBufferManager
     IqBufferCapacityResult EnsureIqBufferCapacity(
         IqSampleRingBuffer currentBuffer,
         int sampleRateHz);
-
-    bool EnsureDemodulationCapacity(
-        RadioState state,
-        int sampleRateHz,
-        SdrDeviceCapabilities deviceCapabilities);
 
     int GetMaxAvailableHistorySeconds(
         int bufferSize,
@@ -45,30 +39,6 @@ public sealed class SignalBufferManager : ISignalBufferManager
         return currentBuffer.Capacity == requiredCapacity
             ? new IqBufferCapacityResult(currentBuffer, false)
             : new IqBufferCapacityResult(new IqSampleRingBuffer(requiredCapacity), true);
-    }
-
-    public bool EnsureDemodulationCapacity(
-        RadioState state,
-        int sampleRateHz,
-        SdrDeviceCapabilities deviceCapabilities)
-    {
-        int effectiveSampleRateHz = Math.Max(1, sampleRateHz);
-        bool usesExpandedBuffer = SdrDevicePolicy.UsesExpandedDemodulationBuffer(
-            deviceCapabilities,
-            effectiveSampleRateHz);
-        int requiredSamplesPerBlock = effectiveSampleRateHz / 10 * (usesExpandedBuffer ? 2 : 1);
-
-        bool needsResize =
-            state.BasebandIData.Length != requiredSamplesPerBlock ||
-            state.BasebandQData.Length != requiredSamplesPerBlock;
-        if (!needsResize)
-        {
-            return false;
-        }
-
-        state.BasebandIData = new int[requiredSamplesPerBlock];
-        state.BasebandQData = new int[requiredSamplesPerBlock];
-        return true;
     }
 
     public int GetMaxAvailableHistorySeconds(

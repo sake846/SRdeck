@@ -12,6 +12,7 @@ using System;
 using SRdeck.DSP;
 using SRdeck.Messages;
 using CommunityToolkit.Mvvm.Messaging;
+using SRdeck.Services;
 
 namespace SRdeck.Views
 {
@@ -103,7 +104,7 @@ namespace SRdeck.Views
             this.IsVisibleChanged += (s, e) => { };
         }
 
-        public void RenderFrame(IRadioRenderContext engine)
+        public void RenderFrame(IRadioRenderContext engine, MainFftFrame frame)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             float displayBw = 7000000f;
@@ -127,10 +128,10 @@ namespace SRdeck.Views
             bool hasValidFftData = engine.HasValidMainFftData;
             if (_useGpuPath && _gpuPresenter != null && _gpuPresenter.IsReady)
             {
-                if (hasActiveSource && hasValidFftData && engine.SpectrumFftData != null && engine.SpectrumFftData.Length > 0)
+                if (hasActiveSource && hasValidFftData && frame.SpectrumData.Length > 0)
                 {
                     double anchorRelHz = gridAnchorEnabled ? gridAnchorFrequencyHz - engine.Control.CenterFreqHz : 0.0;
-                    _gpuPresenter.Render(engine.SpectrumFftData, engine.Control, _renderer.GridTopDb, _renderer.RfCalOffset, displayBw, gridAnchorEnabled, anchorRelHz, gridAnchorRatio, engine.MainFftCenterFreqHz);
+                    _gpuPresenter.Render(frame.SpectrumData, engine.Control, _renderer.GridTopDb, _renderer.RfCalOffset, displayBw, gridAnchorEnabled, anchorRelHz, gridAnchorRatio, ResolveCenterFrequency(engine, frame));
                     _hasRenderedLiveFrame = true;
                 }
                 else if (!_hasRenderedLiveFrame)
@@ -152,6 +153,11 @@ namespace SRdeck.Views
                 d.WpfGpuInitSp = _gpuPresenter?.LastInitStatus ?? -999;
             });
         }
+
+        private static int ResolveCenterFrequency(IRadioRenderContext engine, MainFftFrame frame) =>
+            (engine.IsSdrRunning || engine.IsPlaying) && frame.CenterFrequencyHz > 0
+                ? frame.CenterFrequencyHz
+                : engine.Control.CenterFreqHz;
 
         private void TryEnsureGpuReady()
         {

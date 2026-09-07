@@ -12,95 +12,26 @@ namespace SRdeck.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    // --- appsettings.json Power Settings ---
-    [ObservableProperty] private bool _isPreventSleepOnAc;
-    [ObservableProperty] private bool _isPreventSleepOnBattery;
-    [ObservableProperty] private bool _isDisableWpfRenderingOnServer;
-    [ObservableProperty] private bool _isResidualDcRemovalEnabled;
-
-    partial void OnIsResidualDcRemovalEnabledChanged(bool value)
-    {
-        if (_engine?.InitialAppSettings == null) return;
-        _engine.InitialAppSettings.SignalProcessing.ResidualDcRemovalEnabled = value;
-        _engine.ResidualDcRemovalEnabled = value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-    }
-
-    partial void OnIsPreventSleepOnAcChanged(bool value)
-    {
-        if (_engine?.InitialAppSettings?.Power == null) return;
-        _engine.InitialAppSettings.Power.PreventSleepOnAc = value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        SyncSleepPrevention();
-    }
-
-    partial void OnIsPreventSleepOnBatteryChanged(bool value)
-    {
-        if (_engine?.InitialAppSettings?.Power == null) return;
-        _engine.InitialAppSettings.Power.PreventSleepOnBattery = value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        SyncSleepPrevention();
-    }
-
-
-    public bool IsCompactWpfMode => IsDisableWpfRenderingOnServer;
-
-    partial void OnIsDisableWpfRenderingOnServerChanged(bool value)
-    {
-        if (_engine?.InitialAppSettings?.Power == null) return;
-        _engine.InitialAppSettings.Power.DisableWpfRenderingOnServer = value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        OnPropertyChanged(nameof(IsCompactWpfMode));
-    }
+    // Existing bindings delegate to the separately owned application preferences.
+    public bool IsPreventSleepOnAc { get => ApplicationSettings.IsPreventSleepOnAc; set => ApplicationSettings.IsPreventSleepOnAc = value; }
+    public bool IsPreventSleepOnBattery { get => ApplicationSettings.IsPreventSleepOnBattery; set => ApplicationSettings.IsPreventSleepOnBattery = value; }
+    public bool IsDisableWpfRenderingOnServer { get => ApplicationSettings.IsDisableWpfRenderingOnServer; set => ApplicationSettings.IsDisableWpfRenderingOnServer = value; }
+    public bool IsResidualDcRemovalEnabled { get => ApplicationSettings.IsResidualDcRemovalEnabled; set => ApplicationSettings.IsResidualDcRemovalEnabled = value; }
+    public bool IsCompactWpfMode => ApplicationSettings.IsDisableWpfRenderingOnServer;
+    public SettingsComboBoxOption<PluginChannelAccelerationPreference>? SelectedDemodLightGpu { get => ApplicationSettings.SelectedDemodLightGpu; set => ApplicationSettings.SelectedDemodLightGpu = value; }
+    public SettingsComboBoxOption<PluginChannelAccelerationPreference>? SelectedDemodStandardGpu { get => ApplicationSettings.SelectedDemodStandardGpu; set => ApplicationSettings.SelectedDemodStandardGpu = value; }
+    public SettingsComboBoxOption<PluginChannelAccelerationPreference>? SelectedDemodHeavyGpu { get => ApplicationSettings.SelectedDemodHeavyGpu; set => ApplicationSettings.SelectedDemodHeavyGpu = value; }
+    public SettingsComboBoxOption<string?>? SelectedProcessPriority { get => ApplicationSettings.SelectedProcessPriority; set => ApplicationSettings.SelectedProcessPriority = value; }
+    public SettingsComboBoxOption<string?>? StartupProcessPriority { get => ApplicationSettings.StartupProcessPriority; set => ApplicationSettings.StartupProcessPriority = value; }
+    public string Language { get => ApplicationSettings.Language; set => ApplicationSettings.Language = value; }
 
     // --- ComboBox Selections & Persistent Settings ---
     [ObservableProperty] private SettingsComboBoxOption<float?>? _selectedGridTopDb;
     [ObservableProperty] private SettingsComboBoxOption<int?>? _selectedDebugDraw;
     [ObservableProperty] private SettingsComboBoxOption<FrequencyDisplayMode?>? _selectedFrequencyDisplayMode;
     [ObservableProperty] private SettingsComboBoxOption<bool?>? _selectedIsGpuFftEnabled;
-    [ObservableProperty] private SettingsComboBoxOption<PluginChannelAccelerationPreference>? _selectedDemodLightGpu;
-    [ObservableProperty] private SettingsComboBoxOption<PluginChannelAccelerationPreference>? _selectedDemodStandardGpu;
-    [ObservableProperty] private SettingsComboBoxOption<PluginChannelAccelerationPreference>? _selectedDemodHeavyGpu;
     [ObservableProperty] private SettingsComboBoxOption<int?>? _selectedFftResolutionMode;
-    [ObservableProperty] private SettingsComboBoxOption<string?>? _selectedProcessPriority;
-    [ObservableProperty] private SettingsComboBoxOption<string?>? _startupProcessPriority;
     [ObservableProperty] private SettingsComboBoxOption<SdrDeviceType>? _selectedSdrDeviceType;
-
-    partial void OnSelectedDemodLightGpuChanged(SettingsComboBoxOption<PluginChannelAccelerationPreference>? value)
-    {
-        if (value == null || _engine?.InitialAppSettings?.Demodulation == null) return;
-        _engine.InitialAppSettings.Demodulation.LightWorkloadPreference = value.Value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        SyncDemodWorkloadPreferences();
-    }
-
-    partial void OnSelectedDemodStandardGpuChanged(SettingsComboBoxOption<PluginChannelAccelerationPreference>? value)
-    {
-        if (value == null || _engine?.InitialAppSettings?.Demodulation == null) return;
-        _engine.InitialAppSettings.Demodulation.StandardWorkloadPreference = value.Value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        SyncDemodWorkloadPreferences();
-    }
-
-    partial void OnSelectedDemodHeavyGpuChanged(SettingsComboBoxOption<PluginChannelAccelerationPreference>? value)
-    {
-        if (value == null || _engine?.InitialAppSettings?.Demodulation == null) return;
-        _engine.InitialAppSettings.Demodulation.HeavyWorkloadPreference = value.Value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        SyncDemodWorkloadPreferences();
-    }
-
-    private void SyncDemodWorkloadPreferences()
-    {
-        if (_engine?.InitialAppSettings?.Demodulation == null) return;
-        var demod = _engine.InitialAppSettings.Demodulation;
-        _engine.SetWorkloadAccelerationPreferences(
-            demod.LightWorkloadPreference,
-            demod.StandardWorkloadPreference,
-            demod.HeavyWorkloadPreference);
-    }
-
-    [ObservableProperty] private string _language = "ja";
 
     partial void OnSelectedSdrDeviceTypeChanged(SettingsComboBoxOption<SdrDeviceType>? value)
     {
@@ -175,86 +106,79 @@ public partial class MainViewModel : ObservableObject
 
 
 
-    partial void OnSelectedProcessPriorityChanged(SettingsComboBoxOption<string?>? value)
-    {
-        if (_lastState == null) return;
-        _lastState.ProcessPriority = value?.Value;
-        _lastStateService.SaveLastState(_lastState);
-        SyncProcessPriorityToOs(value?.Value);
-    }
- 
-    partial void OnStartupProcessPriorityChanged(SettingsComboBoxOption<string?>? value)
-    {
-        if (_engine?.InitialAppSettings?.Power == null) return;
-        _engine.InitialAppSettings.Power.ProcessPriority = value?.Value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        if (!string.IsNullOrWhiteSpace(value?.Value))
-        {
-            SyncProcessPriorityToOs(value.Value);
-        }
-    }
-
-    private void SyncProcessPriorityToOs(string? priorityStr)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(priorityStr)) return;
-            var process = System.Diagnostics.Process.GetCurrentProcess();
-            switch (priorityStr.ToLowerInvariant())
-            {
-                case "normal": process.PriorityClass = System.Diagnostics.ProcessPriorityClass.Normal; break;
-                case "abovenormal": process.PriorityClass = System.Diagnostics.ProcessPriorityClass.AboveNormal; break;
-                case "high": process.PriorityClass = System.Diagnostics.ProcessPriorityClass.High; break;
-                case "realtime": process.PriorityClass = System.Diagnostics.ProcessPriorityClass.RealTime; break;
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Failed to set process priority: {ex.Message}");
-        }
-    }
-
-    partial void OnLanguageChanged(string value)
-    {
-        if (string.IsNullOrEmpty(value) || _engine?.InitialAppSettings == null) return;
-        _engine.InitialAppSettings.Language = value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
-        SyncWpfLanguageResource(value);
-        RefreshSdrPlayNotchOptions();
-    }
-
-    [ObservableProperty] private int _sdrPlaySampleRateHz;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveBitDepthText))]
+    private int _sdrPlaySampleRateHz;
     private bool _isSynchronizingSampleRateSelection;
+
+    public string EffectiveBitDepthText => GetEffectiveBitDepthText();
+
+    private string GetEffectiveBitDepthText()
+    {
+        if (IsRtlDevice)
+        {
+            return "有効 8 bit";
+        }
+
+        int sampleRate = SdrPlaySampleRateHz > 0 ? SdrPlaySampleRateHz : 6_000_000;
+        if (sampleRate < 2_000_000)
+        {
+            return "有効 14 bit以上";
+        }
+        if (sampleRate <= 6_048_000)
+        {
+            return "有効 14 bit";
+        }
+        if (sampleRate <= 8_064_000)
+        {
+            return "有効 12 bit";
+        }
+        if (sampleRate <= 9_216_000)
+        {
+            return "有効 10 bit";
+        }
+        return "有効 8 bit";
+    }
 
     public record SampleRateOption(string Label, int Value);
     public ObservableCollection<SampleRateOption> SampleRateOptions { get; } = new();
 
     public void UpdateSampleRateOptions()
     {
-        SampleRateOptions.Clear();
-        if (IsRtlDevice)
+        int previousSampleRateHz = SdrPlaySampleRateHz;
+        bool wasSynchronizing = _isSynchronizingSampleRateSelection;
+        _isSynchronizingSampleRateSelection = true;
+        try
         {
-            SampleRateOptions.Add(new SampleRateOption("2 MS/s", 2000000));
-            SampleRateOptions.Add(new SampleRateOption("2.4 MS/s", 2400000));
+            SampleRateOptions.Clear();
+            foreach (int sampleRateHz in SdrSampleRatePolicy.GetSupportedRates(IsRtlDevice))
+            {
+                SampleRateOptions.Add(new SampleRateOption(
+                    FormattableString.Invariant($"{sampleRateHz / 1_000_000.0:0.#} MS/s"), sampleRateHz));
+            }
         }
-        else
+        finally
         {
-            SampleRateOptions.Add(new SampleRateOption("1.6 MS/s", 1600000));
-            SampleRateOptions.Add(new SampleRateOption("2 MS/s", 2000000));
-            SampleRateOptions.Add(new SampleRateOption("4 MS/s", 4000000));
-            SampleRateOptions.Add(new SampleRateOption("6 MS/s", 6000000));
-            SampleRateOptions.Add(new SampleRateOption("8 MS/s", 8000000));
-            SampleRateOptions.Add(new SampleRateOption("10 MS/s", 10000000));
+            // Clearing a bound ComboBox can write an empty selection back to us.
+            SdrPlaySampleRateHz = previousSampleRateHz;
+            _isSynchronizingSampleRateSelection = wasSynchronizing;
         }
+        // Zero means settings have not been loaded yet during construction.
+        if (previousSampleRateHz > 0)
+        {
+            SdrPlaySampleRateHz = NormalizeSampleRateForDevice(previousSampleRateHz, IsRtlDevice);
+        }
+        // Re-select even when the value did not change but the items were replaced.
+        OnPropertyChanged(nameof(SdrPlaySampleRateHz));
     }
 
     partial void OnSdrPlaySampleRateHzChanged(int value)
     {
         if (_isSynchronizingSampleRateSelection || _engine?.InitialAppSettings == null) return;
-        value = NormalizeSdrPlaySampleRate(value);
-        if (IsRtlDevice && value is not (2_000_000 or 2_400_000))
+        int normalizedValue = NormalizeSampleRateForDevice(value, IsRtlDevice);
+        if (value != normalizedValue)
         {
-            SdrPlaySampleRateHz = 2_000_000;
+            SdrPlaySampleRateHz = normalizedValue;
             return;
         }
         bool settingsChanged = _engine.InitialAppSettings.SdrPlaySampleRateHz != value;
@@ -294,9 +218,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void SyncSampleRateSelectionFromAppliedControl(int sampleRateHz)
+    internal void SyncSampleRateSelectionFromAppliedControl(int sampleRateHz)
     {
-        if (sampleRateHz <= 0 || NormalizeSdrPlaySampleRate(sampleRateHz) != sampleRateHz ||
+        if (sampleRateHz <= 0 || NormalizeSampleRateForDevice(sampleRateHz, IsRtlDevice) != sampleRateHz ||
             SdrPlaySampleRateHz == sampleRateHz)
         {
             return;
@@ -311,6 +235,8 @@ public partial class MainViewModel : ObservableObject
         {
             _isSynchronizingSampleRateSelection = false;
         }
+        if (!_engine.IsPlaying && _engine.SdrDevice?.FsHz == sampleRateHz)
+            SyncMainSpanOptionsToFs(sampleRateHz, IsRtlDevice, selectFullSpan: true);
     }
 }
 

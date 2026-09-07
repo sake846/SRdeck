@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using SRdeck.Configuration;
 using SRdeck.DSP;
 using SRdeck.Models.SDR;
+using SRdeck.Services;
 
 namespace SRdeck.Models;
 
@@ -41,13 +42,10 @@ public interface IRadioRenderContext : IRadioStateContext, IRadioDeviceContext
 {
     bool NeedsBackgroundRedraw { get; set; }
     bool HasNewRenderData { get; set; }
-    bool HasNewDemodRenderData { get; set; }
     bool HasValidMainFftData { get; set; }
     int RenderFrameSerial { get; set; }
     int MainFftCenterFreqHz { get; }
-    long WaterfallBlockSequence { get; set; }
-    float[] SpectrumFftData { get; set; }
-    float[] WaterfallFftData { get; set; }
+    MainFftFrameLease AcquireMainFftFrame();
     IqSampleRingBuffer IqBuffer { get; }
     IFftProcessor? FftProcessor { get; }
     int LatestBufferPointer { get; }

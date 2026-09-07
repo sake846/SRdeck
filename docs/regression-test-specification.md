@@ -5,11 +5,12 @@
 この文書は、ホスト、公開プラグイン契約、SDK、共通信号処理、および各プラグインに共通する
 回帰試験の設計、実行区分、合格条件、更新規則を定義する。
 
-実行対象の全件一覧と件数は `SRdeck.Tests/Program.cs` の登録配列を正本とする。
+実行対象の回帰試験名、関数、実行順は `SRdeck.Tests/RegressionTestCatalog.cs` の登録一覧を正本とする。
+`RegressionSuite`が各項目をxUnit.net v3の個別Theoryケースとして公開する。
 変動する試験名、件数、個別方式のベクトル一覧を本書へ複製しない。現在の一覧は次で取得する。
 
 ```powershell
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build -- --list-tests
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build --list-tests
 ```
 
 ここでいう回帰試験は、原則として実SDR機器、外部ネットワーク、PCの現在時刻に依存せず、
@@ -20,7 +21,8 @@ dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build -- -
 
 | 情報 | 正本 |
 |---|---|
-| 実行する試験名、件数、実行関数 | `SRdeck.Tests/Program.cs` |
+| 回帰試験名、実行順、実行関数 | `SRdeck.Tests/RegressionTestCatalog.cs` |
+| 検出される全試験と件数 | `dotnet test --list-tests` |
 | 公開APIの型とメンバー | `SRdeckPlugin.Contracts` |
 | 契約の意味と適合条件 | `docs/plugin-interface-specification.md` |
 | 横断試験の設計規約 | 本書 |
@@ -73,11 +75,31 @@ Releaseの合否に代用しない。
 
 ### 3.4 隔離
 
-標準ランナーは各試験を独立した子プロセスで実行し、試験ごとに一時ディレクトリを分離する。
+xUnitの`RegressionSuite`は各回帰試験を独立した子プロセスで実行し、試験ごとに一時ディレクトリを分離する。
+登録順に直列実行し、試験が失敗しても後続試験を実行する。
 静的状態、バックグラウンドスレッド、履歴ファイル、環境変数の変更を後続試験へ残さない。
 
 既定の試験時間上限は60秒とする。超過した子プロセスはプロセスツリーごと終了し、
-`TIMEOUT` として失敗を報告する。タイムアウトの延長でデッドロックや未解放資源を隠してはならない。
+xUnitの失敗として`TIMEOUT`を報告する。キャンセル時も子プロセスツリーを終了する。
+タイムアウトの延長でデッドロックや未解放資源を隠してはならない。
+
+### 3.5 未実行とGPU検証
+
+xUnitはPassed、Skipped、Failedを区別し、時間上限超過は`TIMEOUT`を含むFailedとして報告する。
+GPUが利用できない試験は理由付きのSkippedとし、未実行を成功件数に含めない。
+隔離ワーカーの内部プロトコルでは未実行終了コード77を使用する。
+不正なフィルターや対象0件の選択を成功扱いにしない。`dotnet test`ではプロジェクトの
+`test.runsettings`により`TreatNoTestsAsError`を有効にする。
+
+GPU搭載環境では次を実行する。`SRDECK_TEST_REQUIRE_GPU=1`は子プロセスにも引き継がれ、GPU不足による未実行を失敗にする。
+
+```powershell
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build --filter "Category=GPU" --environment SRDECK_TEST_REQUIRE_GPU=1
+```
+
+`.github/workflows/gpu-validation.yml` は手動実行専用。GPUドライバー、C++ビルドツール、CMakeを備え、
+`self-hosted`、`Windows`、`X64`、`srdeck-gpu` のラベルを持つランナーを登録してから実行する。
+通常のPR用CIはこの専用ランナーを待たない。ワークフローの追加だけで実GPU検証済みとはみなさない。
 
 ## 4. 横断試験マトリクス
 
@@ -197,14 +219,14 @@ P区分では、機能正しさを別試験で確認したうえで次を測定�
 ```powershell
 dotnet restore SRdeck.sln
 dotnet build SRdeck.sln -c Release --no-restore
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build --logger trx
 ```
 
 部分実行と時間上限変更の例:
 
 ```powershell
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build -- --filter "Plugin lifecycle"
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build -- --timeout-seconds 120
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build --filter "DisplayName~Plugin lifecycle"
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build --environment SRDECK_TEST_TIMEOUT_SECONDS=120
 ```
 
 性能失敗時は、実行構成、CPU／GPU、並列負荷、中央値、p95、基準値を報告する。
@@ -214,13 +236,13 @@ dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build -- -
 
 新しい振る舞いまたは不具合修正を追加するときは、次を同時に確認する。
 
-1. ランナーへの一意な試験名と実行関数の登録
+1. `RegressionTestCatalog.cs`への一意な試験名と実行関数の登録
 2. 固定入力、合成IQ、テストダブルの前提条件
 3. 単一の主目的と、失敗時に判断できるアサートメッセージ
 4. 正常、境界、例外、キャンセル、後処理のうち必要な経路
 5. 性能試験の場合はRelease限定の根拠、入力条件、基準値
 6. 方式固有情報を横断文書へ追加せず、所有プラグイン側へ記録したこと
-7. `--list-tests` で新しい試験が表示され、フィルターで単独実行できること
+7. `dotnet test --list-tests`で新しい試験が表示され、`--filter "DisplayName=試験名"`で単独実行できること
 
 一つの試験が複数の主目的を持つようになった場合は分割する。登録配列から削除した試験を文書だけに残さず、
 文書上の固定件数や手書きカタログを再導入しない。

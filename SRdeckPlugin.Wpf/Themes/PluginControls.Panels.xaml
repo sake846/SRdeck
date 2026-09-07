@@ -37,15 +37,258 @@
     <Style x:Key="PluginSelectorTextStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="{DynamicResource MainFontFamily}" />
-        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Header-specific ComboBox style with 25px height and 12.5px corner radius -->
+    <Style x:Key="PluginHeaderComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource RaisedPanelBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#1EFFFFFF" Offset="0" />
+                    <GradientStop Color="#0FFFFFFF" Offset="0.5" />
+                    <GradientStop Color="#00FFFFFF" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Height" Value="25" />
+        <Setter Property="MinHeight" Value="25" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="FontFamily" Value="{DynamicResource MainFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid x:Name="MainGrid" Height="25" SnapsToDevicePixels="True">
+                        <ToggleButton x:Name="ToggleButton"
+                                      Height="25"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                      Focusable="False"
+                                      ClickMode="Press">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Grid Height="25">
+                                        <Border Margin="-1" CornerRadius="13" Background="#FF000000" Opacity="0.4" />
+                                        <Border x:Name="ActiveGrooveGlow" Margin="-1" CornerRadius="13" Background="{DynamicResource LedYellowGreenBrush}" Opacity="0">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="{DynamicResource LedYellowGreen}" BlurRadius="5" ShadowDepth="0" Opacity="0.65" />
+                                            </Border.Effect>
+                                        </Border>
+                                        <Border x:Name="HoverGrooveGlow" Margin="-1" CornerRadius="13" Background="White" Opacity="0">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="White" BlurRadius="5" ShadowDepth="0" Opacity="0.55" />
+                                            </Border.Effect>
+                                        </Border>
+                                        <Border x:Name="Border" Height="25" CornerRadius="12.5" Background="{TemplateBinding Background}" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}">
+                                            <Grid Height="25">
+                                                <Border x:Name="Gloss" CornerRadius="12.5,12.5,4,4" VerticalAlignment="Top" Height="11" Margin="1,1,1,0" Opacity="0.08">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                            <GradientStop Color="White" Offset="0" />
+                                                            <GradientStop Color="Transparent" Offset="1" />
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                </Border>
+                                                <Path x:Name="Arrow" Fill="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Data="M 0 0 L 4 4 L 8 0 Z" Margin="4,0,8,0" />
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Gloss" Property="Opacity" Value="0.14" />
+                                            <Setter TargetName="HoverGrooveGlow" Property="Opacity" Value="0.32" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="ActiveGrooveGlow" Property="Opacity" Value="0.42" />
+                                            <Setter TargetName="Gloss" Property="Opacity" Value="0.04" />
+                                        </Trigger>
+                                        <MultiTrigger>
+                                            <MultiTrigger.Conditions>
+                                                <Condition Property="IsChecked" Value="True" />
+                                                <Condition Property="IsMouseOver" Value="True" />
+                                            </MultiTrigger.Conditions>
+                                            <Setter TargetName="HoverGrooveGlow" Property="Opacity" Value="0" />
+                                            <Setter TargetName="ActiveGrooveGlow" Property="Opacity" Value="0.62" />
+                                        </MultiTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="ContentSite"
+                                          IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                          TextElement.FontSize="{TemplateBinding FontSize}"
+                                          TextElement.FontWeight="{TemplateBinding FontWeight}"
+                                          Margin="10,0,22,0"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Center" />
+                        <Popup x:Name="PART_Popup"
+                               AllowsTransparency="True"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               Placement="Bottom"
+                               Focusable="False"
+                               PopupAnimation="Slide">
+                            <Border x:Name="DropDownBorder"
+                                    Background="{DynamicResource PanelSurfaceBrush}"
+                                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource PluginCardCornerRadius}"
+                                    Margin="0,4,0,0"
+                                    MinWidth="{Binding ActualWidth, ElementName=MainGrid}">
+                                <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Header-specific ToggleButton style with 19px height and 9px corner radius -->
+    <Style x:Key="PluginHeaderToggleButtonStyle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource RaisedPanelBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextOffBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource MainFontFamily}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Height" Value="19" />
+        <Setter Property="MinHeight" Value="19" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid x:Name="Root" Height="19">
+                        <Border Margin="-1" CornerRadius="10" Background="#FF000000" Opacity="0.4" />
+                        <Border x:Name="ActiveGrooveGlow" Margin="-1" CornerRadius="10" Background="{DynamicResource LedYellowGreenBrush}" Opacity="0">
+                            <Border.Effect>
+                                <DropShadowEffect Color="{DynamicResource LedYellowGreen}" BlurRadius="5" ShadowDepth="0" Opacity="0.65" />
+                            </Border.Effect>
+                        </Border>
+                        <Border x:Name="HoverGrooveGlow" Margin="-1" CornerRadius="10" Background="White" Opacity="0">
+                            <Border.Effect>
+                                <DropShadowEffect Color="White" BlurRadius="5" ShadowDepth="0" Opacity="0.55" />
+                            </Border.Effect>
+                        </Border>
+                        <Border x:Name="Body" Height="19" CornerRadius="9" BorderThickness="1" SnapsToDevicePixels="True" Background="{TemplateBinding Background}">
+                            <Border.BorderBrush>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#1EFFFFFF" Offset="0" />
+                                    <GradientStop Color="#0FFFFFFF" Offset="0.5" />
+                                    <GradientStop Color="#00FFFFFF" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.BorderBrush>
+                            <Grid Height="19">
+                                <Border x:Name="Gloss" CornerRadius="9" VerticalAlignment="Top" Height="8" Margin="1,1,1,0" Opacity="0.08">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="White" Offset="0" />
+                                            <GradientStop Color="Transparent" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" SnapsToDevicePixels="True" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Gloss" Property="Opacity" Value="0.14" />
+                            <Setter TargetName="HoverGrooveGlow" Property="Opacity" Value="0.32" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="ActiveGrooveGlow" Property="Opacity" Value="0.42" />
+                            <Setter TargetName="Gloss" Property="Opacity" Value="0.04" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsChecked" Value="True" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="HoverGrooveGlow" Property="Opacity" Value="0" />
+                            <Setter TargetName="ActiveGrooveGlow" Property="Opacity" Value="0.62" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Standalone host-owned receiver-mode selector. This is intentionally
+         outside the collapsible settings panel so mode switching remains
+         available while the settings body is collapsed. -->
+    <Style x:Key="PluginSettingsSelectorStyle" TargetType="ContentControl">
+        <Setter Property="Background" Value="{DynamicResource ControlBaseBrush}" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Margin" Value="6,6,6,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="4"
+                                  Direction="270" Opacity="0.92" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="{TemplateBinding Background}"
+                            Padding="10,0"
+                            MinHeight="{TemplateBinding MinHeight}"
+                            CornerRadius="{StaticResource PluginOuterPanelCornerRadius}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="受信方式"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       FontFamily="{DynamicResource MainFontFamily}"
+                                       FontSize="11"
+                                       FontWeight="Normal"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center" />
+                            <ComboBox Width="250" Height="25" FontSize="13" VerticalAlignment="Center"
+                                      ItemsSource="{Binding DataContext.PluginWorkspace.Plugins, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      SelectedValuePath="Descriptor.Id"
+                                      SelectedValue="{Binding DataContext.SelectedPluginId, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding DataContext.IsPluginSelectionEnabled, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      Focusable="False" IsTabStop="False"
+                                      AutomationProperties.Name="受信方式"
+                                      Style="{DynamicResource PluginHeaderComboBoxStyle}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Descriptor.DisplayName}"
+                                                   Style="{DynamicResource PluginSelectorTextStyle}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- Standard settings header shared by all protocol settings views. -->
     <Style x:Key="PluginSettingsHeaderStyle" TargetType="ContentControl">
         <Setter Property="Background" Value="{DynamicResource ControlBaseBrush}" />
         <Setter Property="MinHeight" Value="36" />
+        <Setter Property="FontSize" Value="10" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
@@ -56,12 +299,31 @@
                             MinHeight="{TemplateBinding MinHeight}"
                             CornerRadius="{StaticResource PluginOuterPanelTopCornerRadius}">
                         <Grid>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse Style="{DynamicResource PluginStatusIndicatorStyle}" />
-                                <TextBlock Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, StringFormat={}{0} 設定}"
-                                           AutomationProperties.Name="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, StringFormat={}{0} 設定}"
-                                           Style="{DynamicResource PluginSelectorTextStyle}" />
-                            </StackPanel>
+                            <ContentPresenter ContentSource="Content"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="0,0,40,0"
+                                              RecognizesAccessKey="True"
+                                              SnapsToDevicePixels="True" />
+                            <ToggleButton HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          Width="30" Height="19"
+                                          IsChecked="{Binding DataContext.IsPluginSettingsExpanded, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                                          Style="{DynamicResource PluginHeaderToggleButtonStyle}"
+                                          ToolTip="受信設定の折りたたみ / 展開"
+                                          Focusable="False" IsTabStop="False">
+                                <TextBlock FontSize="11" FontFamily="{DynamicResource MainFontFamily}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="▲" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.IsPluginSettingsExpanded, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                    <Setter Property="Text" Value="▼" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </ToggleButton>
                         </Grid>
                     </Border>
                 </ControlTemplate>
@@ -86,7 +348,7 @@
     </Style>
 
     <Style x:Key="PluginSettingsFieldLabelStyle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="{DynamicResource MainFontFamily}" />
         <Setter Property="FontSize" Value="10" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -197,6 +459,8 @@
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="Margin" Value="4" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="TextElement.FontSize" Value="10" />
+        <Setter Property="TextElement.FontFamily" Value="{DynamicResource MainFontFamily}" />
     </Style>
 
     <Style x:Key="PluginTimelineDetailLabelStyle" TargetType="TextBlock">
@@ -219,6 +483,7 @@
     <Style x:Key="PluginTimelineDetailValueStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="{DynamicResource DisplayFontFamily}" />
+        <Setter Property="FontSize" Value="10" />
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 

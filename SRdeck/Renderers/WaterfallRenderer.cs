@@ -104,6 +104,38 @@ internal partial class WaterfallRenderer : IDisposable
         }
     }
 
+    public unsafe void RetainHistoryForTimeModeChange(WaterfallTimeMode oldMode, WaterfallTimeMode newMode)
+    {
+        lock (_lockObj)
+        {
+            ResetTiming();
+            if (_waterfallData == null || _lastWidth <= 0 || _lastHeight <= 0) return;
+
+            uint[] unrolled = new uint[_lastWidth * _lastHeight];
+            for (int y = 0; y < _lastHeight; y++)
+            {
+                int sourceY = (_writeY + y) % _lastHeight;
+                Array.Copy(_waterfallData, sourceY * _lastWidth, unrolled, y * _lastWidth, _lastWidth);
+            }
+
+            _waterfallData = WaterfallHistoryResampler.ResampleForTimeScale(
+                unrolled,
+                _lastWidth,
+                _lastHeight,
+                WaterfallTimeModel.GetRowDurationMs(oldMode, _lastHeight),
+                WaterfallTimeModel.GetRowDurationMs(newMode, _lastHeight),
+                0u);
+            _writeY = 0;
+
+            if (_d2dWaterfallBitmap != null)
+            {
+                fixed (uint* ptr = _waterfallData)
+                    _d2dWaterfallBitmap.CopyFromMemory((IntPtr)ptr, (uint)(_lastWidth * 4));
+                if (_d2dRenderTarget != null) SyncWaterfallScene(_lastWidth, _lastHeight);
+            }
+        }
+    }
+
     public void SetImageSize(int width, int height, float rfHz = 0f)
     {
         lock (_lockObj)

@@ -26,11 +26,14 @@ public interface IFftProcessor : IDisposable
     double LastFullResCopy { get; }
     double LastAggregate { get; }
 
-    void ProcessFft(
+    bool ProcessFft(
         IqSampleRingBuffer buffer,
         int referencePtr,
         RadioControl control,
         int requestedWidth,
+        long submissionTag,
+        out long completedTag,
+        out bool inputAccepted,
         ref float[] spectrumFftData,
         ref float[] waterfallFftData,
         ref float[] waterfallAveragingBuffer,
@@ -128,17 +131,22 @@ public partial class FftProcessor : IFftProcessor
 
     private float GetFftBias(int fftSize) => BASE_FFT_BIAS - DB_SCALE * MathF.Log10((float)fftSize / REFERENCE_FFT_SIZE);
 
-    public void ProcessFft(
+    public bool ProcessFft(
         IqSampleRingBuffer buffer,
         int referencePtr, 
         RadioControl control, 
         int requestedWidth, 
+        long submissionTag,
+        out long completedTag,
+        out bool inputAccepted,
         ref float[] spectrumFftData, 
         ref float[] waterfallFftData,
         ref float[] waterfallAveragingBuffer,
         ref float[] fullResFftData,
         ref float[] noiseFloorFftData)
     {
+        completedTag = 0;
+        inputAccepted = false;
         int mode = control.FftResolutionMode;
         if (mode < 0 || mode >= MAX_RESOLUTION_MODES) mode = 0;
 
@@ -187,7 +195,7 @@ public partial class FftProcessor : IFftProcessor
         {
             ClearPoolsExcept(-1);
             LastFftCore = 0;
-            return;
+            return false;
         }
         
         if (control.IsGpuFftEnabled)
@@ -203,18 +211,31 @@ public partial class FftProcessor : IFftProcessor
             {
                 ReleasePackedRingBuffers();
                 LastFftCore = swCore.Elapsed.TotalMilliseconds;
-                return;
+                return false;
             }
 
-            bool hasFreshFrame = ProcessGpuFft(_packedRingI, _packedRingQ, packedLength, mode, batchSize, fftSize, fftSizeB, stepSize, hams);
+            bool hasFreshFrame = ProcessGpuFft(
+                _packedRingI,
+                _packedRingQ,
+                packedLength,
+                mode,
+                batchSize,
+                fftSize,
+                fftSizeB,
+                stepSize,
+                hams,
+                submissionTag,
+                out completedTag,
+                out inputAccepted);
             LastFftCore = swCore.Elapsed.TotalMilliseconds;
             if (!hasFreshFrame)
             {
-                return;
+                return false;
             }
         }
         else
         {
+            completedTag = submissionTag;
             Array.Clear(_fftOutputMovingAverageBuffer, 0, fftSize);
             var swCore = Stopwatch.StartNew();
             ProcessCpuFft(buffer, referencePtr, batchSize, fftSize, fftSizeB, stepSize, hams, ffts);
@@ -240,7 +261,7 @@ public partial class FftProcessor : IFftProcessor
             {
                 ClearPoolsExcept(-1);
                 LastFullResCopy = swFullRes.Elapsed.TotalMilliseconds;
-                return;
+                return false;
             }
         }
         float invBatchSize = 1.0f / (float)batchSize;
@@ -255,6 +276,8 @@ public partial class FftProcessor : IFftProcessor
         LastAggregate = swAggregate.Elapsed.TotalMilliseconds;
 
         LastCpuPost += LastFullResCopy + LastAggregate;
+        if (!control.IsGpuFftEnabled) inputAccepted = true;
+        return true;
     }
 
     private void ProcessCpuFft(short[] bufferI, short[] bufferQ, int referencePtr, int batchSize, int fftSize, int fftSizeB, int stepSize, HanningWindow[] hams, FastFourierTransform[] ffts)
@@ -340,12 +363,16 @@ public partial class FftProcessor : IFftProcessor
         int targetWidth = GetAggregatedDisplayWidth(
             requestedWidth, fftSize, mainSpanHz, fsHz);
 
+        // These buffers can come from different frame-pool generations while the
+        // presentation width is changing. Validate each one independently; using
+        // the spectrum length as a proxy for all three leaves a mismatched waterfall
+        // buffer and causes every subsequent FFT request to fail during aggregation.
         if (spectrumFftData.Length != targetWidth)
-        {
             spectrumFftData = new float[targetWidth];
+        if (waterfallFftData.Length != targetWidth)
             waterfallFftData = new float[targetWidth];
+        if (waterfallAveragingBuffer.Length != targetWidth)
             waterfallAveragingBuffer = new float[targetWidth];
-        }
 
         float invBatchSize = 1.0f / (float)batchSize;
         for (int i = 0; i < targetWidth; i++)
@@ -366,7 +393,7 @@ public partial class FftProcessor : IFftProcessor
             waterfallAveragingBuffer[i] += scaledMax;
         }
 
-        for (int n = 0; n < waterfallFftData.Length; n++)
+        for (int n = 0; n < targetWidth; n++)
         {
             waterfallFftData[n] = spectrumFftData[n];
         }

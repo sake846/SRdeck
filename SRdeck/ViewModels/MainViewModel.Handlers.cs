@@ -130,10 +130,6 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    private void HandleEngineDemodHistoryUpdated()
-    {
-    }
-
     private bool SyncAutoStep(ref RadioControl radioControl)
     {
         return false;

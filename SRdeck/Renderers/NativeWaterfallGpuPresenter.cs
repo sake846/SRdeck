@@ -147,6 +147,28 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
         }
     }
 
+    public unsafe void RetainHistoryForTimeModeChange(WaterfallTimeMode oldMode, WaterfallTimeMode newMode)
+    {
+        ResetTiming();
+        if (_historyPixels.Length != _width * _height) return;
+
+        _historyPixels = WaterfallHistoryResampler.ResampleForTimeScale(
+            _historyPixels,
+            _width,
+            _height,
+            WaterfallTimeModel.GetRowDurationMs(oldMode, _height),
+            WaterfallTimeModel.GetRowDurationMs(newMode, _height),
+            0xFF000000u);
+
+        if (!IsReady || !_interop!.TryBeginUpdate(out var update)) return;
+        using (update)
+        fixed (uint* ptr = _historyPixels)
+        {
+            try { _ = NativeGpuDrawApi.UploadBgraSurface(_nativeSurface, (IntPtr)ptr, _width, _height); }
+            catch { }
+        }
+    }
+
     public unsafe void RenderIdle()
     {
         if (!IsReady) return;

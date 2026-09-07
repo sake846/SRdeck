@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Windows;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +21,16 @@ public partial class App : System.Windows.Application
         ComfortableMouseWheelBehavior.Enable();
         this.DispatcherUnhandledException += App_DispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-        AppDomain.CurrentDomain.ProcessExit += (s, ev) => NormalizeProcessPriority();
+        this.Exit += (s, ev) =>
+        {
+            ShutdownDiagnosticLog.Write("[WPF_EXIT]", $"Application.Exit event fired (ExitCode={ev.ApplicationExitCode})");
+        };
+        AppDomain.CurrentDomain.ProcessExit += (s, ev) =>
+        {
+            NormalizeProcessPriority();
+            ShutdownDiagnosticLog.LogProcessExit();
+            ShutdownDiagnosticLog.FastExit(0);
+        };
 
         bool isHeadless = Environment.GetEnvironmentVariable("HEADLESS") == "true";
         SplashWindow? splash = null;
@@ -29,6 +38,7 @@ public partial class App : System.Windows.Application
         if (!isHeadless)
         {
             splash = new SplashWindow();
+            splash.ExitRequested += (_, _) => Shutdown();
             splash.SetCalibrationStatus("Channel Auto: 起動準備中…");
             splash.Show();
             splashStarted = Stopwatch.GetTimestamp();

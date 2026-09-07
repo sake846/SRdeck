@@ -15,8 +15,6 @@ public readonly record struct SdrPlayGainSetting(
 /// </summary>
 public static class SdrPlayGainPolicy
 {
-    private const int NominalGainReductionDb = 50;
-
     private static readonly int[] Rsp1_0_420 = [0, 24, 19, 43];
     private static readonly int[] Rsp1_420_1000 = [0, 7, 19, 26];
     private static readonly int[] Rsp1_1000_2000 = [0, 5, 19, 24];
@@ -80,35 +78,42 @@ public static class SdrPlayGainPolicy
         int targetAttenuation = (int)Math.Round(
             (100 - clampedSensitivity) / 100.0 * maximumAttenuation);
 
-        int bestState = 0;
-        int bestGr = minGr;
-        int bestAttenuation = 0;
-        int bestError = int.MaxValue;
-        int bestNominalDistance = int.MaxValue;
-        int nominalGr = Math.Clamp(NominalGainReductionDb, minGr, maxGr);
-
-        for (int state = 0; state < lnaReductions.Length; state++)
+        var sortedStates = new (int State, int Reduction)[lnaReductions.Length];
+        for (int i = 0; i < lnaReductions.Length; i++)
         {
-            int gr = Math.Clamp(
-                minGr + targetAttenuation - lnaReductions[state],
-                minGr,
-                maxGr);
-            int attenuation = lnaReductions[state] + gr - minGr;
-            int error = Math.Abs(attenuation - targetAttenuation);
-            int nominalDistance = Math.Abs(gr - nominalGr);
+            sortedStates[i] = (i, lnaReductions[i]);
+        }
+        Array.Sort(sortedStates, (a, b) => a.Reduction != b.Reduction
+            ? a.Reduction.CompareTo(b.Reduction)
+            : a.State.CompareTo(b.State));
 
-            if (error < bestError ||
-                (error == bestError && nominalDistance < bestNominalDistance))
+        int chosenState = sortedStates[0].State;
+        int chosenGr = minGr;
+
+        for (int i = 0; i < sortedStates.Length; i++)
+        {
+            int state = sortedStates[i].State;
+            int lnaRed = sortedStates[i].Reduction;
+            int nextLnaRed = (i + 1 < sortedStates.Length) ? sortedStates[i + 1].Reduction : int.MaxValue;
+
+            int neededGrOffset = targetAttenuation - lnaRed;
+            if (neededGrOffset < 0)
             {
-                bestState = state;
-                bestGr = gr;
-                bestAttenuation = attenuation;
-                bestError = error;
-                bestNominalDistance = nominalDistance;
+                chosenState = state;
+                chosenGr = minGr;
+                break;
+            }
+
+            if (targetAttenuation < nextLnaRed || i == sortedStates.Length - 1)
+            {
+                chosenState = state;
+                chosenGr = Math.Clamp(minGr + neededGrOffset, minGr, maxGr);
+                break;
             }
         }
 
-        return new SdrPlayGainSetting(bestState, bestGr, bestAttenuation);
+        int actualAttenuation = GetLnaReductionDb(modelName, frequencyHz, chosenState) + chosenGr - minGr;
+        return new SdrPlayGainSetting(chosenState, chosenGr, actualAttenuation);
     }
 
     public static int ToSensitivity(

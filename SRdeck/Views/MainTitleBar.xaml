@@ -10,6 +10,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:LevelColorConverter x:Key="LevelColorConverter" />
         <conv:CpuColorConverter x:Key="CpuColorConverter" />
+        <conv:PercentToPieGeometryConverter x:Key="PercentToPieConverter" />
     </UserControl.Resources>
     
     <Grid Background="{StaticResource PanelSurfaceBrush}">
@@ -68,80 +69,9 @@
                                FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
                                VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="IQ" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,5,0" />
-                <Border Width="82" Height="16" BorderBrush="#FF888888" BorderThickness="1" Background="Transparent" VerticalAlignment="Center" ToolTip="{Binding Diagnostics.IqToolTip}">
-                    <Grid Width="80" Height="14" HorizontalAlignment="Left" UseLayoutRounding="True" SnapsToDevicePixels="True">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="7" />
-                            <RowDefinition Height="7" />
-                        </Grid.RowDefinitions>
-                        <!-- Invalid Bits Background (Gray fill for bits below device ADC resolution) -->
-                        <Rectangle Grid.RowSpan="2"
-                                   Width="{Binding Diagnostics.InvalidBitsWidth}"
-                                   Height="14"
-                                   Fill="#FF383838"
-                                   HorizontalAlignment="Left" />
-                        <Rectangle Grid.Row="0"
-                                   Width="{Binding Diagnostics.InputLevelI}"
-                                   Height="7"
-                                   Fill="{Binding Diagnostics.InputLevelIDb, Converter={StaticResource LevelColorConverter}}"
-                                   HorizontalAlignment="Left" />
-                        <Rectangle Grid.Row="1"
-                                   Width="{Binding Diagnostics.InputLevelQ}"
-                                   Height="7"
-                                   Fill="{Binding Diagnostics.InputLevelQDb, Converter={StaticResource LevelColorConverter}}"
-                                   HorizontalAlignment="Left" />
-                        <!-- Invalid Bits Overlay (Mutes signal bars in invalid bit zone) -->
-                        <Rectangle Grid.RowSpan="2"
-                                   Width="{Binding Diagnostics.InvalidBitsWidth}"
-                                   Height="14"
-                                   Fill="#80282828"
-                                   HorizontalAlignment="Left" />
-                        <Grid Grid.RowSpan="2" Width="80" Height="14" HorizontalAlignment="Left" Background="Transparent" SnapsToDevicePixels="True">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="1*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="7" />
-                                <RowDefinition Height="7" />
-                            </Grid.RowDefinitions>
-                            <Border Grid.Column="0" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="1" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="2" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="3" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="4" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="5" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="6" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="7" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="8" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="9" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="10" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="11" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="12" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="13" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Column="14" Grid.RowSpan="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
-                            <Border Grid.Row="0" Grid.ColumnSpan="16" BorderBrush="#FF888888" BorderThickness="0,0,0,1" />
-                        </Grid>
-                    </Grid>
-                </Border>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" Visibility="{Binding IsAnySourceActive, Converter={StaticResource BoolToVis}}">
+            <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
                 <TextBlock Text="PRC" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,5,0" />
                 <Border Width="102" Height="16" BorderBrush="#FF888888" BorderThickness="1" Background="Transparent" VerticalAlignment="Center">
                     <Grid Width="100" Height="14" HorizontalAlignment="Left" UseLayoutRounding="True" SnapsToDevicePixels="True">
@@ -179,84 +109,38 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" ToolTip="App / Total" Visibility="{Binding IsAnySourceActive, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="CPU" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,1,0" />
-                <TextBlock Text="{Binding Diagnostics.CpuAppUsagePercent, StringFormat={}{0:#0}}"
-                           Width="20"
-                           TextAlignment="Right"
-                           Foreground="{Binding Diagnostics.CpuAppUsagePercent, Converter={StaticResource CpuColorConverter}, ConverterParameter=Solid}"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="/"
-                           Foreground="White"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Diagnostics.CpuTotalUsagePercent, StringFormat={}{0:#0}}"
-                           Width="20"
-                           TextAlignment="Right"
-                           Foreground="{Binding Diagnostics.CpuTotalUsagePercent, Converter={StaticResource CpuColorConverter}, ConverterParameter=Solid}"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="%"
-                           Foreground="White"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" ToolTip="{Binding Diagnostics.CpuToolTip}">
+                <TextBlock Text="CPU" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,3,0" />
+                <!-- CPU Pie Chart (直径 22px, 1px 下げ) -->
+                <Grid Width="22" Height="22" VerticalAlignment="Center" Margin="0,1,0,0">
+                    <!-- 空き: 黒背景 + 境界線 -->
+                    <Ellipse Fill="#FF111111" Stroke="#FF444444" StrokeThickness="0.8" />
+                    <!-- 全体使用率: 灰色 -->
+                    <Path Fill="#FF888888"
+                          Data="{Binding Diagnostics.CpuTotalUsagePercent, Converter={StaticResource PercentToPieConverter}}" />
+                    <!-- プログラム使用率: 黄緑 -->
+                    <Path Fill="#FF88CC00"
+                          Data="{Binding Diagnostics.CpuAppUsagePercent, Converter={StaticResource PercentToPieConverter}}" />
+                </Grid>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" ToolTip="App / Total" Visibility="{Binding IsAnySourceActive, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="GPU" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,1,0" />
-                <TextBlock Text="{Binding Diagnostics.GpuAppUsagePercent, StringFormat={}{0:#0}}"
-                           Width="20"
-                           TextAlignment="Right"
-                           Foreground="{Binding Diagnostics.GpuAppUsagePercent, Converter={StaticResource CpuColorConverter}, ConverterParameter=Solid}"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="/"
-                           Foreground="White"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Diagnostics.GpuUsagePercent, StringFormat={}{0:#0}}"
-                           Width="20"
-                           TextAlignment="Right"
-                           Foreground="{Binding Diagnostics.GpuUsagePercent, Converter={StaticResource CpuColorConverter}, ConverterParameter=Solid}"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="%"
-                           Foreground="White"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" ToolTip="{Binding Diagnostics.GpuToolTip}">
+                <TextBlock Text="GPU" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,3,0" />
+                <!-- GPU Pie Chart (直径 22px, 1px 下げ) -->
+                <Grid Width="22" Height="22" VerticalAlignment="Center" Margin="0,1,0,0">
+                    <!-- 空き: 黒背景 + 境界線 -->
+                    <Ellipse Fill="#FF111111" Stroke="#FF444444" StrokeThickness="0.8" />
+                    <!-- 全体使用率: 灰色 -->
+                    <Path Fill="#FF888888"
+                          Data="{Binding Diagnostics.GpuUsagePercent, Converter={StaticResource PercentToPieConverter}}" />
+                    <!-- プログラム使用率: 黄緑 -->
+                    <Path Fill="#FF88CC00"
+                          Data="{Binding Diagnostics.GpuAppUsagePercent, Converter={StaticResource PercentToPieConverter}}" />
+                </Grid>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Margin="12,1,0,0"
-                        VerticalAlignment="Center"
-                        Visibility="{Binding IsAnySourceActive, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="FFT"
-                           Foreground="White"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center"
-                           Margin="0,0,1,0" />
-                <TextBlock Text="{Binding Diagnostics.FftFps, StringFormat={}{0:#0}}"
-                           Width="16"
-                           TextAlignment="Right"
-                           Foreground="#FFB4E632"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="fps   WPF"
-                           Foreground="White"
-                           FontSize="10"
-                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
-                           VerticalAlignment="Center"
-                           Margin="1,0,1,0" />
+                        VerticalAlignment="Center">
                 <TextBlock Text="{Binding Diagnostics.WpfFps, StringFormat={}{0:#0}}"
                            Width="16"
                            TextAlignment="Right"
@@ -271,6 +155,7 @@
                            VerticalAlignment="Center"
                            Margin="1,0,1,0" />
             </StackPanel>
+
 
         </StackPanel>
 

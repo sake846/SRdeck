@@ -26,7 +26,7 @@
 | APIの意味、必須動作、適合条件 | `plugin-interface-specification.md` |
 | SDK基底クラスと補助APIの動作 | `SRdeckPlugin.Sdk` の公開型とXMLコメント |
 | WPFテーマキーと共通コントロール | `SRdeckPlugin.Wpf/Themes` と公開型 |
-| 実行する回帰試験名と件数 | `SRdeck.Tests/Program.cs` |
+| 回帰試験名、関数、実行順 | `SRdeck.Tests/RegressionTestCatalog.cs` |
 | 方式固有の動作 | 各プラグインの実装、テスト、プロジェクト内文書 |
 
 API形状と意味仕様のどちらか一方だけを変更してはならない。差異を発見した場合は、
@@ -56,4 +56,4 @@ API形状と意味仕様のどちらか一方だけを変更してはならな�
 - Contractsの任意インタフェースと能力フラグの説明が一致する。
 - 「現行」「将来」「SDK補助」を混同していない。
 - 個別方式の記述を横断文書へ複製していない。
-- 回帰試験件数を手書きせず、`--list-tests` の結果を正本としている。
+- 回帰試験件数を手書きせず、`dotnet test --list-tests`の結果を正本としている。

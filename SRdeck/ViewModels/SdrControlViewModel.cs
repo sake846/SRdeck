@@ -33,6 +33,7 @@ namespace SRdeck.ViewModels
         {
             _engine = engine;
             _sessions = sessions;
+            _sessions.SdrConfigurationChanged += HandleSdrConfigurationChanged;
             _dialogService = dialogService;
             _setWindowTitle = setWindowTitle;
             _streamRecoveryDelay = streamRecoveryDelay ?? TimeSpan.FromMilliseconds(750);
@@ -95,6 +96,22 @@ namespace SRdeck.ViewModels
             {
                 _isStarting = false;
             }
+        }
+
+        private void HandleSdrConfigurationChanged(object? sender, EventArgs args)
+        {
+            void SyncState()
+            {
+                IsStarted = _engine.IsSdrRunning || _engine.IsPlaying;
+                IsStopped = !IsStarted;
+                StartButtonText = _engine.IsSdrRunning ? "動作中" : "開始";
+                if (IsStopped) _setWindowTitle("SRdeck");
+            }
+
+            if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+                _ = dispatcher.InvokeAsync(SyncState);
+            else
+                SyncState();
         }
 
         private void HandleDeviceRemoved()

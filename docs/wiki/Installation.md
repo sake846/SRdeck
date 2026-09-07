@@ -91,3 +91,8 @@ SDRplay公式のAPI 3.xを導入します。SRdeckは`sdrplay_api.dll`を同梱�
 このフォルダーにはホスト設定だけでなく、プラグイン履歴、局情報、地図状態、IQキャプチャが含まれる場合があります。削除前のバックアップを推奨します。
 
 起動、ランタイム、DLL、デバイス検出で問題が出た場合は[トラブルシューティング](Troubleshooting)を参照してください。
+
+---
+- **次のステップ:** [最初の受信 (Getting Started)](Getting-Started) へ進む
+- **関連情報:** [システム要件](System-Requirements) / [画面構成と操作](UI-Overview) / [FAQ](FAQ)
+

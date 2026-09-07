@@ -45,6 +45,8 @@ public partial class DiagnosticsViewModel : ObservableObject
     [ObservableProperty] private int _effectiveBitDepth = 16;
     [ObservableProperty] private double _invalidBitsWidth = 0.0;
     [ObservableProperty] private string _iqToolTip = "IQ Level";
+    [ObservableProperty] private string _cpuToolTip = "CPU";
+    [ObservableProperty] private string _gpuToolTip = "GPU";
     [ObservableProperty] private double _gpuAppUsagePercent = 0.0;
     [ObservableProperty] private double _gpuUsagePercent = 0.0;
     [ObservableProperty] private double _cpuAppUsagePercent = 0.0;
@@ -110,68 +112,106 @@ public partial class DiagnosticsViewModel : ObservableObject
             _lastPeakResetTicks = nowTicks;
         }
 
-        TimeProcCycle = diagnostics.TimeProcCycle;
-        TimeTotal = diagnostics.TimeTotal;
-        TimeMainFft = diagnostics.TimeMainFft;
-        string? pluginId = _pluginManager.ActivePluginId;
-        PluginIqDispatchSnapshot plugin = pluginId is null ? default : _pluginIqDispatcher.GetSnapshot(pluginId);
-        // The core row is the critical path across the core processing cycle,
-        // asynchronous FFT, and the sequential spectrum/waterfall UI render.
-        // Using the longest lane avoids double-counting work that runs in parallel.
-        double coreCriticalPathMs = Math.Max(
-            diagnostics.TimeProcCycle,
-            Math.Max(diagnostics.TimeMainFft,
-                diagnostics.TimeWpfSpectrum + diagnostics.TimeWpfWaterfall));
-
-        // Both PRC rows use the duration of the same 100 ms IQ block as their
-        // denominator. The fallback is the engine's fixed Fs/10 cycle before
-        // the dispatcher has received its first block.
-        double blockDurationMs = plugin.CurrentBlockDurationMs > 0 ? plugin.CurrentBlockDurationMs : 100.0;
-        CoreProcessingLoad = Math.Clamp(coreCriticalPathMs * 100.0 / blockDurationMs, 0, 100);
-        double pluginInstantLoad = plugin.CurrentProcessingTimeMs * 100.0 / blockDurationMs;
-        PluginProcessingLoad = Math.Clamp(pluginInstantLoad, 0, 100);
-        FftFps = diagnostics.FftFps;
-        WpfFps = diagnostics.WpfFps;
-        DemodFps = diagnostics.DemodFps;
-        FftRequestCount = diagnostics.FftRequestCount;
-        FftCompletedCount = diagnostics.FftCompletedCount;
-        FftDroppedCount = diagnostics.FftDroppedCount;
-        FftLatestRequestId = diagnostics.FftLatestRequestId;
-        FftLatestCompletedId = diagnostics.FftLatestCompletedId;
-        FftQueueDepth = diagnostics.FftQueueDepth;
-        WpfFftFrameSerial = diagnostics.WpfFftFrameSerial;
-        WpfFftDroppedFrames = diagnostics.WpfFftDroppedFrames;
-        GpuAppUsagePercent = diagnostics.GpuAppUsagePercent;
-        GpuUsagePercent = diagnostics.GpuUsagePercent;
-        CpuAppUsagePercent = diagnostics.CpuAppUsagePercent;
-        CpuTotalUsagePercent = diagnostics.CpuTotalUsagePercent;
-        int maxAbsI = Math.Max(Math.Abs((int)diagnostics.BufferIMaxValue), Math.Abs((int)diagnostics.BufferIMinValue));
-        int maxAbsQ = Math.Max(Math.Abs((int)diagnostics.BufferQMaxValue), Math.Abs((int)diagnostics.BufferQMinValue));
-        int maxAbs = Math.Max(maxAbsI, maxAbsQ);
-
-        double decibelsI = -100.0;
-        if (maxAbsI > 0)
+        bool isSourceActive = _engine.IsSdrRunning || _engine.IsPlaying;
+        if (!isSourceActive)
         {
-            decibelsI = 20.0 * Math.Log10(maxAbsI / 32768.0);
+            TimeProcCycle = 0.0;
+            TimeTotal = 0.0;
+            TimeMainFft = 0.0;
+            CoreProcessingLoad = 0.0;
+            PluginProcessingLoad = 0.0;
+            FftFps = 0.0;
+            WpfFps = 0.0;
+            DemodFps = 0.0;
+            FftRequestCount = 0;
+            FftCompletedCount = 0;
+            FftDroppedCount = 0;
+            FftLatestRequestId = 0;
+            FftLatestCompletedId = 0;
+            FftQueueDepth = 0;
+            WpfFftFrameSerial = 0;
+            WpfFftDroppedFrames = 0;
+            InputLevelI = 0.0;
+            InputLevelIDb = -100.0;
+            InputLevelQ = 0.0;
+            InputLevelQDb = -100.0;
+            InputLevel = 0.0;
+            InputLevelDb = -100.0;
+            GpuAppUsagePercent = 0.0;
+            GpuUsagePercent = 0.0;
+            CpuAppUsagePercent = 0.0;
+            CpuTotalUsagePercent = 0.0;
+            CpuToolTip = "CPU";
+            GpuToolTip = "GPU";
         }
-
-        double decibelsQ = -100.0;
-        if (maxAbsQ > 0)
+        else
         {
-            decibelsQ = 20.0 * Math.Log10(maxAbsQ / 32768.0);
-        }
+            TimeProcCycle = diagnostics.TimeProcCycle;
+            TimeTotal = diagnostics.TimeTotal;
+            TimeMainFft = diagnostics.TimeMainFft;
+            string? pluginId = _pluginManager.ActivePluginId;
+            PluginIqDispatchSnapshot plugin = pluginId is null ? default : _pluginIqDispatcher.GetSnapshot(pluginId);
+            // The core row is the critical path across the core processing cycle,
+            // asynchronous FFT, and the sequential spectrum/waterfall UI render.
+            // Using the longest lane avoids double-counting work that runs in parallel.
+            double coreCriticalPathMs = Math.Max(
+                diagnostics.TimeProcCycle,
+                Math.Max(diagnostics.TimeMainFft,
+                    diagnostics.TimeWpfSpectrum + diagnostics.TimeWpfWaterfall));
 
-        double decibels = -100.0;
-        if (maxAbs > 0)
-        {
-            decibels = 20.0 * Math.Log10(maxAbs / 32768.0);
+            // Both PRC rows use the duration of the same 100 ms IQ block as their
+            // denominator. The fallback is the engine's fixed Fs/10 cycle before
+            // the dispatcher has received its first block.
+            double blockDurationMs = plugin.CurrentBlockDurationMs > 0 ? plugin.CurrentBlockDurationMs : 100.0;
+            CoreProcessingLoad = Math.Clamp(coreCriticalPathMs * 100.0 / blockDurationMs, 0, 100);
+            double pluginInstantLoad = plugin.CurrentProcessingTimeMs * 100.0 / blockDurationMs;
+            PluginProcessingLoad = Math.Clamp(pluginInstantLoad, 0, 100);
+            FftFps = diagnostics.FftFps;
+            WpfFps = diagnostics.WpfFps;
+            DemodFps = diagnostics.DemodFps;
+            FftRequestCount = diagnostics.FftRequestCount;
+            FftCompletedCount = diagnostics.FftCompletedCount;
+            FftDroppedCount = diagnostics.FftDroppedCount;
+            FftLatestRequestId = diagnostics.FftLatestRequestId;
+            FftLatestCompletedId = diagnostics.FftLatestCompletedId;
+            FftQueueDepth = diagnostics.FftQueueDepth;
+            WpfFftFrameSerial = diagnostics.WpfFftFrameSerial;
+            WpfFftDroppedFrames = diagnostics.WpfFftDroppedFrames;
+
+            int maxAbsI = Math.Max(Math.Abs((int)diagnostics.BufferIMaxValue), Math.Abs((int)diagnostics.BufferIMinValue));
+            int maxAbsQ = Math.Max(Math.Abs((int)diagnostics.BufferQMaxValue), Math.Abs((int)diagnostics.BufferQMinValue));
+            int maxAbs = Math.Max(maxAbsI, maxAbsQ);
+
+            double decibelsI = -100.0;
+            if (maxAbsI > 0)
+            {
+                decibelsI = 20.0 * Math.Log10(maxAbsI / 32768.0);
+            }
+
+            double decibelsQ = -100.0;
+            if (maxAbsQ > 0)
+            {
+                decibelsQ = 20.0 * Math.Log10(maxAbsQ / 32768.0);
+            }
+
+            double decibels = -100.0;
+            if (maxAbs > 0)
+            {
+                decibels = 20.0 * Math.Log10(maxAbs / 32768.0);
+            }
+            InputLevelI = Math.Clamp((decibelsI + 96.0) / 96.0 * 80.0, 0.0, 80.0);
+            InputLevelIDb = decibelsI;
+            InputLevelQ = Math.Clamp((decibelsQ + 96.0) / 96.0 * 80.0, 0.0, 80.0);
+            InputLevelQDb = decibelsQ;
+            InputLevel = Math.Clamp((decibels + 96.0) / 96.0 * 80.0, 0.0, 80.0);
+            InputLevelDb = decibels;
+            GpuAppUsagePercent = diagnostics.GpuAppUsagePercent;
+            GpuUsagePercent = diagnostics.GpuUsagePercent;
+            CpuAppUsagePercent = diagnostics.CpuAppUsagePercent;
+            CpuTotalUsagePercent = diagnostics.CpuTotalUsagePercent;
+            CpuToolTip = $"CPU: プログラム {CpuAppUsagePercent:0}% / 全体 {CpuTotalUsagePercent:0}%";
+            GpuToolTip = $"GPU: プログラム {GpuAppUsagePercent:0}% / 全体 {GpuUsagePercent:0}%";
         }
-        InputLevelI = Math.Clamp((decibelsI + 96.0) / 96.0 * 80.0, 0.0, 80.0);
-        InputLevelIDb = decibelsI;
-        InputLevelQ = Math.Clamp((decibelsQ + 96.0) / 96.0 * 80.0, 0.0, 80.0);
-        InputLevelQDb = decibelsQ;
-        InputLevel = Math.Clamp((decibels + 96.0) / 96.0 * 80.0, 0.0, 80.0);
-        InputLevelDb = decibels;
 
         var (bitDepth, bitDepthDesc) = GetEffectiveBitDepth(_engine.SdrDevice, radioControl.FsHz);
         EffectiveBitDepth = bitDepth;
@@ -360,18 +400,22 @@ public partial class DiagnosticsViewModel : ObservableObject
 
             if (sdrPlayDevice.HdrEnabled && sampleRate <= 2_000_000)
             {
-                return (14, $"14-bit ADC ({model} HDR)");
+                return (14, $"14-bit以上 ADC ({model} HDR)");
             }
 
             if (sampleRate < 2_000_000)
             {
+                return (14, $"14-bit以上 ADC ({model})");
+            }
+            else if (sampleRate <= 6_048_000)
+            {
                 return (14, $"14-bit ADC ({model})");
             }
-            else if (sampleRate < 6_000_000)
+            else if (sampleRate <= 8_064_000)
             {
                 return (12, $"12-bit ADC ({model})");
             }
-            else if (sampleRate <= 8_000_000)
+            else if (sampleRate <= 9_216_000)
             {
                 return (10, $"10-bit ADC ({model})");
             }

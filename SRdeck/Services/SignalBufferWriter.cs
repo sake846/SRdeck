@@ -1,5 +1,6 @@
 using System;
 using SRdeck.DSP;
+using SRdeckPlugin.Contracts;
 
 namespace SRdeck.Services;
 
@@ -11,8 +12,11 @@ public enum SignalInputSource
 
 public readonly record struct SignalBlockContext(
     SignalInputSource Source,
+    int SampleRateHz,
     double PlaybackSystemDb,
-    int PlaybackRfHz);
+    int PlaybackRfHz,
+    IqDiscontinuity Discontinuity = IqDiscontinuity.None,
+    int CenterFrequencyHz = 0);
 
 public delegate void SignalBlockCompletedHandler(
     int blockEndPointer,
@@ -26,7 +30,6 @@ public interface ISignalBufferWriter
         short[] samplesI,
         short[] samplesQ,
         int sampleCount,
-        int sampleRateHz,
         SignalBlockContext context);
 
     void ResetBlockAccumulator();
@@ -66,6 +69,9 @@ internal sealed class SignalBufferWriter : ISignalBufferWriter
     private short[] _processedI = Array.Empty<short>();
     private short[] _processedQ = Array.Empty<short>();
     private long _blockAccumulator;
+    private long _activeBlockSize;
+    private SignalBlockContext _activeBlockContext;
+    private IqDiscontinuity _pendingDiscontinuity;
     private bool _residualDcRemovalEnabled;
 
     public SignalBufferWriter(
@@ -99,10 +105,31 @@ internal sealed class SignalBufferWriter : ISignalBufferWriter
         short[] samplesI,
         short[] samplesQ,
         int sampleCount,
-        int sampleRateHz,
+        SignalBlockContext context)
+    {
+        // The consumer validates and copies a completed block under the same
+        // gate, so a ring wrap cannot overwrite it halfway through publication.
+        lock (_bufferState.SyncRoot)
+            WriteLocked(samplesI, samplesQ, sampleCount, context);
+    }
+
+    private void WriteLocked(
+        short[] samplesI,
+        short[] samplesQ,
+        int sampleCount,
         SignalBlockContext context)
     {
         if (sampleCount <= 0) return;
+
+        if (context.Discontinuity != IqDiscontinuity.None)
+        {
+            // Never finish a partially accumulated block using samples from
+            // the other side of a device loss/reset.
+            ResetBlockAccumulator();
+            _bufferState.NextReadPointer = _bufferState.WritePointer;
+            _inputMetrics.ResetCurrentExtrema();
+            _pendingDiscontinuity |= context.Discontinuity;
+        }
 
         bool residualDcRemovalEnabled;
         lock (_residualDcRemovalGate)
@@ -116,34 +143,33 @@ internal sealed class SignalBufferWriter : ISignalBufferWriter
                     samplesQ.AsSpan(0, sampleCount),
                     _processedI.AsSpan(0, sampleCount),
                     _processedQ.AsSpan(0, sampleCount),
-                    sampleRateHz);
+                    context.SampleRateHz);
                 samplesI = _processedI;
                 samplesQ = _processedQ;
             }
         }
 
-        WriteCore(samplesI, samplesQ, sampleCount, sampleRateHz, context);
+        WriteCore(samplesI, samplesQ, sampleCount, context);
     }
 
     private void WriteCore(
         short[] samplesI,
         short[] samplesQ,
         int sampleCount,
-        int sampleRateHz,
         SignalBlockContext context)
     {
-        long blockSize = Math.Max(1L, sampleRateHz / 10L);
         int sourceOffset = 0;
         while (sourceOffset < sampleCount)
         {
-            if (_blockAccumulator >= blockSize)
+            if (_blockAccumulator == 0)
             {
-                _blockAccumulator = 0;
-                _blockCompleted(_bufferState.WritePointer, context);
+                _activeBlockContext = context with { Discontinuity = _pendingDiscontinuity };
+                _pendingDiscontinuity = IqDiscontinuity.None;
+                _activeBlockSize = Math.Max(1L, context.SampleRateHz / 10L);
             }
 
             int untilRingEnd = _bufferState.BufferSize - _bufferState.WritePointer;
-            int untilBlockEnd = (int)Math.Min(int.MaxValue, blockSize - _blockAccumulator);
+            int untilBlockEnd = (int)Math.Min(int.MaxValue, _activeBlockSize - _blockAccumulator);
             int chunkSize = Math.Min(
                 sampleCount - sourceOffset,
                 Math.Min(untilRingEnd, untilBlockEnd));
@@ -159,10 +185,10 @@ internal sealed class SignalBufferWriter : ISignalBufferWriter
             sourceOffset += chunkSize;
             _bufferState.TotalSamplesReceived += chunkSize;
             _blockAccumulator += chunkSize;
-            if (_blockAccumulator == blockSize)
+            if (_blockAccumulator == _activeBlockSize)
             {
                 _blockAccumulator = 0;
-                _blockCompleted(_bufferState.WritePointer, context);
+                _blockCompleted(_bufferState.WritePointer, _activeBlockContext);
             }
         }
 
@@ -178,6 +204,9 @@ internal sealed class SignalBufferWriter : ISignalBufferWriter
     public void ResetBlockAccumulator()
     {
         _blockAccumulator = 0;
+        _activeBlockSize = 0;
+        _activeBlockContext = default;
+        _pendingDiscontinuity = IqDiscontinuity.None;
         ResetResidualDcRemoval();
     }
 

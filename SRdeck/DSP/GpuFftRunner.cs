@@ -25,6 +25,9 @@ public sealed class GpuFftRunner : IDisposable
             int[] offsets,
             int batchCount,
             float offset,
+            long submissionTag,
+            out long completedTag,
+            out int inputAccepted,
             [Out] float[] outputDbFlat);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "gpufft_process_float")]
@@ -56,7 +59,6 @@ public sealed class GpuFftRunner : IDisposable
     private FastFourierTransform[]? _cpuFfts;
     private Complex[][]? _cpuInputs;
     private bool _disposed;
-    private bool _hasPackedOutput;
 
     public bool IsAvailable => _nativeHandle != IntPtr.Zero && !_disposed;
     public int FftSize => _fftSize;
@@ -159,8 +161,54 @@ public sealed class GpuFftRunner : IDisposable
         LastTimePost = sw.Elapsed.TotalMilliseconds;
     }
 
-    public bool ProcessBatchPacked(short[] inputI, short[] inputQ, int[] offsets, float[][] outputDb, float offset, int batchCount = 10)
+    public void ProcessSingle(
+        float[] inputI,
+        float[] inputQ,
+        float[] outputDb,
+        float offset)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(inputI);
+        ArgumentNullException.ThrowIfNull(inputQ);
+        ArgumentNullException.ThrowIfNull(outputDb);
+        if (inputI.Length < _fftSize || inputQ.Length < _fftSize || outputDb.Length < _fftSize)
+        {
+            throw new ArgumentException("Single FFT buffers must be at least FftSize elements long.");
+        }
+
+        LastTimePrep = 0;
+        LastTimeCopyFrom = 0;
+        LastTimeCopyTo = 0;
+        long started = Stopwatch.GetTimestamp();
+        int result = IsAvailable
+            ? NativeMethods.ProcessFloat(_nativeHandle, inputI, inputQ, 1, offset, _nativeOut)
+            : -1;
+        LastTimeShader = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        if (result != 0)
+        {
+            ProcessSingleCpuFallback(inputI, inputQ, outputDb, offset);
+            return;
+        }
+
+        started = Stopwatch.GetTimestamp();
+        Array.Copy(_nativeOut, 0, outputDb, 0, _fftSize);
+        LastTimePost = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        ClearNativeTimings();
+    }
+
+    public bool ProcessBatchPacked(
+        short[] inputI,
+        short[] inputQ,
+        int[] offsets,
+        float[][] outputDb,
+        float offset,
+        int batchCount,
+        long submissionTag,
+        out long completedTag,
+        out bool inputAccepted)
+    {
+        completedTag = 0;
+        inputAccepted = false;
         if (_disposed) return false;
         if (batchCount > _maxBatchSize) batchCount = _maxBatchSize;
 
@@ -171,7 +219,19 @@ public sealed class GpuFftRunner : IDisposable
         }
 
         var sw = Stopwatch.StartNew();
-        int rc = NativeMethods.ProcessPacked(_nativeHandle, inputI, inputQ, inputI.Length, offsets, batchCount, offset, _nativeOut);
+        int rc = NativeMethods.ProcessPacked(
+            _nativeHandle,
+            inputI,
+            inputQ,
+            inputI.Length,
+            offsets,
+            batchCount,
+            offset,
+            submissionTag,
+            out completedTag,
+            out int accepted,
+            _nativeOut);
+        inputAccepted = accepted != 0;
         sw.Stop();
         LastTimeShader = sw.Elapsed.TotalMilliseconds;
         LastTimePrep = 0;
@@ -183,22 +243,16 @@ public sealed class GpuFftRunner : IDisposable
         {
             if (rc == 1)
             {
-                if (_hasPackedOutput)
-                {
-                    CopyNativeOutput(outputDb, batchCount);
-                    return true;
-                }
-
                 LastTimePost = 0;
                 return false;
             }
 
             ClearGpuTiming();
-            _hasPackedOutput = false;
+            completedTag = 0;
+            inputAccepted = false;
             return false;
         }
 
-        _hasPackedOutput = true;
         CopyNativeOutput(outputDb, batchCount);
         return true;
     }
@@ -247,6 +301,30 @@ public sealed class GpuFftRunner : IDisposable
         LastTimeCopyFrom = 0;
         LastTimeCopyTo = 0;
         LastTimePost = 0;
+        ClearNativeTimings();
+    }
+
+    private void ProcessSingleCpuFallback(
+        float[] inputI,
+        float[] inputQ,
+        float[] outputDb,
+        float bias)
+    {
+        EnsureCpuFallbackBuffers(1);
+        FastFourierTransform fft = _cpuFfts![0];
+        Complex[] input = _cpuInputs![0];
+        long started = Stopwatch.GetTimestamp();
+        for (int index = 0; index < _fftSize; index++)
+        {
+            input[index].X = inputI[index];
+            input[index].Y = inputQ[index];
+        }
+        fft.Execute(_logN, bias);
+        Array.Copy(fft.OutputData, 0, outputDb, 0, _fftSize);
+        LastTimeShader = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        LastTimePost = 0;
+        LastTimeCopyFrom = 0;
+        LastTimeCopyTo = 0;
         ClearNativeTimings();
     }
 

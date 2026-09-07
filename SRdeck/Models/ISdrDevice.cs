@@ -24,6 +24,11 @@ namespace SRdeck.Models
         bool Open();
         bool Start();
         void Stop();
+        bool ApplySampleRate(int sampleRateHz)
+        {
+            FsHz = sampleRateHz;
+            return FsHz == sampleRateHz;
+        }
         void GainChange();
         void FreqChange();
         void ApplyLnaAndNotch();

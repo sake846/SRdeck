@@ -1,161 +1,72 @@
-using System.IO;
+using System;
 using System.Text.Json;
 using SRdeck.Models.Configuration;
 
 namespace SRdeck.Configuration;
 
-public class JsonSettingsService : ISettingsService
+public class JsonSettingsService : ISettingsService, ISettingsPersistenceNotifications
 {
-    private readonly string _filePath = UserDataPaths.AppSettingsPath;
-    private readonly string _hwFilePath = UserDataPaths.HardwareSettingsPath;
-
-    private static readonly JsonSerializerOptions DefaultWriteOptions = new() { WriteIndented = true };
-
-    private static readonly JsonSerializerOptions DefaultReadOptions = new() 
-    { 
+    private readonly JsonSettingsFile<AppSettings> _settings;
+    private readonly JsonSettingsFile<HardwareSettingsStore> _hardware;
+    private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions ReadOptions = new()
+    {
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
     };
-
-    private static readonly JsonSerializerOptions HwReadOptions = new() 
-    { 
+    private static readonly JsonSerializerOptions HardwareReadOptions = new()
+    {
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
         PropertyNameCaseInsensitive = true
     };
 
-    public AppSettings LoadSettings()
-    {
-        if (!File.Exists(_filePath))
-        {
-            var defaultSettings = new AppSettings();
-            SaveSettings(defaultSettings);
-            return defaultSettings;
-        }
+    public event Action<SettingsPersistenceIssue>? PersistenceIssue;
 
-        try
-        {
-            var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<AppSettings>(json, DefaultReadOptions) ?? new();
-        }
-        catch
-        {
-            return new();
-        }
+    public JsonSettingsService() : this(UserDataPaths.AppSettingsPath, UserDataPaths.HardwareSettingsPath) { }
+
+    public JsonSettingsService(string settingsPath, string hardwarePath)
+    {
+        _settings = new(settingsPath, ReadOptions, WriteOptions, Report, Normalize);
+        _hardware = new(hardwarePath, HardwareReadOptions, WriteOptions, Report);
     }
 
-    public void SaveSettings(AppSettings settings)
+    public AppSettings LoadSettings() => _settings.Load();
+    public void SaveSettings(AppSettings settings) => _settings.Save(settings);
+    public void BackupSettings() => _settings.Backup();
+    public void BackupHardwareSettings() => _hardware.Backup();
+
+    public HardwareSettings LoadHardwareSettings(SdrDeviceType deviceType)
     {
-        try
+        HardwareSettingsStore store = _hardware.Load();
+        return deviceType == SdrDeviceType.RtlSdr
+            ? store.RtlSdr ?? new HardwareSettings()
+            : store.SdrPlay ?? new HardwareSettings();
+    }
+
+    public void SaveHardwareSettings(HardwareSettings settings, SdrDeviceType deviceType) =>
+        _hardware.Update(store =>
         {
-            var json = JsonSerializer.Serialize(settings, DefaultWriteOptions);
-            File.WriteAllText(_filePath, json);
-        }
-        catch 
-        {
-            // Settings save failure shouldn't crash the app
-        }
+            if (deviceType == SdrDeviceType.RtlSdr) store.RtlSdr = settings;
+            else store.SdrPlay = settings;
+        });
+
+    private void Report(SettingsPersistenceIssue issue) => PersistenceIssue?.Invoke(issue);
+
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        settings.Display ??= new();
+        settings.Power ??= new();
+        settings.Plugins ??= new();
+        settings.SignalProcessing ??= new();
+        settings.Demodulation ??= new();
+        return settings;
     }
 
     private sealed class HardwareSettingsStore
     {
         public HardwareSettings SdrPlay { get; set; } = new();
         public HardwareSettings RtlSdr { get; set; } = new();
-    }
-
-    public HardwareSettings LoadHardwareSettings(SdrDeviceType deviceType)
-    {
-        if (!File.Exists(_hwFilePath))
-        {
-            var defaultStore = new HardwareSettingsStore();
-            SaveHardwareStore(defaultStore);
-            return ResolveHardwareSettings(defaultStore, deviceType);
-        }
-
-        try
-        {
-            var json = File.ReadAllText(_hwFilePath);
-
-            var store = JsonSerializer.Deserialize<HardwareSettingsStore>(json, HwReadOptions);
-            if (store != null)
-            {
-                return ResolveHardwareSettings(store, deviceType);
-            }
-
-            return new();
-        }
-        catch
-        {
-            return new();
-        }
-    }
-
-    public void SaveHardwareSettings(HardwareSettings settings, SdrDeviceType deviceType)
-    {
-        try
-        {
-            HardwareSettingsStore store;
-            if (File.Exists(_hwFilePath))
-            {
-                var json = File.ReadAllText(_hwFilePath);
-                store = JsonSerializer.Deserialize<HardwareSettingsStore>(json, HwReadOptions) ?? new HardwareSettingsStore();
-            }
-            else
-            {
-                store = new HardwareSettingsStore();
-            }
-
-            switch (deviceType)
-            {
-                case SdrDeviceType.SdrPlay:
-                    store.SdrPlay = settings;
-                    break;
-                case SdrDeviceType.RtlSdr:
-                    store.RtlSdr = settings;
-                    break;
-                default:
-                    store.SdrPlay = settings;
-                    break;
-            }
-
-            SaveHardwareStore(store);
-        }
-        catch 
-        {
-            // Settings save failure shouldn't crash the app
-        }
-    }
-
-    public void BackupSettings()
-    {
-        if (File.Exists(_filePath))
-        {
-            try { File.Copy(_filePath, _filePath + ".bak", true); } catch { }
-        }
-    }
-
-    public void BackupHardwareSettings()
-    {
-        if (File.Exists(_hwFilePath))
-        {
-            try { File.Copy(_hwFilePath, _hwFilePath + ".bak", true); } catch { }
-        }
-    }
-
-    private static HardwareSettings ResolveHardwareSettings(HardwareSettingsStore store, SdrDeviceType deviceType)
-    {
-        return deviceType switch
-        {
-            SdrDeviceType.SdrPlay => store.SdrPlay ?? new HardwareSettings(),
-            SdrDeviceType.RtlSdr => store.RtlSdr ?? new HardwareSettings(),
-            _ => store.SdrPlay ?? new HardwareSettings()
-        };
-    }
-
-    private void SaveHardwareStore(HardwareSettingsStore store)
-    {
-        var json = JsonSerializer.Serialize(store, DefaultWriteOptions);
-        File.WriteAllText(_hwFilePath, json);
     }
 }

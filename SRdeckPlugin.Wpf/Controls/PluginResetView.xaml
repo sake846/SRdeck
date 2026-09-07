@@ -19,7 +19,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Text="プラグインの各種動作設定（settings.json）を初期状態に戻します。"
                        Style="{DynamicResource PluginSettingsDescriptionStyle}" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="設定を初期化" Style="{DynamicResource PluginButtonStyle}" Width="92" Height="26"
+            <Button Grid.Column="1" Content="設定を初期化" Style="{DynamicResource PluginButtonStyle}" Width="92"
                     HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0"
                     Command="{Binding ResetPluginSettingsCommand}" />
         </Grid>

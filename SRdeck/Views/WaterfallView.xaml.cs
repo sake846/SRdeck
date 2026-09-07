@@ -15,6 +15,7 @@ using SRdeck.Messages;
 using SRdeck.Helpers;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeckPlugin.Contracts;
+using SRdeck.Services;
 
 namespace SRdeck.Views
 {
@@ -121,7 +122,7 @@ namespace SRdeck.Views
             this.IsVisibleChanged += (s, e) => { };
         }
 
-        public void RenderFrame(IRadioRenderContext engine)
+        public void RenderFrame(IRadioRenderContext engine, MainFftFrame frame)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             float displayBw = 7000000f;
@@ -147,11 +148,11 @@ namespace SRdeck.Views
             _wasActiveSource = hasActiveSource;
             if (_useGpuPath && _gpuPresenter != null && _gpuPresenter.IsReady)
             {
-                if (hasActiveSource && hasValidFftData && engine.WaterfallFftData != null && engine.WaterfallFftData.Length > 0)
+                if (hasActiveSource && hasValidFftData && frame.WaterfallData.Length > 0)
                 {
                     _gpuPresenter.RfCalOffset = engine.RfCalibrationOffset;
                     _gpuPresenter.BiasDb = engine.WaterfallBiasAdj;
-                    _gpuPresenter.Render(engine.WaterfallFftData, engine.WaterfallBlockSequence, engine.Control, engine.State, displayBw, engine.MainFftCenterFreqHz, timeMode);
+                    _gpuPresenter.Render(frame.WaterfallData, frame.WaterfallBlockSequence, engine.Control, engine.State, displayBw, ResolveCenterFrequency(engine, frame), timeMode);
                     _hasRenderedLiveFrame = true;
                 }
                 else if (!_hasRenderedLiveFrame)
@@ -160,9 +161,9 @@ namespace SRdeck.Views
                     _gpuPresenter.RenderBlank();
                 }
             }
-            else if (hasActiveSource && hasValidFftData && engine.WaterfallFftData != null && engine.WaterfallFftData.Length > 0)
+            else if (hasActiveSource && hasValidFftData && frame.WaterfallData.Length > 0)
             {
-                _renderer.SetWaterfall(engine.WaterfallFftData, engine.WaterfallBlockSequence, engine.Control, engine.State, displayBw, engine.MainFftCenterFreqHz, timeMode);
+                _renderer.SetWaterfall(frame.WaterfallData, frame.WaterfallBlockSequence, engine.Control, engine.State, displayBw, ResolveCenterFrequency(engine, frame), timeMode);
                 _hasRenderedLiveFrame = true;
             }
             sw.Stop();
@@ -201,6 +202,11 @@ namespace SRdeck.Views
             }
         }
 
+        private static int ResolveCenterFrequency(IRadioRenderContext engine, MainFftFrame frame) =>
+            (engine.IsSdrRunning || engine.IsPlaying) && frame.CenterFrequencyHz > 0
+                ? frame.CenterFrequencyHz
+                : engine.Control.CenterFreqHz;
+
         private void SyncTimeMode(WaterfallTimeMode timeMode)
         {
             if (!_hasTimeMode)
@@ -211,10 +217,10 @@ namespace SRdeck.Views
             }
             if (_lastTimeMode == timeMode) return;
 
+            WaterfallTimeMode oldTimeMode = _lastTimeMode;
             _lastTimeMode = timeMode;
-            _renderer.ResetHistory();
-            _gpuPresenter?.ResetHistory();
-            _hasRenderedLiveFrame = false;
+            _renderer.RetainHistoryForTimeModeChange(oldTimeMode, timeMode);
+            _gpuPresenter?.RetainHistoryForTimeModeChange(oldTimeMode, timeMode);
         }
 
         private static (int Width, int Height) GetRasterSize(Visual visual, Size logicalSize)

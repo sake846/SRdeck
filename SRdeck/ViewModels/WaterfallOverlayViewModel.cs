@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -156,25 +156,40 @@ namespace SRdeck.ViewModels
 
             // Waterfall Y Labels
             if (waterfallHeight > 0 && spectrumWidth > 0) {
-                int labelCount = 17;
-                int tickIntervalSeconds = 0;
-                if (timeMode == WaterfallTimeMode.Uncompressed)
+                int labelCount;
+                double tickIntervalSeconds;
+                if (timeMode == WaterfallTimeMode.OneHour)
+                {
+                    tickIntervalSeconds = WaterfallTimeModel.OneHourTickIntervalSeconds;
+                    labelCount = Math.Max(0, (int)Math.Floor(totalHistorySeconds / tickIntervalSeconds) - 1);
+                }
+                else if (timeMode == WaterfallTimeMode.FifteenMinutes)
+                {
+                    tickIntervalSeconds = WaterfallTimeModel.FifteenMinutesTickIntervalSeconds;
+                    labelCount = Math.Max(0, (int)Math.Floor(totalHistorySeconds / tickIntervalSeconds) - 1);
+                }
+                else if (timeMode == WaterfallTimeMode.Uncompressed || timeMode == WaterfallTimeMode.DoubleSpeed)
                 {
                     tickIntervalSeconds = WaterfallTimeModel.GetUncompressedTickIntervalSeconds(totalHistorySeconds);
                     labelCount = Math.Max(0, (int)Math.Ceiling(totalHistorySeconds / tickIntervalSeconds) - 1);
+                }
+                else
+                {
+                    tickIntervalSeconds = totalHistorySeconds / 18.0;
+                    labelCount = 17;
                 }
 
                 while (WaterfallYLabels.Count < labelCount) WaterfallYLabels.Add(new WaterfallYLabel());
                 while (WaterfallYLabels.Count > labelCount) WaterfallYLabels.RemoveAt(WaterfallYLabels.Count - 1);
                 for (int index = 0; index < labelCount; index++) {
                     int i = index + 1;
-                    double seconds = timeMode == WaterfallTimeMode.Uncompressed
-                        ? i * tickIntervalSeconds
-                        : totalHistorySeconds * i / 18.0;
+                    double seconds = i * tickIntervalSeconds;
                     double yBase = Math.Round((seconds / Math.Max(double.Epsilon, totalHistorySeconds)) * waterfallHeight);
                     WaterfallYLabels[i-1].Y = yBase - 6;
                     WaterfallYLabels[i-1].YLine = yBase;
-                    string timeLabel = FormatHistoryLabel(seconds);
+                    string timeLabel = (timeMode == WaterfallTimeMode.OneHour || timeMode == WaterfallTimeMode.FifteenMinutes)
+                        ? FormatHistoryMinutesLabel(seconds)
+                        : FormatHistoryLabel(seconds);
                     WaterfallYLabels[i-1].TextLeft = timeLabel;
                     WaterfallYLabels[i-1].TextRight = timeLabel;
                     WaterfallYLabels[i-1].XRightText = Math.Round(spectrumWidth - 27);
@@ -322,5 +337,13 @@ namespace SRdeck.ViewModels
             => Math.Abs(seconds - Math.Round(seconds)) < 0.05
                 ? Math.Round(seconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : seconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+
+        private static string FormatHistoryMinutesLabel(double seconds)
+        {
+            double minutes = seconds / 60.0;
+            return Math.Abs(minutes - Math.Round(minutes)) < 0.05
+                ? Math.Round(minutes).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : minutes.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+        }
     }
 }

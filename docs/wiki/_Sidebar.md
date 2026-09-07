@@ -22,12 +22,16 @@
 - [ACARS](Plugins-Acars)
 - [ADS-B](Plugins-AdsB)
 - [AIS](Plugins-Ais)
+- [国際VHF／DSC](Plugins-Maritime-VHF)
 - [アナログ復調](Plugins-Analog)
+- [CW Skimmer](Plugins-Cw)
+- [HF-FAX](Plugins-HfFax)
 - [FT8／FT4／JT65A](Plugins-Ft8)
 - [HFDL](Plugins-Hfdl)
 - [VDL Mode 2](Plugins-Vdl)
 - [Wi-SUN](Plugins-WiSun)
 - [Meshtastic（ソースのみ）](Plugins-Meshtastic)
+- [ワンセグ（ソースのみ）](Plugins-OneSeg)
 
 ## 問題解決
 

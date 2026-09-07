@@ -30,16 +30,16 @@ dotnet run --project docs\samples\SRdeckPlugin.Example.Tests\SRdeckPlugin.Exampl
 試験名を確認:
 
 ```powershell
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -- --list-tests
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --list-tests
 ```
 
 全試験:
 
 ```powershell
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release
 ```
 
-`SRdeck.Tests`はコンソール型ハーネスです。失敗後も後続項目を実行します。終了コードだけでなく、失敗項目名と最初の原因を確認してください。
+`SRdeck.Tests`はxUnit.net v3を使用し、各回帰試験を独立した子プロセスで実行します。失敗後も後続項目を実行します。終了コードだけでなく、失敗項目名と最初の原因を確認してください。`--logger trx`を追加するとテスト結果をTRXへ保存できます。
 
 ## Descriptorと検出
 

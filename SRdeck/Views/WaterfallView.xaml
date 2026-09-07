@@ -116,7 +116,7 @@
                         </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextSecondaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="13" />
+                                <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -133,11 +133,11 @@
                                 <Canvas>
                                     <Line X1="0" Y1="{Binding YLine}" X2="5" Y2="{Binding YLine}" Stroke="#FF646464" StrokeThickness="1" />
                                     <Border Background="#40000000" CornerRadius="3" Canvas.Left="3" Canvas.Top="{Binding YLine}" Padding="2,2" Margin="0,-8,0,0">
-                                        <TextBlock Text="{Binding TextLeft}" Width="18" TextAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" />
+                                        <TextBlock Text="{Binding TextLeft}" Width="18" TextAlignment="Right" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" />
                                     </Border>
                                     <Line X1="{Binding XRightLine1}" Y1="{Binding YLine}" X2="{Binding XRightLine2}" Y2="{Binding YLine}" Stroke="#FF646464" StrokeThickness="1" />
                                     <Border Background="#40000000" CornerRadius="3" Canvas.Left="{Binding XRightText}" Canvas.Top="{Binding YLine}" Padding="2,2" Margin="0,-8,0,0">
-                                        <TextBlock Text="{Binding TextRight}" Width="18" TextAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" />
+                                        <TextBlock Text="{Binding TextRight}" Width="18" TextAlignment="Right" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" />
                                     </Border>
                                 </Canvas>
                             </DataTemplate>

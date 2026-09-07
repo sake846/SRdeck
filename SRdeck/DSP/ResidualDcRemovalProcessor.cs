@@ -18,6 +18,8 @@ public sealed class ResidualDcRemovalProcessor
     private double _dcI;
     private double _dcQ;
     private bool _hasEstimate;
+    private int _coefficientSampleRateHz;
+    private double _alpha;
 
     public void Process(
         ReadOnlySpan<short> sourceI,
@@ -45,7 +47,7 @@ public sealed class ResidualDcRemovalProcessor
             _hasEstimate = true;
         }
 
-        double alpha = 1.0 - Math.Exp(-2.0 * Math.PI * CutoffFrequencyHz / sampleRateHz);
+        double alpha = GetAlpha(sampleRateHz);
         for (int index = 0; index < sampleCount; index++)
         {
             double inputI = sourceI[index];
@@ -72,7 +74,17 @@ public sealed class ResidualDcRemovalProcessor
         return sum / samples.Length;
     }
 
-    private static short SaturateToInt16(double value)
+    private double GetAlpha(int sampleRateHz)
+    {
+        if (_coefficientSampleRateHz != sampleRateHz)
+        {
+            _alpha = 1.0 - Math.Exp(-2.0 * Math.PI * CutoffFrequencyHz / sampleRateHz);
+            _coefficientSampleRateHz = sampleRateHz;
+        }
+        return _alpha;
+    }
+
+    internal static short SaturateToInt16(double value)
     {
         if (value >= short.MaxValue) return short.MaxValue;
         if (value <= short.MinValue) return short.MinValue;

@@ -8,7 +8,7 @@ public partial class SpectrumYLabel : ObservableObject
     [ObservableProperty] private double _y;
     [ObservableProperty] private double _xRight;
     [ObservableProperty] private string _text = "";
-    [ObservableProperty] private string _textColor = "#FFD6D6D6";
+    [ObservableProperty] private string _textColor = "#FFF2F2F2";
 }
 
 public partial class WaterfallXLabel : ObservableObject

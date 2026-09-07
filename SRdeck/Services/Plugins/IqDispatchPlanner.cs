@@ -34,6 +34,7 @@ internal sealed class IqDispatchPlanner(
     private long _nextSequence;
     private int _lastSampleRateHz;
     private long _lastCenterFrequencyHz;
+    private long _lastAbsoluteSampleEnd = -1;
 
     internal int ChannelWarmUpExecutionCount { get; private set; }
 
@@ -67,7 +68,10 @@ internal sealed class IqDispatchPlanner(
         IqBlockMetadata metadata;
         lock (_streamGate)
         {
-            IqDiscontinuity discontinuity = IqDiscontinuity.None;
+            IqDiscontinuity discontinuity = request.Discontinuity;
+            if (_lastAbsoluteSampleEnd >= 0 &&
+                request.AbsoluteSampleEnd - request.SampleCount != _lastAbsoluteSampleEnd)
+                discontinuity |= IqDiscontinuity.SamplesDropped;
             if (Interlocked.Exchange(ref _streamStarted, 0) != 0)
                 discontinuity |= IqDiscontinuity.StreamStarted;
             if (_lastSampleRateHz != 0 && _lastSampleRateHz != request.SampleRateHz)
@@ -83,6 +87,7 @@ internal sealed class IqDispatchPlanner(
 
             _lastSampleRateHz = request.SampleRateHz;
             _lastCenterFrequencyHz = request.CenterFrequencyHz;
+            _lastAbsoluteSampleEnd = request.AbsoluteSampleEnd;
             long sequence = ++_nextSequence;
             metadata = new IqBlockMetadata(
                 _streamId,
@@ -188,6 +193,7 @@ internal sealed class IqDispatchPlanner(
             _nextSequence = 0;
             _lastSampleRateHz = 0;
             _lastCenterFrequencyHz = 0;
+            _lastAbsoluteSampleEnd = -1;
             Volatile.Write(ref _streamStarted, 1);
         }
     }

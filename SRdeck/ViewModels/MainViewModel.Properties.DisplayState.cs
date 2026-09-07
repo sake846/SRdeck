@@ -35,7 +35,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     var parts = dev.Split(',');
                     DeviceModel = parts[0].Trim();
-                    DeviceSn = " (" + parts[1].Trim() + ")";
+                    DeviceSn = " " + parts[1].Trim();
                 }
                 else
                 {

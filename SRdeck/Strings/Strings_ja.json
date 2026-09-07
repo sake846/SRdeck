@@ -50,7 +50,7 @@
       "Label_ModeClick3": "3回クリックした時"
     },
     "StartupTab": {
-      "Tab_Startup": "一般",
+      "Tab_Startup": "一般設定",
       "Header_DisplayStartup": "🖥 画面・動作詳細設定",
       "Label_SdrDeviceType": "SDRデバイス:",
       "Label_FreqDisplayMode": "情報表示:",

@@ -38,7 +38,7 @@ namespace SRdeck.ViewModels
         [ObservableProperty] private string _text = "";
         [ObservableProperty] private double _xRight;
         [ObservableProperty] private double _y;
-        [ObservableProperty] private string _textColor = "#FFD6D6D6";
+        [ObservableProperty] private string _textColor = "#FFF2F2F2";
         [ObservableProperty] private Visibility _visibility = Visibility.Visible;
     }
 }

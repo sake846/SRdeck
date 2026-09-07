@@ -210,24 +210,29 @@ public sealed class WaveOutAudioOutput : IAudioOutput
 
     private void DisposeDevice()
     {
-        if (_waveOut != IntPtr.Zero)
+        using (SRdeck.Services.ShutdownDiagnosticLog.Scope("WaveOutAudioOutput.DisposeDevice"))
         {
-            _ = waveOutReset(_waveOut);
-            ReleaseCompletedBuffers(forceAll: true);
-            int res = waveOutClose(_waveOut);
-            if (res != 0)
+            if (_waveOut != IntPtr.Zero)
             {
-                System.Threading.Thread.Sleep(15);
                 _ = waveOutReset(_waveOut);
                 ReleaseCompletedBuffers(forceAll: true);
-                _ = waveOutClose(_waveOut);
+                int res = waveOutClose(_waveOut);
+                if (res != 0)
+                {
+                    SRdeck.Services.ShutdownDiagnosticLog.Write("WaveOutAudioOutput.DisposeDevice", "waveOutClose returned " + res + ", retrying after sleep...");
+                    System.Threading.Thread.Sleep(15);
+                    _ = waveOutReset(_waveOut);
+                    ReleaseCompletedBuffers(forceAll: true);
+                    res = waveOutClose(_waveOut);
+                    SRdeck.Services.ShutdownDiagnosticLog.Write("WaveOutAudioOutput.DisposeDevice", "retry waveOutClose result: " + res);
+                }
+                _waveOut = IntPtr.Zero;
             }
-            _waveOut = IntPtr.Zero;
-        }
 
-        _bufferLength = 0;
-        _isPaused = false;
-        FreePooledBuffers();
+            _bufferLength = 0;
+            _isPaused = false;
+            FreePooledBuffers();
+        }
     }
 
     private void ReleaseCompletedBuffers(bool forceAll)

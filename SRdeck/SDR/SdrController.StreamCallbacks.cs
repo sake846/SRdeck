@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Messages;
 using SRdeck.Models.SDR;
+using SRdeck.Models;
 
 namespace SRdeck.SDR;
 
@@ -38,12 +39,17 @@ public partial class SdrController
 
             short[] samplesI = ArrayPool<short>.Shared.Rent(sampleCount);
             short[] samplesQ = ArrayPool<short>.Shared.Rent(sampleCount);
+            SdrSampleMetadata metadata = _sampleClock.Capture(sampleCount, callbackParams.FirstSampleNum, reset != 0);
+            metadata = metadata with
+            {
+                IsDiscontinuous = metadata.IsDiscontinuous || callbackParams.RfChanged != 0 || callbackParams.FsChanged != 0
+            };
             try
             {
                 Marshal.Copy(ptrSampleI, samplesI, 0, sampleCount);
                 Marshal.Copy(ptrSampleQ, samplesQ, 0, sampleCount);
 
-                if (!queue.Writer.TryWrite(new QueuedSampleBlock(samplesI, samplesQ, numSamples)))
+                if (!queue.Writer.TryWrite(new QueuedSampleBlock(samplesI, samplesQ, (uint)sampleCount, metadata)))
                 {
                     Interlocked.Increment(ref _droppedCallbackCount);
                     ReturnSampleBlock(new QueuedSampleBlock(samplesI, samplesQ, numSamples));
@@ -70,6 +76,7 @@ public partial class SdrController
             Volatile.Write(ref _droppedCallbackCount, 0);
             Volatile.Write(ref _enqueuedSampleBlocks, 0);
             Volatile.Write(ref _dequeuedSampleBlocks, 0);
+            _sampleClock = new SdrSampleClock();
             _sampleQueueCancellation = new CancellationTokenSource();
             _sampleQueue = Channel.CreateBounded<QueuedSampleBlock>(
                 new BoundedChannelOptions(SampleQueueCapacity)
@@ -93,19 +100,25 @@ public partial class SdrController
         Channel<QueuedSampleBlock> queue,
         CancellationToken cancellationToken)
     {
+        var continuity = new SdrSampleDeliveryTracker();
         try
         {
-            while (queue.Reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
+            while (!cancellationToken.IsCancellationRequested &&
+                   queue.Reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
             {
-                while (queue.Reader.TryRead(out QueuedSampleBlock block))
+                while (!cancellationToken.IsCancellationRequested && queue.Reader.TryRead(out QueuedSampleBlock block))
                 {
                     Interlocked.Increment(ref _dequeuedSampleBlocks);
                     try
                     {
+                        if (cancellationToken.IsCancellationRequested) continue;
+                        SdrSampleMetadata metadata = continuity.Observe(block.Metadata, block.SampleCount);
+                        SampleBlockReceived?.Invoke(new(block.SamplesI, block.SamplesQ, block.SampleCount, metadata));
                         SamplesReceived?.Invoke(block.SamplesI, block.SamplesQ, block.SampleCount);
                     }
                     catch (Exception exception)
                     {
+                        continuity.MarkFailedDelivery();
                         Debug.Print($"[SdrController] IQ consumer failed: {exception}");
                     }
                     finally

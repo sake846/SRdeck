@@ -11,10 +11,17 @@ namespace SRdeck.Views;
 /// </summary>
 public partial class SplashWindow : Window
 {
+    public event EventHandler? ExitRequested;
+
     public SplashWindow()
     {
         InitializeComponent();
         SetVersionInfo(GetVersionText());
+    }
+
+    private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ExitRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private static string GetVersionText()

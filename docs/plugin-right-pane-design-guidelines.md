@@ -435,10 +435,10 @@ DSP、ViewModel、UI スレッドなどの構造上の規約は [プラグイン
 
 | コントロール | 使用するスタイル | 左下ペインから踏襲する見た目 |
 |---|---|---|
-| 通常ボタン | `PluginButtonStyle` | `LedYellowGreenStepButtonStyle` と同じ暗い計器面、9 px の丸み、細い立体枠、上端の控えめな光沢、10 px 文字、22 px 高 |
-| トグルボタン | `PluginToggleButtonStyle` | `PluginButtonStyle` と同等の 22 px 高・暗い計器面。選択時（`IsChecked="True"`）に黄緑テキストとグローを適用 |
+| 通常ボタン | `PluginButtonStyle` | `LedYellowGreenStepButtonStyle` と同じ暗い計器面、9 px の丸み、細い立体枠、上端の控えめな光沢、11 px 文字、19 px 高 |
+| トグルボタン | `PluginToggleButtonStyle` | `PluginButtonStyle` と同等の 19 px 高・暗い計器面。選択時（`IsChecked="True"`）に黄緑テキストとグローを適用 |
 | 分割ステップボタン | `PluginLeftStepButtonStyle`, `PluginRightStepButtonStyle` | 左下ペイン (SP等) の `LedLeftYellowGreenStepButtonStyle` / `LedRightYellowGreenStepButtonStyle` と同等の左右タイプ分割ボタン。表示は `◀` `▶` 等 |
-| コンボボックス | `PluginComboBoxStyle` | `MainComboBoxStyle` と同じ暗い面、9 px の丸み、右側の下向き矢印、10 px 文字、22 px 高。ドロップダウンも暗い面を継続 |
+| コンボボックス | `PluginComboBoxStyle` | `MainComboBoxStyle` と同じ暗い面、9 px の丸み、右側の下向き矢印、11 px 文字、19 px 高。ドロップダウンも暗い面を継続 |
 | チェックボックス | `PluginCheckBoxStyle` | 左下ペイン系の 14 px 四角、3 px の丸み、暗い面と細い枠。選択時は黄緑のチェック、枠、文字 |
 | ラジオボタン | `PluginRadioButtonStyle` | 左下ペイン系の 14 px 円、8 px の選択点、暗い面と細い枠。選択時は黄緑の点、枠、文字 |
 | テキスト入力 | `PluginTextBoxStyle` | コンボボックスと同じ高さ、面、枠、文字サイズ。角丸は入力の意味を損なわない範囲で共通化 |

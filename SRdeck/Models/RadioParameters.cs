@@ -154,8 +154,6 @@ public record struct RadioControl
 /// </summary>
 public class RadioState
 {
-    public int[] BasebandIData = Array.Empty<int>();
-    public int[] BasebandQData = Array.Empty<int>();
     public float RxRssi;
     public bool IsSquelchOpen;
 
@@ -169,7 +167,6 @@ public class RadioState
     public float AveFftPwr; // P_fft (dBFS)
     public float AveRxPwr; // P_rx (dBm)
     public float RfCalibrationDelta; // P_rx (dBm) - P_raw (dBFS) = -SystemDb + RfCalibrationOffset
-    public float[] MainFftData = Array.Empty<float>(); // Averaged FFT data for spectrum/zoom (4096 points)
     public bool IsZoomHighResMode;
 
     internal RadioState CreateSnapshot() => (RadioState)MemberwiseClone();

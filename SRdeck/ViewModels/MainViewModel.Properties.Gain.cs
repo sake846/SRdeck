@@ -9,7 +9,9 @@ namespace SRdeck.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private int _rfGainDb = 50;
-    [ObservableProperty] private bool _isRtlDevice;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveBitDepthText))]
+    private bool _isRtlDevice;
 
     [ObservableProperty] private string _gainPrimaryLabel = "GR";
     [ObservableProperty] private string _gainPrimaryUnit = "dB";
@@ -18,6 +20,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _sdrPlaySensitivity = 50;
     [ObservableProperty] private string _sdrPlaySensitivityDescription = "標準";
     [ObservableProperty] private string _sdrPlayGainSummary = "LNA 0 / GR 50 dB / 最大ゲイン比 -30 dB";
+    [ObservableProperty] private string _sdrPlayMaxGainRatioText = "-30 dB";
+    [ObservableProperty] private string _sdrPlayLnaGrText = "LNA 0 / GR 50 dB";
 
     public string RtlSdrGainSummary =>
         $"{(IsAgcEnabled ? "自動" : "手動")} / GAIN {RtlSdrRfGainDb}";
@@ -266,6 +270,8 @@ public partial class MainViewModel : ObservableObject
             SelectedLnaState,
             SdrPlayRfGainDb,
             _engine.MinGainReduction);
+        SdrPlayMaxGainRatioText = $"-{attenuationDb} dB";
+        SdrPlayLnaGrText = $"LNA {SelectedLnaState} / GR {SdrPlayRfGainDb} dB";
         SdrPlayGainSummary = $"LNA {SelectedLnaState} / GR {SdrPlayRfGainDb} dB / 最大ゲイン比 -{attenuationDb} dB";
     }
 

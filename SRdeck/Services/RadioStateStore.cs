@@ -10,7 +10,6 @@ public interface IRadioStateStore
     RadioState PublishedState { get; }
     void Replace(RadioState state);
     void Publish();
-    void PublishProcessingState(float frequencyErrorEmaAlpha);
     void SetZoomHighResolutionMode(int receiverIndex, bool isHighResolution);
 }
 
@@ -36,14 +35,6 @@ public sealed class RadioStateStore : IRadioStateStore
     }
 
     public void Publish()
-    {
-        lock (_syncRoot)
-        {
-            SyncSnapshot();
-        }
-    }
-
-    public void PublishProcessingState(float frequencyErrorEmaAlpha)
     {
         lock (_syncRoot)
         {

@@ -10,7 +10,14 @@ public readonly record struct PluginIqPublishRequest(
     int SampleRateHz,
     long CenterFrequencyHz,
     long AbsoluteSampleEnd,
-    SignalInputSource InputSource);
+    SignalInputSource InputSource,
+    IqDiscontinuity Discontinuity = IqDiscontinuity.None)
+{
+    // Optional stable copies supplied by the host processing worker. Legacy
+    // callers can still publish directly from a ring they own.
+    public ReadOnlyMemory<short> SamplesI { get; init; }
+    public ReadOnlyMemory<short> SamplesQ { get; init; }
+}
 
 public readonly record struct PluginIqDispatchSnapshot(
     long SubmittedBlocks,
@@ -124,6 +131,9 @@ public sealed class PluginIqDispatcher : IPluginIqDispatcher
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (request.SampleCount <= 0 || request.SampleRateHz <= 0 ||
             request.AbsoluteSampleEnd < request.SampleCount)
+            return false;
+        if ((!request.SamplesI.IsEmpty || !request.SamplesQ.IsEmpty) &&
+            (request.SamplesI.Length < request.SampleCount || request.SamplesQ.Length < request.SampleCount))
             return false;
         if (!_planner.TryCreatePlan(request, out IqDispatchPlan plan))
             return false;

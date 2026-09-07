@@ -12,7 +12,7 @@ using SRdeck.Messages;
 
 namespace SRdeck.SDR;
 
-public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics
+public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSampleBlockSource
 {
     public SdrDeviceCapabilities Capabilities { get; } = new(SdrDeviceKind.SdrPlay);
     public int FsHz { get; set; }
@@ -44,6 +44,7 @@ public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics
     private const int SampleQueueCapacity = 256;
 
     public event Action<short[], short[], uint>? SamplesReceived;
+    public event Action<SdrSampleBlock>? SampleBlockReceived;
     public event Action<double, int>? GainHardwareChanged;
     public event Action? DeviceRemoved;
     public event Action? StreamStalled;
@@ -74,6 +75,7 @@ public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics
     private long _droppedCallbackCount;
     private long _enqueuedSampleBlocks;
     private long _dequeuedSampleBlocks;
+    private SdrSampleClock _sampleClock = new();
 
     private SdrPlayApi.StreamCallbackT? _streamACallback;
     private SdrPlayApi.StreamCallbackT? _streamBCallback;
@@ -93,7 +95,8 @@ public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics
     private readonly record struct QueuedSampleBlock(
         short[] SamplesI,
         short[] SamplesQ,
-        uint SampleCount);
+        uint SampleCount,
+        SdrSampleMetadata Metadata = default);
 
     public SdrController(bool suppressErrors = false)
     {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Threading;
 using SRdeckPlugin.Contracts;
@@ -25,7 +25,20 @@ public partial class CoreEngine : ISdrEngine
         set => _sdrDeviceManager.Device = value;
     }
 
-    private void HandleGainHardwareChanged(double systemDb, int gainReductionDb) { SystemDb = systemDb + SystemGainOffset; _agcManager.CurrentGainDb = gainReductionDb; }
+    private void HandleGainHardwareChanged(double systemDb, int gainReductionDb)
+    {
+        SignalRuntimeState current;
+        SignalRuntimeState updated;
+        do
+        {
+            current = Volatile.Read(ref _signalRuntimeState);
+            updated = current with { SystemDb = systemDb + current.SystemGainOffset };
+        }
+        while (!ReferenceEquals(
+            Interlocked.CompareExchange(ref _signalRuntimeState, updated, current),
+            current));
+        _agcManager.CurrentGainDb = gainReductionDb;
+    }
     public void SyncSdrProperties() => SyncSdrProperties(Control);
 
     private void SyncSdrProperties(RadioControl control)
@@ -39,7 +52,6 @@ public partial class CoreEngine : ISdrEngine
         {
             CurrentGainDb = initialization.CurrentGainDb;
         }
-        _rfAgc = RfAgcEnabled == 1;
         _sdrDeviceManager.Synchronize(
             control,
             new SdrDevicePropertyValues(
@@ -52,9 +64,7 @@ public partial class CoreEngine : ISdrEngine
     }
 
     public event Action<string?>? OnTitleChanged;
-    public event Action? OnFileFrequencyChanged;
     public event Action? StateUpdated;
-    public event Action? DemodHistoryUpdated;
     public event Action? DeviceRemoved;
     public event Action? StreamStalled;
 
@@ -100,7 +110,7 @@ public partial class CoreEngine : ISdrEngine
     public void UpdateDiagnostics(RadioDiagnosticsMutator mutator) => _diagnosticsStore.Update(mutator);
     public void ResetDiagnostics() => _diagnosticsStore.Reset();
     public int BiasDemod => (int)(RfCalibrationOffset + 18.0f);
-    public int RfHzOld;
+    private int _referenceCenterFrequencyHz;
     private readonly object _tuningSynchronizationLock = new();
     public const int UI_FFT_SIZE = AppConstants.FFT_SIZE;
     private readonly IMainFftService _mainFftService;
@@ -109,8 +119,6 @@ public partial class CoreEngine : ISdrEngine
     private readonly ISignalPipeline _signalPipeline;
     private readonly IRadioProcessingPipeline _processingPipeline;
     private readonly ITuningCoordinator _tuningCoordinator;
-    public float[] SpectrumFftData { get => _mainFftService.SpectrumData; set => _mainFftService.SpectrumData = value; }
-    public float[] WaterfallFftData { get => _mainFftService.WaterfallData; set => _mainFftService.WaterfallData = value; }
     public IFftProcessor? FftProcessor => _mainFftService.Processor;
     private long _lastMainFftTriggerSample = 0;
 
@@ -136,7 +144,30 @@ public partial class CoreEngine : ISdrEngine
     public int BufferRPtrNext { get => _signalPipeline.NextReadPointer; set => _signalPipeline.NextReadPointer = value; }
     public int LatestBufferPointer => BufferRPtrNext;
     public long TotalSamplesReceived { get => _signalPipeline.TotalSamplesReceived; set => _signalPipeline.TotalSamplesReceived = value; }
-    public double SystemDb { get; set; }
+    private sealed record SignalRuntimeState(
+        double SystemDb,
+        float SystemGainOffset,
+        int RfAgcEnabled);
+
+    private SignalRuntimeState _signalRuntimeState = new(0, 0, 0);
+
+    public double SystemDb
+    {
+        get => Volatile.Read(ref _signalRuntimeState).SystemDb;
+        set
+        {
+            SignalRuntimeState current;
+            SignalRuntimeState updated;
+            do
+            {
+                current = Volatile.Read(ref _signalRuntimeState);
+                updated = current with { SystemDb = value };
+            }
+            while (!ReferenceEquals(
+                Interlocked.CompareExchange(ref _signalRuntimeState, updated, current),
+                current));
+        }
+    }
     public int CurrentGainDb { get => _agcManager.CurrentGainDb; set => _agcManager.CurrentGainDb = value; }
     public bool ResidualDcRemovalEnabled
     {
@@ -153,13 +184,6 @@ public partial class CoreEngine : ISdrEngine
             ResetPointersForRestart();
         }
 
-        if (_signalPipeline.EnsureDemodulationCapacity(
-            _radioStateStore.WorkingState,
-            sampleRateHz,
-            DeviceCapabilities))
-        {
-            State = _radioStateStore.WorkingState;
-        }
     }
 
     private int GetBufferSampleRateHz() =>
@@ -186,32 +210,10 @@ public partial class CoreEngine : ISdrEngine
     {
         RadioControl control = Control;
         if (control.FsHz <= 0) return;
-        if (_mainFftService.Processor is FftProcessor processor &&
-            processor.IsPrepared(control))
-        {
-            return;
-        }
-
-        float[] spectrum = new float[AppConstants.FFT_SIZE];
-        float[] waterfall = new float[AppConstants.FFT_SIZE];
-        float[] waterfallAverage = new float[AppConstants.FFT_SIZE];
-        float[] fullResolution = new float[AppConstants.FFT_SIZE];
-        float[] noiseFloor = new float[AppConstants.FFT_SIZE];
-        _mainFftService.Processor.ProcessFft(
-            IqBuffer,
-            0,
-            control,
-            RequestedSpectrumWidth,
-            ref spectrum,
-            ref waterfall,
-            ref waterfallAverage,
-            ref fullResolution,
-            ref noiseFloor);
+        _mainFftService.WarmUp(IqBuffer, control, RequestedSpectrumWidth);
     }
-    public bool _rfAgc;
     public Dispatcher Dispatcher => Application.Current.Dispatcher;
     public bool HasNewRenderData { get; set; } = false;
-    public bool HasNewDemodRenderData { get; set; } = false;
     private volatile bool _hasValidMainFftData;
     public bool HasValidMainFftData { get => _hasValidMainFftData; set => _hasValidMainFftData = value; }
     public int RenderFrameSerial { get; set; } = 0;
@@ -219,7 +221,7 @@ public partial class CoreEngine : ISdrEngine
     {
         get
         {
-            int referenceCenterFrequencyHz = Volatile.Read(ref RfHzOld);
+            int referenceCenterFrequencyHz = Volatile.Read(ref _referenceCenterFrequencyHz);
             return referenceCenterFrequencyHz > 0
                 ? referenceCenterFrequencyHz
                 : Control.CenterFreqHz;
@@ -228,7 +230,7 @@ public partial class CoreEngine : ISdrEngine
     public int MainFftCenterFreqHz => (IsSdrRunning || IsPlaying) && _mainFftService.CenterFrequencyHz > 0
         ? _mainFftService.CenterFrequencyHz
         : Control.CenterFreqHz;
-    public long WaterfallBlockSequence { get => _mainFftService.WaterfallBlockSequence; set => _mainFftService.WaterfallBlockSequence = value; }
+    public MainFftFrameLease AcquireMainFftFrame() => _mainFftService.AcquireFrame();
     public bool NeedsBackgroundRedraw { get; set; } = false;
     public int SpectrumBiasAdj { get; set; } = 0;
     public int WaterfallBiasAdj { get; set; } = 0;
@@ -236,11 +238,43 @@ public partial class CoreEngine : ISdrEngine
     public int WaterfallZoomBiasAdj { get; set; } = 0;
     public float PpmAdjustment { get; set; } = 0f;
     public float RfCalibrationOffset { get; set; } = AppConstants.RF_CAL_OFFSET;
-    public float SystemGainOffset { get; set; } = 0.0f;
+    public float SystemGainOffset
+    {
+        get => Volatile.Read(ref _signalRuntimeState).SystemGainOffset;
+        set
+        {
+            SignalRuntimeState current;
+            SignalRuntimeState updated;
+            do
+            {
+                current = Volatile.Read(ref _signalRuntimeState);
+                updated = current with { SystemGainOffset = value };
+            }
+            while (!ReferenceEquals(
+                Interlocked.CompareExchange(ref _signalRuntimeState, updated, current),
+                current));
+        }
+    }
     public float SdrBiasPpm { get; set; } = AppConstants.DEFAULT_SDR_BIAS_PPM;
     public int MaxGainReduction => SdrDevice?.MaxGainReduction ?? 59;
     public int MinGainReduction { get; set; } = AppConstants.DEFAULT_MIN_GAIN_REDUCTION;
-    public int RfAgcEnabled { get; set; } = 0;
+    public int RfAgcEnabled
+    {
+        get => Volatile.Read(ref _signalRuntimeState).RfAgcEnabled;
+        set
+        {
+            SignalRuntimeState current;
+            SignalRuntimeState updated;
+            do
+            {
+                current = Volatile.Read(ref _signalRuntimeState);
+                updated = current with { RfAgcEnabled = value };
+            }
+            while (!ReferenceEquals(
+                Interlocked.CompareExchange(ref _signalRuntimeState, updated, current),
+                current));
+        }
+    }
     public AgcReleaseMode AgcReleaseMode
     {
         get => _agcManager.ReleaseMode;
@@ -272,7 +306,8 @@ public partial class CoreEngine : ISdrEngine
             ProcessIncomingSamples,
             HandleGainHardwareChanged,
             HandleDeviceRemoved,
-            HandleStreamStalled);
+            HandleStreamStalled,
+            ProcessIncomingSampleBlock);
         _signalPipeline = signalPipelineFactory.Create(
             HandleCompletedSignalBlock,
             ProcessSignalCycle,
@@ -330,7 +365,7 @@ public partial class CoreEngine : ISdrEngine
         _tuningCoordinator.ResolveInputCenterFrequency(
             new InputCenterFrequencyRequest(
                 control,
-                Volatile.Read(ref RfHzOld),
+                Volatile.Read(ref _referenceCenterFrequencyHz),
                 SdrDevice?.CenterFreqHz ?? 0));
 
     private void SyncMainDiagnostics(RadioDiagnostics source, double timeProcCycle, double? forceTimeTotal = null)
@@ -341,30 +376,48 @@ public partial class CoreEngine : ISdrEngine
         _signalPipeline.ResetForRestart();
         _pluginIqDispatcher.ResetStream();
         _lastMainFftTriggerSample = TotalSamplesReceived;
+        _mainFftService.ClearFrame();
         _mainFftService.ResetMetrics();
         HasValidMainFftData = false;
         RenderFrameSerial = 0;
-        WaterfallBlockSequence = 0;
-        HasNewDemodRenderData = false;
     }
-    public void DrawSpectrumInit() => NeedsBackgroundRedraw = true;
-    public void DrawWaterfallInit() => NeedsBackgroundRedraw = true;
 
     public void Dispose()
     {
         if (_isDisposed) return;
         _isDisposed = true;
-        _processingPipeline.StopAndWait();
+
+        using (ShutdownDiagnosticLog.Scope("CoreEngine.ProcessingPipeline.StopAndWait"))
+        {
+            _processingPipeline.StopAndWait();
+        }
+
         ISdrDevice? sdrDevice = _sdrDeviceManager.DetachDevice();
         _inputSessionState.MarkDisposed();
         _agcManager.Dispose();
-        sdrDevice?.Dispose();
-        
-        _signalPipeline.Dispose();
-        _mainFftService.Dispose();
-        _pluginIqDispatcher.Dispose();
 
-        _audioService.Shutdown();
+        using (ShutdownDiagnosticLog.Scope("CoreEngine.SdrDevice.Dispose", sdrDevice?.GetType().Name ?? "null"))
+        {
+            sdrDevice?.Dispose();
+        }
+        
+        using (ShutdownDiagnosticLog.Scope("CoreEngine.SignalPipeline.Dispose"))
+        {
+            _signalPipeline.Dispose();
+        }
+
+        using (ShutdownDiagnosticLog.Scope("CoreEngine.OtherServices.Dispose"))
+        {
+            _mainFftService.Dispose();
+            _pluginIqDispatcher.Dispose();
+            _diagnosticsStore.Dispose();
+        }
+
+        using (ShutdownDiagnosticLog.Scope("CoreEngine.AudioService.Shutdown"))
+        {
+            _audioService.Shutdown();
+        }
+
         GC.SuppressFinalize(this);
     }
 

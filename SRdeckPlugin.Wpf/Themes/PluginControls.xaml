@@ -3,9 +3,9 @@
 
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="PluginTheme.xaml" />
+        <ResourceDictionary Source="PluginControls.Inputs.xaml" />
         <ResourceDictionary Source="PluginControls.Panels.xaml" />
         <ResourceDictionary Source="PluginControls.Status.xaml" />
-        <ResourceDictionary Source="PluginControls.Inputs.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

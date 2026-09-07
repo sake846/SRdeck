@@ -1,3 +1,4 @@
+using SRdeck.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +11,7 @@ using SRdeck.Models;
 
 namespace SRdeck.SDR;
 
-public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
+public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSampleBlockSource
 {
     private const int DeviceSampleRateHz = 2_000_000;
     private const int DefaultBufferLen = 16 * 16384;
@@ -55,6 +56,7 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
     public int NotchFilterMode { get; set; }
 
     public event Action<short[], short[], uint>? SamplesReceived;
+    public event Action<SdrSampleBlock>? SampleBlockReceived;
     public event Action<double, int>? GainHardwareChanged;
     public event Action? DeviceRemoved;
     public event Action? StreamStalled { add { } remove { } }
@@ -85,7 +87,8 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
         _sampleDispatcher = new RtlSdrSampleDispatcher(
             (samplesI, samplesQ, sampleCount) =>
                 SamplesReceived?.Invoke(samplesI, samplesQ, sampleCount),
-            DefaultBufferLen);
+            DefaultBufferLen,
+            sampleBlockReceived: block => SampleBlockReceived?.Invoke(block));
     }
 
     public bool Open()
@@ -196,6 +199,7 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
         {
             try
             {
+                ShutdownDiagnosticLog.Write("RtlSdrController.Stop", "Calling rtlsdr_cancel_async...");
                 RtlSdrApi.rtlsdr_cancel_async(_device);
             }
             catch
@@ -208,9 +212,16 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
         {
             try
             {
+                ShutdownDiagnosticLog.Write("RtlSdrController.Stop", "Waiting up to 3s for readTask...");
+                var sw = Stopwatch.StartNew();
                 if (!readTask.Wait(TimeSpan.FromSeconds(3)))
                 {
+                    ShutdownDiagnosticLog.Write("WARNING: RtlSdrController readTask wait timed out after 3s!");
                     Debug.Print("[RtlSdrController] rtlsdr_read_async task wait timed out.");
+                }
+                else
+                {
+                    ShutdownDiagnosticLog.Write("RtlSdrController readTask completed", "took " + sw.ElapsedMilliseconds + "ms");
                 }
             }
             catch
@@ -244,7 +255,13 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
             return;
         }
 
-        try { RtlSdrApi.rtlsdr_close(_device); }
+        try
+        {
+            ShutdownDiagnosticLog.Write("RtlSdrController.CloseDevice", "Calling rtlsdr_close...");
+            var sw = Stopwatch.StartNew();
+            RtlSdrApi.rtlsdr_close(_device);
+            ShutdownDiagnosticLog.Write("RtlSdrController.CloseDevice", "rtlsdr_close took " + sw.ElapsedMilliseconds + "ms");
+        }
         catch { /* best effort during probing/cleanup */ }
         _device = IntPtr.Zero;
         _appliedPpm = null;
@@ -290,7 +307,7 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics
         }
     }
 
-    internal bool ApplySampleRate(int sampleRateHz)
+    public bool ApplySampleRate(int sampleRateHz)
     {
         if (_device == IntPtr.Zero || sampleRateHz <= 0) return false;
         if (RtlSdrApi.rtlsdr_set_sample_rate(_device, (uint)sampleRateHz) != 0) return false;

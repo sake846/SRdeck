@@ -26,7 +26,21 @@ public partial class MainViewModel : ObservableObject
         _dialogService = dialogService;
         _settingsService = settingsService;
         _lastStateService = lastStateService;
+        SettingsPersistence = new(_settingsService, _lastStateService, _dialogService);
         _lastState = _lastStateService.LoadLastState();
+        ApplicationSettings = new(_engine, _settingsService, _lastStateService, () => _lastState);
+        ApplicationSettings.PowerSettingsChanged += SyncSleepPrevention;
+        ApplicationSettings.LanguageResourceChanged += value =>
+        {
+            SyncWpfLanguageResource(value);
+            RefreshSdrPlayNotchOptions();
+        };
+        ApplicationSettings.PropertyChanged += (_, e) =>
+        {
+            OnPropertyChanged(e.PropertyName);
+            if (e.PropertyName == nameof(ApplicationSettingsViewModel.IsDisableWpfRenderingOnServer))
+                OnPropertyChanged(nameof(IsCompactWpfMode));
+        };
         SdrPlaySensitivity = Math.Clamp(_lastState.SdrPlaySensitivity, 0, 100);
         IsReceiver1Visible = true;
 
@@ -103,7 +117,6 @@ public partial class MainViewModel : ObservableObject
         InitializeUiControllers(); InitializeParameters(); InitializeAudioEngine(); SyncSelectedFrequencyDisplayOption();
         WindowTitle = AppConstants.DEFAULT_WINDOW_TITLE; Tuner?.BuildCenterFreqDigits();
         _engine.StateUpdated += HandleEngineStateUpdated;
-        _engine.DemodHistoryUpdated += HandleEngineDemodHistoryUpdated;
         _engine.OnTitleChanged += (fileName) => { Application.Current.Dispatcher.InvokeAsync(() => { WindowTitle = AppConstants.DEFAULT_WINDOW_TITLE + " [ " + FormatFilePath(fileName) + " ]"; }); };
 
         WeakReferenceMessenger.Default.Register<RadioControlUpdateMessage>(this, (r, m) => {
@@ -120,7 +133,7 @@ public partial class MainViewModel : ObservableObject
                             vm.SyncMainSpanForAtomicViewUpdate(0);
                             vm.QueueActiveDisplayRestoreAfterRetune();
                         }
-                        vm.SyncSampleRateSelectionFromAppliedControl(m.NewControl.FsHz);
+                        vm.SyncSampleRateSelectionFromAppliedControl(vm._engine.Control.FsHz);
                         vm.Tuner.SyncFrequencyFromAppliedControl(m.NewControl);
                         vm.SyncState(vm._engine.Control, vm._engine.State);
                         vm.UiTick?.Invoke(vm, EventArgs.Empty); 
@@ -159,7 +172,7 @@ public partial class MainViewModel : ObservableObject
         });
         WeakReferenceMessenger.Default.Register<SdrDeviceInfoMessage>(this, (r, m) => { Application.Current.Dispatcher.InvokeAsync(() => { 
             DeviceName = m.ModelName;
-            DeviceSn = !string.IsNullOrEmpty(m.SerialNumber) ? $" (S/N: {m.SerialNumber})" : string.Empty;
+            DeviceSn = !string.IsNullOrEmpty(m.SerialNumber) ? $" S/N: {m.SerialNumber}" : string.Empty;
             SyncDeviceIndicatorMode(m.ModelName);
             SyncSdrPlayDeviceSettingsAvailability();
             SyncMainSpanOptionsToFs(_engine.SdrDevice?.FsHz > 0 ? _engine.SdrDevice.FsHz : _engine.Control.FsHz, IsRtlDevice || IsRtlSdrDeviceController());
@@ -216,7 +229,7 @@ public partial class MainViewModel : ObservableObject
         fftResolutionMode = deviceFft.fftResolutionMode;
         fftBatchMode = deviceFft.fftBatchMode;
         SyncDeviceIndicatorMode(isRtlSdrDevice ? "RTL-SDR" : "SDRplay");
-        int initialFsHz = isRtlSdrDevice ? 2000000 : _engine.InitialAppSettings.SdrPlaySampleRateHz;
+        int initialFsHz = NormalizeSampleRateForDevice(_engine.InitialAppSettings.SdrPlaySampleRateHz, isRtlSdrDevice);
         if (_engine.SdrDevice != null)
         {
             _engine.SdrDevice.FsHz = initialFsHz;
@@ -294,17 +307,14 @@ public partial class MainViewModel : ObservableObject
                     initPriority = startupSetting;
                 }
                 SelectedProcessPriority = ProcessPriorityOptions.Find(o => o.Value == initPriority) ?? ProcessPriorityOptions.Find(o => o.Value == "Normal");
-                SyncProcessPriorityToOs(SelectedProcessPriority?.Value ?? "Normal");
+                ApplicationSettingsViewModel.ApplyProcessPriority(SelectedProcessPriority?.Value ?? "Normal");
             }
             Language = _engine.InitialAppSettings.Language ?? "ja";
             SyncWpfLanguageResource(Language);
         }
         SyncState(_engine.Control, _engine.State);
         ZoomOverlay.SelectedSpan = _engine.Control.SpanHz;
-        bool isRtlForDemod = (_engine.InitialAppSettings != null && IsRtlSdrConfigured(_engine.InitialAppSettings.SdrDeviceType))
-            || IsRtlSdrDeviceController();
-        int demodInputSamplesPerBlock = (_engine.Control.FsHz / 10) * (isRtlForDemod ? 2 : 1);
-        _engine.State = new RadioState { BasebandIData = new int[demodInputSamplesPerBlock], BasebandQData = new int[demodInputSamplesPerBlock], RxRssi = AppConstants.MIN_RSSI_DB, AveRxPwr = AppConstants.MIN_RSSI_DB, AveDb = AppConstants.MIN_RSSI_DB, MinFftPwr = AppConstants.MIN_RSSI_DB };
+        _engine.State = new RadioState { RxRssi = AppConstants.MIN_RSSI_DB, AveRxPwr = AppConstants.MIN_RSSI_DB, AveDb = AppConstants.MIN_RSSI_DB, MinFftPwr = AppConstants.MIN_RSSI_DB };
         SyncState(_engine.Control, _engine.State); _engine.ResetDiagnostics(); BuildSignalMeter();
         InitializeCursorTimer();
     }
@@ -354,27 +364,7 @@ public partial class MainViewModel : ObservableObject
         ZoomOverlay.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ZoomOverlayViewModel.SelectedSpan)) { var p = _engine.Control; p.SpanHz = ZoomOverlay.SelectedSpan; _engine.Control = p; WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(p)); } };
     }
 
-    public void SyncSleepPrevention()
-    {
-        bool isSdrActive = IsStarted;
-        bool isAcPower = PowerStateManager.IsAcPowerConnected();
-
-        var powerSettings = _engine.InitialAppSettings.Power;
-        if (powerSettings == null) return;
-
-        bool shouldPrevent = isSdrActive &&
-                             ((isAcPower && powerSettings.PreventSleepOnAc) ||
-                              (!isAcPower && powerSettings.PreventSleepOnBattery));
-
-        if (shouldPrevent)
-        {
-            PowerStateManager.PreventSleep(true, false);
-        }
-        else
-        {
-            PowerStateManager.RestoreNormalSleep();
-        }
-    }
+    public void SyncSleepPrevention() => ApplicationSettings.ApplySleepPrevention(IsStarted);
 
     private void InitializeModeButtonSettings()
     {

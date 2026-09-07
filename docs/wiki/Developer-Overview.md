@@ -12,7 +12,7 @@ SRdeckは、SDR制御と方式固有処理を公開契約で分離したプラ�
 | `SRdeckPlugin.Wpf` | WPFビュー契約、テーマ、共通コントロール | 方式固有画面 |
 | `SRdeckCore.SignalProcessing` | 3方式以上で再利用するDSP部品 | 特定方式だけの同期器 |
 | `SRdeckPlugin.*` | 周波数、DSP、FEC、プロトコル、状態、UI | ホスト内部ViewModelへの依存 |
-| `SRdeck.Tests` | ホスト／プラグイン横断の回帰ハーネス | 公開パッケージのランタイム機能 |
+| `SRdeck.Tests` | ホスト／プラグイン横断のxUnit回帰試験 | 公開パッケージのランタイム機能 |
 
 APIの型形状は`SRdeckPlugin.Contracts`、意味と適合条件は`docs/plugin-interface-specification.md`、方式固有動作は各プラグイン実装とテストが正本です。
 
@@ -203,3 +203,7 @@ IQコールバックで重いI/OやWPF更新を行いません。DSPはUI非依�
 4. [右ペインUIデザイン指針](https://github.com/sake846/SRdeck/blob/main/docs/plugin-right-pane-design-guidelines.md)
 5. [回帰試験仕様](https://github.com/sake846/SRdeck/blob/main/docs/regression-test-specification.md)
 6. [最初のプラグイン](Creating-First-Plugin)
+
+---
+- **次のステップ:** [開発環境の構築](Development-Environment) → [最初のプラグイン作成](Creating-First-Plugin)
+- **関連ガイド:** [右ペインUI設計](Right-Pane-UI-Design) / [テストと配布](Testing-and-Distribution)

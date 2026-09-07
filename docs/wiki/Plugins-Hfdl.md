@@ -85,7 +85,7 @@ Flight ID別と、メッセージ種別別の集約を切り替えて確認で�
 %LOCALAPPDATA%\SRdeck\plugins\hfdl\hfdl-history.jsonl
 ```
 
-CSV／JSONエクスポートに対応します。`IQ 録音 (直前3秒)`は次へIQ WAVと診断JSONを保存します。
+CSV／JSONエクスポートに対応します。`IQ 録音 (直前20秒)`は次へIQ WAVと診断JSONを保存します。
 
 ```text
 %LOCALAPPDATA%\SRdeck\plugins\hfdl\captures

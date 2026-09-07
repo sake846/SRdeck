@@ -124,64 +124,34 @@
                     <ContentPresenter />
                 </ControlTemplate>
             </Button.Template>
-            <Border Background="{StaticResource PanelBaseBrush}" CornerRadius="3" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="24" Width="680">
+            <Border Background="{StaticResource PanelBaseBrush}" CornerRadius="3" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="24" Width="440">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.5"/>
                 </Border.Effect>
                 <StackPanel>
                     <TextBlock Text="SRdeck 簡易操作説明" Foreground="#FF88CC00" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,15" FontFamily="{StaticResource MainFontFamily}" />
                     <Rectangle Fill="{StaticResource ControlBorderBrush}" Height="1" Margin="0,0,0,15" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="20" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="マウス・基本操作ガイド" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" FontFamily="{StaticResource MainFontFamily}" />
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Click" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="目的の周波数へ瞬時にチューニング" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
-                            </Grid>
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Wheel" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数枠上で桁ごとの周波数変更" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
-                            </Grid>
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Drag" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="スペクトラム領域ドラッグで帯域を移動" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
-                            </Grid>
-                        </StackPanel>
-                        
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="キーボードショートカット" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" FontFamily="{StaticResource MainFontFamily}" />
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="O" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="受信開始" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
-                            </Grid>
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="F" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数入力" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
-                            </Grid>
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="P" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="スパン幅変更" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
-                            </Grid>
-                            <Grid Margin="0,0,0,5">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="←→" Foreground="White" FontSize="11" FontFamily="Consolas" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数移動" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
-                            </Grid>
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock Text="クリックで閉じる" Foreground="#FF7A7A7A" FontSize="10" HorizontalAlignment="Center" Margin="0,10,0,0" FontFamily="{StaticResource MainFontFamily}" />
+                    
+                    <StackPanel>
+                        <TextBlock Text="マウス・基本操作ガイド" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" FontFamily="{StaticResource MainFontFamily}" />
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Click" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
+                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="目的の周波数へ瞬時にチューニング" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Wheel" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
+                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="周波数枠上で桁ごとの周波数変更" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="65" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#FF1B1B1B" CornerRadius="2" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" Padding="4,2"><TextBlock Text="Drag" Foreground="White" FontSize="10" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center"/></Border>
+                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="スペクトラム領域ドラッグで帯域を移動" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" TextWrapping="Wrap" />
+                        </Grid>
+                    </StackPanel>
+                    
+                    <TextBlock Text="クリックまたはEscキーで閉じる" Foreground="#FF7A7A7A" FontSize="10" HorizontalAlignment="Center" Margin="0,15,0,0" FontFamily="{StaticResource MainFontFamily}" />
                 </StackPanel>
             </Border>
         </Button>

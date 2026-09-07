@@ -24,11 +24,7 @@ public partial class FftProcessor
             if (isGpuEnabled && gpuFft != null && gpuFft.IsAvailable)
             {
                 ham.ApplyWindowShort(buffer, referencePtr - fftSize, _renderGpuInI, _renderGpuInQ);
-                
-                var inI = new float[][] { _renderGpuInI };
-                var inQ = new float[][] { _renderGpuInQ };
-                var outDb = new float[][] { _renderGpuOutDb };
-                gpuFft.ProcessBatch(inI, inQ, outDb, bias, 1);
+                gpuFft.ProcessSingle(_renderGpuInI, _renderGpuInQ, _renderGpuOutDb, bias);
                 
                 Array.Copy(_renderGpuOutDb, outputBuffer, fftSize);
             }
@@ -42,8 +38,22 @@ public partial class FftProcessor
         }
     }
 
-    private bool ProcessGpuFft(short[] bufferI, short[] bufferQ, int referencePtr, int mode, int batchSize, int fftSize, int fftSizeB, int stepSize, HanningWindow[] hams)
+    private bool ProcessGpuFft(
+        short[] bufferI,
+        short[] bufferQ,
+        int referencePtr,
+        int mode,
+        int batchSize,
+        int fftSize,
+        int fftSizeB,
+        int stepSize,
+        HanningWindow[] hams,
+        long submissionTag,
+        out long completedTag,
+        out bool inputAccepted)
     {
+        completedTag = 0;
+        inputAccepted = false;
         var sw = System.Diagnostics.Stopwatch.StartNew();
         lock (_gpuLock)
         {
@@ -75,7 +85,16 @@ public partial class FftProcessor
                 
                 LastCpuPrep = sw.Elapsed.TotalMilliseconds;
 
-                bool ok = runner.ProcessBatchPacked(bufferI, bufferQ, _gpuInputOffsets, _gpuOutDb, bias, batchSize);
+                bool ok = runner.ProcessBatchPacked(
+                    bufferI,
+                    bufferQ,
+                    _gpuInputOffsets,
+                    _gpuOutDb,
+                    bias,
+                    batchSize,
+                    submissionTag,
+                    out completedTag,
+                    out inputAccepted);
                 if (!ok)
                 {
                     return false;

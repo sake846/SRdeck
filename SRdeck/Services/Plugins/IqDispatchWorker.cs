@@ -294,7 +294,18 @@ internal sealed class SharedIqBlockOwner(
     {
         IMemoryOwner<Complex32> owner = MemoryPool<Complex32>.Shared.Rent(request.SampleCount);
         Memory<Complex32> samples = owner.Memory[..request.SampleCount];
-        CopyNormalized(request.Buffer, request.BlockStartPointer, samples.Span);
+        try
+        {
+            if (!request.SamplesI.IsEmpty)
+                CopyNormalized(request.SamplesI.Span, request.SamplesQ.Span, samples.Span);
+            else
+                CopyNormalized(request.Buffer, request.BlockStartPointer, samples.Span);
+        }
+        catch
+        {
+            owner.Dispose();
+            throw;
+        }
         return new SharedIqBlockOwner(
             owner, samples, referenceCount, batchContextRequests, batchCpuParallelism);
     }
@@ -400,50 +411,51 @@ internal sealed class SharedIqBlockOwner(
         }
     }
 
-    private static unsafe void CopyNormalized(
+    private static void CopyNormalized(
         IqSampleRingBuffer source,
         int sourceOffset,
         Span<Complex32> destination)
     {
         int copied = 0;
-        fixed (Complex32* destinationBase = destination)
+        while (copied < destination.Length)
         {
-            while (copied < destination.Length)
+            IqSampleRingBuffer.ContiguousBlock block = source.GetContiguousBlock(
+                sourceOffset + copied, destination.Length - copied);
+            CopyNormalized(block.SamplesI.AsSpan(block.Offset, block.Length),
+                block.SamplesQ.AsSpan(block.Offset, block.Length), destination.Slice(copied, block.Length));
+            copied += block.Length;
+        }
+    }
+
+    private static unsafe void CopyNormalized(
+        ReadOnlySpan<short> samplesI, ReadOnlySpan<short> samplesQ, Span<Complex32> destination)
+    {
+        fixed (short* sourceI = samplesI)
+        fixed (short* sourceQ = samplesQ)
+        fixed (Complex32* target = destination)
+        {
+            int index = 0;
+            if (Sse2.IsSupported && Sse.IsSupported)
             {
-                IqSampleRingBuffer.ContiguousBlock block = source.GetContiguousBlock(
-                    sourceOffset + copied, destination.Length - copied);
-                fixed (short* sourceIBase = block.SamplesI)
-                fixed (short* sourceQBase = block.SamplesQ)
+                Vector128<float> scale = Vector128.Create(Int16NormalizationScale);
+                float* targetFloats = (float*)target;
+                for (; index <= destination.Length - 8; index += 8)
                 {
-                    short* sourceI = sourceIBase + block.Offset;
-                    short* sourceQ = sourceQBase + block.Offset;
-                    Complex32* target = destinationBase + copied;
-                    int index = 0;
-                    if (Sse2.IsSupported && Sse.IsSupported)
-                    {
-                        Vector128<float> scale = Vector128.Create(Int16NormalizationScale);
-                        float* targetFloats = (float*)target;
-                        for (; index <= block.Length - 8; index += 8)
-                        {
-                            var (iLow, iHigh) = Vector128.Widen(Vector128.Load(sourceI + index));
-                            var (qLow, qHigh) = Vector128.Widen(Vector128.Load(sourceQ + index));
-                            Vector128<float> fiLow = Vector128.ConvertToSingle(iLow) * scale;
-                            Vector128<float> fiHigh = Vector128.ConvertToSingle(iHigh) * scale;
-                            Vector128<float> fqLow = Vector128.ConvertToSingle(qLow) * scale;
-                            Vector128<float> fqHigh = Vector128.ConvertToSingle(qHigh) * scale;
-                            Vector128.Store(Sse.UnpackLow(fiLow, fqLow), targetFloats + index * 2);
-                            Vector128.Store(Sse.UnpackHigh(fiLow, fqLow), targetFloats + index * 2 + 4);
-                            Vector128.Store(Sse.UnpackLow(fiHigh, fqHigh), targetFloats + index * 2 + 8);
-                            Vector128.Store(Sse.UnpackHigh(fiHigh, fqHigh), targetFloats + index * 2 + 12);
-                        }
-                    }
-                    for (; index < block.Length; index++)
-                        target[index] = new Complex32(
-                            sourceI[index] * Int16NormalizationScale,
-                            sourceQ[index] * Int16NormalizationScale);
+                    var (iLow, iHigh) = Vector128.Widen(Vector128.Load(sourceI + index));
+                    var (qLow, qHigh) = Vector128.Widen(Vector128.Load(sourceQ + index));
+                    Vector128<float> fiLow = Vector128.ConvertToSingle(iLow) * scale;
+                    Vector128<float> fiHigh = Vector128.ConvertToSingle(iHigh) * scale;
+                    Vector128<float> fqLow = Vector128.ConvertToSingle(qLow) * scale;
+                    Vector128<float> fqHigh = Vector128.ConvertToSingle(qHigh) * scale;
+                    Vector128.Store(Sse.UnpackLow(fiLow, fqLow), targetFloats + index * 2);
+                    Vector128.Store(Sse.UnpackHigh(fiLow, fqLow), targetFloats + index * 2 + 4);
+                    Vector128.Store(Sse.UnpackLow(fiHigh, fqHigh), targetFloats + index * 2 + 8);
+                    Vector128.Store(Sse.UnpackHigh(fiHigh, fqHigh), targetFloats + index * 2 + 12);
                 }
-                copied += block.Length;
             }
+            for (; index < destination.Length; index++)
+                target[index] = new Complex32(
+                    sourceI[index] * Int16NormalizationScale, sourceQ[index] * Int16NormalizationScale);
         }
     }
 }

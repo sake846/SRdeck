@@ -28,7 +28,8 @@ public interface ISdrDeviceManagerFactory
         Action<short[], short[], uint> samplesReceived,
         Action<double, int> gainHardwareChanged,
         Action deviceRemoved,
-        Action streamStalled);
+        Action streamStalled,
+        Action<SdrSampleBlock>? sampleBlockReceived = null);
 }
 
 public sealed class SdrDeviceManagerFactory : ISdrDeviceManagerFactory
@@ -51,9 +52,10 @@ public sealed class SdrDeviceManagerFactory : ISdrDeviceManagerFactory
         Action<short[], short[], uint> samplesReceived,
         Action<double, int> gainHardwareChanged,
         Action deviceRemoved,
-        Action streamStalled) =>
+        Action streamStalled,
+        Action<SdrSampleBlock>? sampleBlockReceived = null) =>
         new SdrDeviceManager(
-            _bindingFactory.Create(samplesReceived, gainHardwareChanged, deviceRemoved, streamStalled),
+            _bindingFactory.Create(samplesReceived, gainHardwareChanged, deviceRemoved, streamStalled, sampleBlockReceived),
             _propertySynchronizer,
             _frequencyTransitionTracker);
 }

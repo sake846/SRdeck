@@ -23,7 +23,8 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<IPluginTuningServiceFactory>(sp => new PluginTuningServiceFactory(
                 () => sp.GetRequiredService<IPluginManager>(),
                 sp.GetRequiredService<IRadioControlStore>(),
-                sp.GetRequiredService<IRadioControlUpdatePublisher>()))
+                sp.GetRequiredService<IRadioControlUpdatePublisher>(),
+                () => sp.GetRequiredService<ISdrSampleRateController>()))
             .AddSingleton<PluginAudioRouter>(sp => new PluginAudioRouter(
                 () => sp.GetRequiredService<IPluginManager>(),
                 new WaveOutAudioOutput(),
@@ -81,7 +82,9 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<ISdrSessionStarter, SdrSessionStarter>()
             .AddSingleton<IPlaybackSessionStarter, PlaybackSessionStarter>()
             .AddSingleton<IPlaybackSessionRunner, PlaybackSessionRunner>()
-            .AddSingleton<IRadioSessionController, RadioSessionController>()
+            .AddSingleton<RadioSessionController>()
+            .AddSingleton<IRadioSessionController>(sp => sp.GetRequiredService<RadioSessionController>())
+            .AddSingleton<ISdrSampleRateController>(sp => sp.GetRequiredService<RadioSessionController>())
             .AddSingleton<ISettingsService, JsonSettingsService>()
             .AddSingleton<ISdrDevice>(sp =>
             {

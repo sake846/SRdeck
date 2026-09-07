@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using SRdeck.Configuration;
+using SRdeck.Models;
 
 namespace SRdeck.Services;
 
@@ -9,13 +11,16 @@ public readonly record struct RadioSessionStartResult(bool Success, string? Erro
 public interface IRadioSessionController
 {
     event EventHandler? PlaybackEnded;
+    event EventHandler? SdrConfigurationChanged;
     Task<RadioSessionStartResult> StartSdrAsync();
     Task<RadioSessionStartResult> StartPlaybackAsync(string filePath, double startSeconds);
     Task StopAsync();
 }
 
-public sealed class RadioSessionController : IRadioSessionController
+public sealed partial class RadioSessionController : IRadioSessionController, ISdrSampleRateController
 {
+    private readonly IRadioSessionEngine _engine;
+    private readonly ISettingsService _settingsService;
     private readonly IRadioSessionTransitionCoordinator _transitionCoordinator;
     private readonly ISdrSessionStarter _sdrSessionStarter;
     private readonly IPlaybackSessionStarter _playbackSessionStarter;
@@ -27,8 +32,12 @@ public sealed class RadioSessionController : IRadioSessionController
         IRadioSessionTransitionCoordinator transitionCoordinator,
         ISdrSessionStarter sdrSessionStarter,
         IPlaybackSessionStarter playbackSessionStarter,
-        IPlaybackSessionRunner playbackSessionRunner)
+        IPlaybackSessionRunner playbackSessionRunner,
+        IRadioSessionEngine engine,
+        ISettingsService settingsService)
     {
+        _engine = engine;
+        _settingsService = settingsService;
         _transitionCoordinator = transitionCoordinator;
         _sdrSessionStarter = sdrSessionStarter;
         _playbackSessionStarter = playbackSessionStarter;
@@ -37,6 +46,7 @@ public sealed class RadioSessionController : IRadioSessionController
     }
 
     public event EventHandler? PlaybackEnded;
+    public event EventHandler? SdrConfigurationChanged;
 
     public async Task<RadioSessionStartResult> StartSdrAsync()
     {

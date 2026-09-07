@@ -4,7 +4,17 @@ SRdeckは、Windows x64上でSDRplayまたはRTL-SDRからIQサンプルを取�
 
 このWikiは、配布ZIPを使う利用者と、独自プラグインを作る開発者の両方を対象にしています。画面名や設定値は、特に断りがない限り現在の`main`ブランチと同じ版の公式パッケージを前提とします。
 
-## 目的から選ぶ
+## クイックナビゲーション
+
+| 区分 | 主な内容 | 推奨リンク |
+|---|---|---|
+| 🔰 **はじめての方** | 動作環境の確認、ZIPの展開、受信までのチュートリアル | [インストール](Installation) → [最初の受信](Getting-Started) |
+| 🎛️ **基本操作・設定** | 画面レイアウト、SDRplay/RTL-SDR設定、ウォーターフォール調整 | [画面構成と操作](UI-Overview) / [SDR入力設定](SDR-Source-Settings) |
+| 🔌 **プラグイン利用** | ACARS、ADS-B、AIS、CW、HF-FAX、FT8、HFDL、VDL2、Wi-SUN 等の方式別ガイド | [公式プラグイン一覧](Plugins-Overview) / [プラグイン管理](Plugin-Management) |
+| ❓ **お困りの場合** | デバイスが認識されない、受信できない、エラーが出る等の解決策 | [FAQ](FAQ) / [トラブルシューティング](Troubleshooting) |
+| 💻 **開発者向け** | 新規プラグイン作成、Contracts/SDK仕様、WPF UI設計、テスト | [開発概要](Developer-Overview) / [最初のプラグイン](Creating-First-Plugin) |
+
+## 目的から探す
 
 | やりたいこと | 最初に読むページ | 続けて読むページ |
 |---|---|---|

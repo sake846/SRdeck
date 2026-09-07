@@ -128,3 +128,7 @@ JSONLはプラグインが再表示や継続利用のために管理する内部
 ### APIの正本はどれですか？
 
 コンパイル上の正本は`SRdeckPlugin.Contracts`の公開型、意味と適合条件は[プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/plugin-interface-specification.md)です。コード例だけを見て互換性を判断しないでください。
+
+---
+- **関連情報:** [トラブルシューティング](Troubleshooting) / [最初の受信](Getting-Started) / [プラグイン管理](Plugin-Management)
+

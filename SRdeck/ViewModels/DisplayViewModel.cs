@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Messages;
+using SRdeck.Models;
 using System.Collections.ObjectModel;
 using System.Linq;
 
@@ -34,6 +35,8 @@ public sealed partial class DisplayViewModel : ObservableObject
 
     public List<MainSpanOption> MainSpanOptions { get; } = new();
 
+    public const int MinMainSpanHz = 10_000;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentMainSpanHz))]
     [NotifyPropertyChangedFor(nameof(BaseMainSpanHz))]
@@ -41,14 +44,78 @@ public sealed partial class DisplayViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CurrentMainRoundingHz))]
     [NotifyPropertyChangedFor(nameof(SelectedMainSpanHz))]
     [NotifyPropertyChangedFor(nameof(SelectedMainSpanOption))]
+    [NotifyPropertyChangedFor(nameof(MainSpanSliderPercent))]
+    [NotifyPropertyChangedFor(nameof(CurrentMainSpanText))]
     private int _mainSpanIndex = 0;
 
     private int _mainViewZoomSpanHz = 0;
     private int _fixedMainSpanHz = DefaultFixedMainSpanHz;
 
-    public int BaseMainSpanHz => MainSpanOptions[Math.Clamp(MainSpanIndex, 0, MainSpanOptions.Count - 1)].ValueHz;
+    public int BaseMainSpanHz => MainSpanOptions.Count > 0 ? MainSpanOptions[Math.Clamp(MainSpanIndex, 0, MainSpanOptions.Count - 1)].ValueHz : _fixedMainSpanHz;
     public bool IsMainViewZoomed => _mainViewZoomSpanHz > 0 && _mainViewZoomSpanHz < BaseMainSpanHz;
     public int CurrentMainSpanHz => IsMainViewZoomed ? _mainViewZoomSpanHz : BaseMainSpanHz;
+    public string CurrentMainSpanText => FormatMainSpanLabel(CurrentMainSpanHz);
+
+    public double MainSpanSliderPercent
+    {
+        get
+        {
+            int baseSpan = BaseMainSpanHz;
+            int currentSpan = CurrentMainSpanHz;
+            if (baseSpan <= MinMainSpanHz || currentSpan >= baseSpan) return 100.0;
+            if (currentSpan <= MinMainSpanHz) return 0.0;
+
+            double logMin = Math.Log(MinMainSpanHz);
+            double logMax = Math.Log(baseSpan);
+            double logCur = Math.Log(currentSpan);
+            double ratio = (logCur - logMin) / (logMax - logMin);
+            return Math.Clamp(ratio * 100.0, 0.0, 100.0);
+        }
+        set
+        {
+            int baseSpan = BaseMainSpanHz;
+            if (baseSpan <= MinMainSpanHz) return;
+
+            if (value >= 99.5)
+            {
+                SyncMainZoomSpanHz(0);
+                return;
+            }
+            if (value <= 0.5)
+            {
+                SyncMainZoomSpanHz(MinMainSpanHz);
+                return;
+            }
+
+            double ratio = Math.Clamp(value / 100.0, 0.0, 1.0);
+            double logMin = Math.Log(MinMainSpanHz);
+            double logMax = Math.Log(baseSpan);
+            double targetSpan = Math.Exp(logMin + ratio * (logMax - logMin));
+
+            int rounded = RoundToSensibleSpan((int)Math.Round(targetSpan), baseSpan);
+            SyncMainZoomSpanHz(rounded);
+        }
+    }
+
+    private static int RoundToSensibleSpan(int spanHz, int maxSpanHz)
+    {
+        if (spanHz >= maxSpanHz) return maxSpanHz;
+        if (spanHz <= MinMainSpanHz) return MinMainSpanHz;
+
+        int step = spanHz switch
+        {
+            >= 1_000_000 => 100_000,
+            >= 100_000 => 10_000,
+            _ => 5_000
+        };
+
+        int rounded = (int)Math.Round((double)spanHz / step) * step;
+        return Math.Clamp(rounded, MinMainSpanHz, maxSpanHz);
+    }
+
+    [RelayCommand]
+    private void ResetMainSpan() => SyncMainZoomSpanHz(0);
+
     public int? SelectedMainSpanHz
     {
         get => BaseMainSpanHz;
@@ -93,12 +160,14 @@ public sealed partial class DisplayViewModel : ObservableObject
         int baseSpanHz = BaseMainSpanHz;
         int nextZoomSpanHz = frequencyHz <= 0 || frequencyHz >= baseSpanHz
             ? 0
-            : Math.Max(10_000, frequencyHz);
+            : Math.Max(MinMainSpanHz, frequencyHz);
         if (_mainViewZoomSpanHz == nextZoomSpanHz) return;
         _mainViewZoomSpanHz = nextZoomSpanHz;
         OnPropertyChanged(nameof(CurrentMainSpanHz));
         OnPropertyChanged(nameof(CurrentMainRoundingHz));
         OnPropertyChanged(nameof(IsMainViewZoomed));
+        OnPropertyChanged(nameof(MainSpanSliderPercent));
+        OnPropertyChanged(nameof(CurrentMainSpanText));
     }
 
     public int ApplyPreferredMainSpanHz(int? preferredSpanHz)
@@ -110,7 +179,7 @@ public sealed partial class DisplayViewModel : ObservableObject
             return CurrentMainSpanHz;
         }
 
-        int minimumSpanHz = Math.Min(10_000, baseSpanHz);
+        int minimumSpanHz = Math.Min(MinMainSpanHz, baseSpanHz);
         int resolvedSpanHz = Math.Clamp(preferredSpanHz.Value, minimumSpanHz, baseSpanHz);
         SyncMainZoomSpanHz(resolvedSpanHz);
         return CurrentMainSpanHz;
@@ -138,7 +207,7 @@ public sealed partial class DisplayViewModel : ObservableObject
 
     public void SyncMainSpanOptionsForDevice(bool isRtlDevice, int sampleRateHz)
     {
-        _fixedMainSpanHz = isRtlDevice ? sampleRateHz : (int)(sampleRateHz * 0.875);
+        _fixedMainSpanHz = SdrSampleRatePolicy.GetMainSpanHz(sampleRateHz, isRtlDevice);
 
         MainSpanOptions.Clear();
         MainSpanOptions.Add(new MainSpanOption
@@ -155,11 +224,21 @@ public sealed partial class DisplayViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedMainSpanOption));
     }
 
-    private static string FormatMainSpanLabel(int spanHz)
+    public static string FormatMainSpanLabel(int spanHz)
     {
-        if (spanHz % 1_000_000 == 0) return $"{spanHz / 1_000_000}M";
-        if (spanHz % 100_000 == 0) return $"{spanHz / 1_000_000.0:0.#}M";
-        return $"{spanHz / 1_000_000.0:0.##}M";
+        if (spanHz >= 1_000_000)
+        {
+            if (spanHz % 1_000_000 == 0) return $"{spanHz / 1_000_000} MHz";
+            if (spanHz % 100_000 == 0) return $"{spanHz / 1_000_000.0:0.#} MHz";
+            return $"{spanHz / 1_000_000.0:0.##} MHz";
+        }
+        if (spanHz >= 1_000)
+        {
+            if (spanHz % 1_000 == 0) return $"{spanHz / 1_000} kHz";
+            if (spanHz % 100 == 0) return $"{spanHz / 1_000.0:0.#} kHz";
+            return $"{spanHz / 1_000.0:0.##} kHz";
+        }
+        return $"{spanHz} Hz";
     }
 
     private bool _isBandPlanVisible = true;
@@ -205,12 +284,50 @@ public sealed partial class DisplayViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SpectrumBiasSlider))]
     private int _spectrumBiasAdj = 0;
     partial void OnSpectrumBiasAdjChanged(int value) => PublishBiasUpdate();
 
+    public double SpectrumBiasSlider
+    {
+        get => SpectrumBiasAdj;
+        set
+        {
+            int rounded = (int)Math.Round(value / 10.0, MidpointRounding.AwayFromZero) * 10;
+            rounded = Math.Clamp(rounded, -100, 100);
+            if (SpectrumBiasAdj != rounded)
+            {
+                SpectrumBiasAdj = rounded;
+            }
+            else
+            {
+                OnPropertyChanged();
+            }
+        }
+    }
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WaterfallBiasSlider))]
     private int _waterfallBiasAdj = 0;
     partial void OnWaterfallBiasAdjChanged(int value) => PublishBiasUpdate();
+
+    public double WaterfallBiasSlider
+    {
+        get => WaterfallBiasAdj;
+        set
+        {
+            int rounded = (int)Math.Round(value / 5.0, MidpointRounding.AwayFromZero) * 5;
+            rounded = Math.Clamp(rounded, -100, 100);
+            if (WaterfallBiasAdj != rounded)
+            {
+                WaterfallBiasAdj = rounded;
+            }
+            else
+            {
+                OnPropertyChanged();
+            }
+        }
+    }
 
     [ObservableProperty]
     private int _spectrumZoomBiasAdj = 0;

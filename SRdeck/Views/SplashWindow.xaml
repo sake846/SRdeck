@@ -10,6 +10,13 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Topmost="True">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem x:Name="ExitMenuItem"
+                      Header="終了"
+                      Click="ExitMenuItem_Click" />
+        </ContextMenu>
+    </Window.ContextMenu>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

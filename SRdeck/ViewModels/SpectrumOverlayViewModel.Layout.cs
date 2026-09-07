@@ -165,7 +165,7 @@ namespace SRdeck.ViewModels
                     label.Text = db.ToString();
                     label.Y = y;
                     label.XRight = Math.Round(spectrumWidth - 33);
-                    label.TextColor = (db % 50 == 0) ? "#FFFFFFFF" : "#FFD6D6D6";
+                    label.TextColor = "#FFF2F2F2";
                     label.Visibility = Visibility.Visible;
                     labelIndex++;
                 }

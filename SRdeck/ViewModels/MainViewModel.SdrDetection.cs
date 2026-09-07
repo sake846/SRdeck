@@ -65,7 +65,16 @@ public partial class MainViewModel : ObservableObject
     {
         if (_engine == null || _isLoadingAgcState) return;
 
-        _engine.AgcReleaseMode = value;
+        bool isEnabled = value != AgcReleaseMode.Off;
+        if (IsAgcEnabled != isEnabled)
+        {
+            IsAgcEnabled = isEnabled;
+        }
+
+        if (isEnabled)
+        {
+            _engine.AgcReleaseMode = value;
+        }
         SaveAgcSettings();
     }
 
@@ -113,26 +122,27 @@ public partial class MainViewModel : ObservableObject
             _engine.SdrDevice = detectedDevice;
 
             bool isRtl = detectedDevice.Capabilities.Kind == SdrDeviceKind.RtlSdr;
-            int sampleRateHz = NormalizeSdrPlaySampleRate(SdrPlaySampleRateHz);
-            detectedDevice.FsHz = sampleRateHz;
+            int sampleRateHz = NormalizeSampleRateForDevice(SdrPlaySampleRateHz, isRtl);
             if (isRtl && detectedDevice is RtlSdrController rtlController)
             {
                 if (!rtlController.ApplySampleRate(sampleRateHz))
                 {
                     detectedDevice.Dispose();
+                    _engine.SdrDevice = null;
                     IsSdrDetected = false;
                     WeakReferenceMessenger.Default.Send(new SdrErrorMessage(
                         $"RTL-SDRのサンプルレート設定に失敗しました ({sampleRateHz / 1_000_000.0:F1} Msps)。"));
                     return;
                 }
             }
+            detectedDevice.FsHz = sampleRateHz;
             IsRtlDevice = isRtl;
             if (detectedDevice is SdrController sdrPlay)
             {
                 DeviceName = sdrPlay.ModelName;
                 if (!string.IsNullOrEmpty(sdrPlay.SerialNumber))
                 {
-                    DeviceSn = $" (S/N: {sdrPlay.SerialNumber})";
+                    DeviceSn = $" S/N: {sdrPlay.SerialNumber}";
                 }
             }
             else
@@ -156,10 +166,7 @@ public partial class MainViewModel : ObservableObject
                 hardwareSettings.RfAgcEnabled == 1,
                 hardwareSettings.AgcReleaseMode);
 
-            if (isRtl)
-            {
-                SdrPlaySampleRateHz = sampleRateHz;
-            }
+            SdrPlaySampleRateHz = sampleRateHz;
 
             RadioControl control = _engine.Control;
             control.FsHz = sampleRateHz;
@@ -195,11 +202,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleAgc() => IsAgcEnabled = !IsAgcEnabled;
 
-    private static int NormalizeSdrPlaySampleRate(int value) => value switch
-    {
-        10_000_000 or 8_000_000 or 6_000_000 or 4_000_000 or 2_400_000 or 2_000_000 or 1_600_000 => value,
-        _ => 8_000_000
-    };
+    internal static int NormalizeSampleRateForDevice(int value, bool isRtlDevice) =>
+        SdrSampleRatePolicy.Normalize(value, isRtlDevice);
 
     private void SetAgcStateFromSettings(bool isEnabled, AgcReleaseMode releaseMode)
     {
@@ -207,7 +211,9 @@ public partial class MainViewModel : ObservableObject
         try
         {
             IsAgcEnabled = isEnabled;
-            AgcReleaseMode = releaseMode;
+            AgcReleaseMode = isEnabled
+                ? (releaseMode == AgcReleaseMode.Off ? AgcReleaseMode.Slow : releaseMode)
+                : AgcReleaseMode.Off;
         }
         finally { _isLoadingAgcState = false; }
     }
@@ -217,7 +223,10 @@ public partial class MainViewModel : ObservableObject
         var deviceType = GetEffectiveHardwareSettingsDeviceType();
         var hardwareSettings = _settingsService.LoadHardwareSettings(deviceType);
         hardwareSettings.RfAgcEnabled = IsAgcEnabled ? 1 : 0;
-        hardwareSettings.AgcReleaseMode = AgcReleaseMode;
+        if (AgcReleaseMode != AgcReleaseMode.Off)
+        {
+            hardwareSettings.AgcReleaseMode = AgcReleaseMode;
+        }
         _settingsService.SaveHardwareSettings(hardwareSettings, deviceType);
     }
 }

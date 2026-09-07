@@ -46,6 +46,8 @@ public partial class MainViewModel : ObservableObject
     public DisplayViewModel Display { get; }
     public SdrControlViewModel SdrControl { get; }
     public DiagnosticsViewModel Diagnostics { get; }
+    public ApplicationSettingsViewModel ApplicationSettings { get; }
+    public SettingsPersistenceViewModel SettingsPersistence { get; }
     public PluginWorkspaceViewModel PluginWorkspace { get; }
 
     public event EventHandler? UiTick;

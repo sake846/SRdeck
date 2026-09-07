@@ -17,6 +17,10 @@ public interface ISignalPipeline : IDisposable
     int ReadPointer { get; set; }
     int CurrentReadPointer { get; set; }
     long CurrentReadAbsoluteSampleEnd { get; set; }
+    SignalBlockContext CurrentReadContext { get; }
+    SignalBlockQueueSnapshot QueueSnapshot { get; }
+    ReadOnlyMemory<short> CurrentSamplesI { get; }
+    ReadOnlyMemory<short> CurrentSamplesQ { get; }
     int NextReadPointer { get; set; }
     long TotalSamplesReceived { get; set; }
     long InputBlockSequence { get; }
@@ -28,14 +32,9 @@ public interface ISignalPipeline : IDisposable
         short[] samplesI,
         short[] samplesQ,
         int sampleCount,
-        int sampleRateHz,
         SignalBlockContext context);
     double Complete(SignalBlockCompletionRequest request);
     bool EnsureIqBufferCapacity(int sampleRateHz);
-    bool EnsureDemodulationCapacity(
-        RadioState state,
-        int sampleRateHz,
-        SdrDeviceCapabilities deviceCapabilities);
     int GetMaxAvailableHistorySeconds(int sampleRateHz);
     int GetGridIndex(int pointer, int samplesPerGrid);
     void ResetForRestart();
@@ -128,6 +127,10 @@ internal sealed class SignalPipeline : ISignalPipeline
     public int ReadPointer { get => _bufferState.ReadPointer; set => _bufferState.ReadPointer = value; }
     public int CurrentReadPointer { get => _bufferState.CurrentReadPointer; set => _bufferState.CurrentReadPointer = value; }
     public long CurrentReadAbsoluteSampleEnd { get => _bufferState.CurrentReadAbsoluteSampleEnd; set => _bufferState.CurrentReadAbsoluteSampleEnd = value; }
+    public SignalBlockContext CurrentReadContext => _bufferState.CurrentReadContext;
+    public SignalBlockQueueSnapshot QueueSnapshot => _blockCoordinator.QueueSnapshot;
+    public ReadOnlyMemory<short> CurrentSamplesI => _blockCoordinator.CurrentSamplesI;
+    public ReadOnlyMemory<short> CurrentSamplesQ => _blockCoordinator.CurrentSamplesQ;
     public int NextReadPointer { get => _bufferState.NextReadPointer; set => _bufferState.NextReadPointer = value; }
     public long TotalSamplesReceived { get => _bufferState.TotalSamplesReceived; set => _bufferState.TotalSamplesReceived = value; }
     public long InputBlockSequence => _bufferState.InputBlockSequence;
@@ -140,9 +143,8 @@ internal sealed class SignalPipeline : ISignalPipeline
         short[] samplesI,
         short[] samplesQ,
         int sampleCount,
-        int sampleRateHz,
         SignalBlockContext context) =>
-        _bufferWriter.Write(samplesI, samplesQ, sampleCount, sampleRateHz, context);
+        _bufferWriter.Write(samplesI, samplesQ, sampleCount, context);
 
     public double Complete(SignalBlockCompletionRequest request) =>
         _blockCoordinator.Complete(request);
@@ -157,17 +159,16 @@ internal sealed class SignalPipeline : ISignalPipeline
             return false;
         }
 
-        _bufferState.ReplaceBuffer(result.Buffer);
-        _inputMetrics.ResetCurrentExtrema();
-        _bufferState.ClearHistory();
+        _blockCoordinator.Reset(() =>
+        {
+            _bufferState.ReplaceBuffer(result.Buffer);
+            _bufferState.AlignReadPointersToWrite();
+            _bufferWriter.ResetBlockAccumulator();
+            _inputMetrics.ResetCurrentExtrema();
+            _bufferState.ClearHistory();
+        });
         return true;
     }
-
-    public bool EnsureDemodulationCapacity(
-        RadioState state,
-        int sampleRateHz,
-        SdrDeviceCapabilities deviceCapabilities) =>
-        _bufferManager.EnsureDemodulationCapacity(state, sampleRateHz, deviceCapabilities);
 
     public int GetMaxAvailableHistorySeconds(int sampleRateHz) =>
         _bufferManager.GetMaxAvailableHistorySeconds(
@@ -179,10 +180,13 @@ internal sealed class SignalPipeline : ISignalPipeline
 
     public void ResetForRestart()
     {
-        _bufferState.AlignReadPointersToWrite();
-        _bufferWriter.ResetBlockAccumulator();
-        _inputMetrics.ResetSampleRate();
-        _bufferState.ResetInputBlockSequence();
+        _blockCoordinator.Reset(() =>
+        {
+            _bufferState.AlignReadPointersToWrite();
+            _bufferWriter.ResetBlockAccumulator();
+            _inputMetrics.ResetSampleRate();
+            _bufferState.ResetInputBlockSequence();
+        });
     }
 
     public void ResetResidualDcRemoval() => _bufferWriter.ResetResidualDcRemoval();

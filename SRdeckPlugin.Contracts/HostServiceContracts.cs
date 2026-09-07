@@ -26,6 +26,11 @@ public enum PluginGainPreference
     Manual
 }
 
+/// <param name="MinimumSampleRateHz">
+/// Minimum source rate required by the receiving mode, excluding the span between
+/// selected channels. Only this minimum may cause the host to raise RATE automatically;
+/// targets that do not fit the resulting passband are rejected without changing the input.
+/// </param>
 public sealed record PluginTuningRequest(
     string ProfileId,
     string DisplayName,
@@ -82,6 +87,10 @@ public sealed record PcmAudioFrame(
 
 public interface IPluginAudioSink
 {
+    /// <summary>
+    /// Submits one audio frame. The sink copies <see cref="PcmAudioFrame.Data"/>
+    /// before this method returns, so the producer may immediately reuse its buffer.
+    /// </summary>
     bool TrySubmit(PcmAudioFrame frame);
     void Reset();
 }

@@ -1,202 +1,141 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 
 namespace SRdeckPlugin.Sdk;
 
-/// <summary>
-/// Small append-only JSONL store for decoded plugin history.
-/// </summary>
-public static class PluginJsonLinesHistory
+/// <summary>Append-only JSONL history with serialized reads, writes and bounded retention.</summary>
+public static partial class PluginJsonLinesHistory
 {
-    private static readonly ConcurrentDictionary<string, object> Gates = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, int> EntryCounts = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, DateTimeOffset> LastCompactions = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, HistoryFileState> Files = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
     public static IReadOnlyList<T> Load<T>(string path, int maximumEntries,
         JsonSerializerOptions? options = null)
     {
-        if (maximumEntries <= 0 || !File.Exists(path)) return [];
-
-        lock (GateFor(path))
+        if (maximumEntries <= 0) return [];
+        lock (StateFor(path))
         {
-            var entries = new Queue<T>(maximumEntries);
-            foreach (string line in File.ReadLines(path))
+            var entries = new Queue<T>(Math.Min(maximumEntries, 1024));
+            foreach (T value in ReadValid<T>(path, options))
             {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                try
-                {
-                    T? value = JsonSerializer.Deserialize<T>(line, options);
-                    if (value is null) continue;
-                    if (entries.Count == maximumEntries) entries.Dequeue();
-                    entries.Enqueue(value);
-                }
-                catch (Exception exception) when (exception is JsonException or NotSupportedException)
-                {
-                    // Keep valid records even if a partial or manually edited line is present.
-                }
+                if (entries.Count == maximumEntries) entries.Dequeue();
+                entries.Enqueue(value);
             }
             return entries.ToArray();
         }
     }
 
-    /// <summary>
-    /// Reads every valid record currently persisted in a JSONL file.  The read is
-    /// performed under the same per-file gate as append/compaction so callers get
-    /// a consistent snapshot while reception continues.
-    /// </summary>
-    public static IReadOnlyList<T> LoadAll<T>(string path,
-        JsonSerializerOptions? options = null)
+    /// <summary>Reads a consistent snapshot under the same gate as append and retention.</summary>
+    public static IReadOnlyList<T> LoadAll<T>(string path, JsonSerializerOptions? options = null)
     {
-        if (!File.Exists(path)) return [];
-        lock (GateFor(path)) return ReadAll<T>(path, options);
+        lock (StateFor(path)) return ReadValid<T>(path, options).ToArray();
     }
 
-    public static void Append<T>(string path, T value, JsonSerializerOptions? options = null)
-    {
-        lock (GateFor(path))
-        {
-            string? directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-            File.AppendAllText(path,
-                JsonSerializer.Serialize(value, options) + Environment.NewLine,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            EntryCounts.AddOrUpdate(path,
-                static file => CountLines(file),
-                static (_, count) => checked(count + 1));
-        }
-    }
+    public static void Append<T>(string path, T value, JsonSerializerOptions? options = null) =>
+        AppendBatchAndRetain(path, [value], 0, null, DateTimeOffset.UtcNow, options: options);
+
+    public static void AppendAndRetain<T>(string path, T value, int maximumEntries,
+        TimeSpan? maximumAge, DateTimeOffset now, Func<T, DateTimeOffset>? timestampSelector = null,
+        JsonSerializerOptions? options = null, long maximumBytes = 0) =>
+        AppendBatchAndRetain(path, [value], maximumEntries, maximumAge, now, timestampSelector, options, maximumBytes);
 
     /// <summary>
-    /// Appends a record and compacts the JSONL file when the configured retention
-    /// policy is exceeded. Existing callers may continue to use <see cref="Append"/>
-    /// when they intentionally want append-only behavior.
+    /// Serializes each new record once, then removes old records in a single streaming pass if needed.
+    /// Numeric limits are enforced after each batch, including records larger than the byte limit.
     /// </summary>
-    public static void AppendAndRetain<T>(
-        string path,
-        T value,
-        int maximumEntries,
-        TimeSpan? maximumAge,
-        DateTimeOffset now,
-        Func<T, DateTimeOffset>? timestampSelector = null,
-        JsonSerializerOptions? options = null,
-        long maximumBytes = 0)
-    {
-        AppendBatchAndRetain(path, [value], maximumEntries, maximumAge, now,
-            timestampSelector, options, maximumBytes);
-    }
-
-    /// <summary>
-    /// Appends a batch and applies retention once for the whole batch.  This is
-    /// used by the background writer so bursty reception does not perform one
-    /// file open/flush/compaction cycle per decoded frame.
-    /// </summary>
-    public static void AppendBatchAndRetain<T>(
-        string path,
-        IReadOnlyCollection<T> values,
-        int maximumEntries,
-        TimeSpan? maximumAge,
-        DateTimeOffset now,
-        Func<T, DateTimeOffset>? timestampSelector = null,
-        JsonSerializerOptions? options = null,
+    public static void AppendBatchAndRetain<T>(string path, IReadOnlyCollection<T> values,
+        int maximumEntries, TimeSpan? maximumAge, DateTimeOffset now,
+        Func<T, DateTimeOffset>? timestampSelector = null, JsonSerializerOptions? options = null,
         long maximumBytes = 0)
     {
         if (values.Count == 0) return;
-
-        lock (GateFor(path))
+        path = Path.GetFullPath(path);
+        HistoryFileState state = StateFor(path);
+        lock (state)
         {
-            string? directory = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            RefreshState(path, state);
+            ValidateAgeCache(state, timestampSelector, options);
             string appendText = string.Join(Environment.NewLine,
                 values.Select(value => JsonSerializer.Serialize(value, options))) + Environment.NewLine;
-            File.AppendAllText(path, appendText,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            int count = EntryCounts.AddOrUpdate(path,
-                static file => CountLines(file),
-                (_, existing) => checked(existing + values.Count));
-            bool compactionDue = !LastCompactions.TryGetValue(path, out DateTimeOffset lastCompaction) ||
-                now - lastCompaction >= TimeSpan.FromSeconds(5);
-            bool entryLimitExceeded = maximumEntries > 0 && count > maximumEntries && compactionDue;
-            bool byteLimitExceeded = maximumBytes > 0 &&
-                new FileInfo(path).Length > maximumBytes && compactionDue;
-            bool ageLimitDue = maximumAge is not null && timestampSelector is not null &&
-                compactionDue;
-            if (!entryLimitExceeded && !byteLimitExceeded && !ageLimitDue) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // Keep a previously interrupted final line separate from the next complete record.
+            if (state.Length > 0 && !EndsWithNewline(path)) appendText = Environment.NewLine + appendText;
+            File.AppendAllText(path, appendText, Utf8);
+            state.Count = checked(state.Count + values.Count);
+            if (state.AgeKnown && timestampSelector is not null)
+                foreach (T value in values)
+                    state.Earliest = Earlier(state.Earliest, timestampSelector(value));
+            RememberFile(path, state);
+            RetainIfNeeded(path, state, maximumEntries, maximumAge, now, timestampSelector, options, maximumBytes);
+        }
+    }
 
-            List<T> retained = ReadAll<T>(path, options);
-            if (maximumAge is not null && timestampSelector is not null)
-            {
-                DateTimeOffset cutoff = now.ToUniversalTime() - maximumAge.Value;
-                retained = retained.Where(item =>
-                        timestampSelector(item).ToUniversalTime() >= cutoff)
-                    .ToList();
-            }
-            if (maximumEntries > 0 && retained.Count > maximumEntries)
-                retained = retained.Skip(retained.Count - maximumEntries).ToList();
-            if (maximumBytes > 0)
-            {
-                while (retained.Count > 1 && SerializedByteCount(retained, options) > maximumBytes)
-                    retained.RemoveAt(0);
-            }
-
-            RewriteUnlocked(path, retained, options);
-            EntryCounts[path] = retained.Count;
-            LastCompactions[path] = now;
+    /// <summary>Applies retention without adding a record, sharing the writer's per-file gate.</summary>
+    public static void ApplyRetention<T>(string path, int maximumEntries, TimeSpan? maximumAge,
+        DateTimeOffset now, Func<T, DateTimeOffset>? timestampSelector = null,
+        JsonSerializerOptions? options = null, long maximumBytes = 0)
+    {
+        path = Path.GetFullPath(path);
+        HistoryFileState state = StateFor(path);
+        lock (state)
+        {
+            RefreshState(path, state);
+            ValidateAgeCache(state, timestampSelector, options);
+            RetainIfNeeded(path, state, maximumEntries, maximumAge, now, timestampSelector, options, maximumBytes);
         }
     }
 
     public static void Delete(string path)
     {
-        lock (GateFor(path))
+        HistoryFileState state = StateFor(path);
+        lock (state)
         {
             if (File.Exists(path)) File.Delete(path);
-            EntryCounts.TryRemove(path, out _);
-            LastCompactions.TryRemove(path, out _);
+            state.Count = -1;
+            state.AgeKnown = false;
         }
     }
 
-    public static void Rewrite<T>(string path, IEnumerable<T> values,
-        JsonSerializerOptions? options = null)
+    public static void Rewrite<T>(string path, IEnumerable<T> values, JsonSerializerOptions? options = null)
     {
-        lock (GateFor(path))
+        path = Path.GetFullPath(path);
+        HistoryFileState state = StateFor(path);
+        lock (state)
         {
-            List<T> materialized = values.ToList();
-            RewriteUnlocked(path, materialized, options);
-            EntryCounts[path] = materialized.Count;
-            LastCompactions[path] = DateTimeOffset.UtcNow;
+            state.Count = RewriteLines(path, values.Select(value => JsonSerializer.Serialize(value, options)));
+            state.AgeKnown = false;
+            RememberFile(path, state);
         }
     }
 
-    private static List<T> ReadAll<T>(string path, JsonSerializerOptions? options)
+    private static IEnumerable<T> ReadValid<T>(string path, JsonSerializerOptions? options)
     {
-        var values = new List<T>();
-        if (!File.Exists(path)) return values;
+        if (!File.Exists(path)) yield break;
         foreach (string line in File.ReadLines(path))
-        {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            try
-            {
-                T? value = JsonSerializer.Deserialize<T>(line, options);
-                if (value is not null) values.Add(value);
-            }
-            catch (JsonException) { }
-            catch (NotSupportedException) { }
-        }
-        return values;
+            if (TryRead(line, options, out T? value)) yield return value!;
     }
 
-    private static void RewriteUnlocked<T>(string path, IReadOnlyList<T> values,
-        JsonSerializerOptions? options)
+    private static bool TryRead<T>(string line, JsonSerializerOptions? options, out T? value)
     {
-        string? directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+        value = default;
+        if (string.IsNullOrWhiteSpace(line)) return false;
+        try { value = JsonSerializer.Deserialize<T>(line, options); return value is not null; }
+        catch (JsonException) { return false; }
+        catch (NotSupportedException) { return false; }
+    }
+
+    private static int RewriteLines(string path, IEnumerable<string> lines)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllLines(temporaryPath,
-                values.Select(value => JsonSerializer.Serialize(value, options)),
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            int count = 0;
+            using (var writer = new StreamWriter(temporaryPath, append: false, Utf8))
+                foreach (string line in lines) { writer.WriteLine(line); count++; }
             File.Move(temporaryPath, path, overwrite: true);
+            return count;
         }
         finally
         {
@@ -204,26 +143,13 @@ public static class PluginJsonLinesHistory
         }
     }
 
-    private static long SerializedByteCount<T>(IEnumerable<T> values, JsonSerializerOptions? options)
+    private static bool EndsWithNewline(string path)
     {
-        long bytes = 0;
-        foreach (T value in values)
-        {
-            bytes += Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(value, options));
-            bytes += Environment.NewLine.Length;
-        }
-        return bytes;
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        stream.Seek(-1, SeekOrigin.End);
+        return stream.ReadByte() is 10 or 13;
     }
 
-    private static int CountLines(string path)
-    {
-        if (!File.Exists(path)) return 0;
-        int count = 0;
-        foreach (string line in File.ReadLines(path))
-            if (!string.IsNullOrWhiteSpace(line)) count++;
-        return count;
-    }
-
-    private static object GateFor(string path) =>
-        Gates.GetOrAdd(Path.GetFullPath(path), static _ => new object());
+    private static HistoryFileState StateFor(string path) =>
+        Files.GetOrAdd(Path.GetFullPath(path), static _ => new HistoryFileState());
 }

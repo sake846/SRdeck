@@ -27,8 +27,4 @@ internal static class SdrDevicePolicy
             ? trackedCenterFrequencyHz
             : configuredCenterFrequencyHz;
 
-    public static bool UsesExpandedDemodulationBuffer(
-        SdrDeviceCapabilities capabilities,
-        int sampleRateHz) =>
-        capabilities.UsesRtlDemodulationLayout && sampleRateHz == 2_000_000;
 }

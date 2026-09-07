@@ -2,6 +2,7 @@ using System;
 using SRdeck.Models;
 using SRdeck.Models.SDR;
 using SRdeck.Services;
+using SRdeckPlugin.Contracts;
 
 namespace SRdeck.Models;
 
@@ -11,6 +12,11 @@ public partial class CoreEngine
     {
         StoreSignalSamples(bufferI, bufferQ, sampleCount, SignalInputSource.Sdr);
     }
+
+    private void ProcessIncomingSampleBlock(SdrSampleBlock block) =>
+        StoreSignalSamples(block.SamplesI, block.SamplesQ, block.SampleCount, SignalInputSource.Sdr,
+            discontinuity: block.Metadata.IsDiscontinuous
+                ? IqDiscontinuity.SamplesDropped : IqDiscontinuity.None);
 
     private void ProcessPlaybackInputSamples(short[] samplesI, short[] samplesQ, int sampleCount, double systemDb, int rfFrequencyHz)
     {
@@ -23,7 +29,8 @@ public partial class CoreEngine
         uint sampleCount,
         SignalInputSource source,
         double playbackSystemDb = 0.0,
-        int playbackRfFrequencyHz = 0)
+        int playbackRfFrequencyHz = 0,
+        IqDiscontinuity discontinuity = IqDiscontinuity.None)
     {
         int validSampleCount = (int)Math.Min(sampleCount, (uint)Math.Min(samplesI.Length, samplesQ.Length));
 
@@ -32,37 +39,39 @@ public partial class CoreEngine
             _sdrDeviceManager.AdvanceFrequencyTransition(validSampleCount);
         }
 
+        int sampleRateHz = GetBufferSampleRateHz();
+        int centerFrequencyHz = source == SignalInputSource.Playback
+            ? playbackRfFrequencyHz
+            : SdrDevicePolicy.ResolveActiveInputCenterFrequency(
+                _sdrDeviceManager.ActiveCenterFrequencyHz, GetInputCenterFrequency(Control));
         _signalPipeline.Write(
             samplesI,
             samplesQ,
             validSampleCount,
-            GetBufferSampleRateHz(),
-            new SignalBlockContext(source, playbackSystemDb, playbackRfFrequencyHz));
-    }
-
-    public void HandleSignalBlockComplete(short[] bufferI, short[] bufferQ, uint sampleCount)
-    {
-        if (_isDisposed) return;
-        StoreSignalSamples(bufferI, bufferQ, sampleCount, SignalInputSource.Sdr);
+            new SignalBlockContext(source, sampleRateHz, playbackSystemDb, playbackRfFrequencyHz,
+                discontinuity, centerFrequencyHz));
     }
 
     private void HandleCompletedSignalBlock(int blockEndPointer, SignalBlockContext context)
     {
+        RadioControl control = Control;
         int playbackFallbackRfFrequencyHz = context.Source == SignalInputSource.Playback
-            ? GetInputCenterFrequency(Control)
+            ? GetInputCenterFrequency(control)
             : 0;
+        SignalRuntimeState signalRuntime = Volatile.Read(ref _signalRuntimeState);
+        var runtimeSnapshot = new SignalBlockRuntimeSnapshot(
+            signalRuntime.SystemDb,
+            signalRuntime.SystemGainOffset,
+            playbackFallbackRfFrequencyHz,
+            _sdrDeviceManager.ActiveCenterFrequencyHz,
+            signalRuntime.RfAgcEnabled == 1,
+            DeviceCapabilities,
+            MinGainReduction,
+            MaxGainReduction);
         SystemDb = _signalPipeline.Complete(new SignalBlockCompletionRequest(
             blockEndPointer,
             context,
-            GetBufferSampleRateHz(),
-            SystemDb,
-            SystemGainOffset,
-            playbackFallbackRfFrequencyHz,
-            _sdrDeviceManager.ActiveCenterFrequencyHz,
-            _rfAgc,
-            DeviceCapabilities,
-            MinGainReduction,
-            MaxGainReduction));
+            runtimeSnapshot));
     }
 
     public void ApplyFrequencyUpdate()
@@ -107,7 +116,7 @@ public partial class CoreEngine
         // display-only zoom cannot restore the previous hardware center.
         lock (_tuningSynchronizationLock)
         {
-            int previousCenterFrequencyHz = Volatile.Read(ref RfHzOld);
+            int previousCenterFrequencyHz = Volatile.Read(ref _referenceCenterFrequencyHz);
             TuningSynchronizationResult tuningResult = _tuningCoordinator.Evaluate(
                 new TuningSynchronizationRequest(
                     control,
@@ -132,7 +141,7 @@ public partial class CoreEngine
                 SyncSdrProperties(control);
             }
 
-            Volatile.Write(ref RfHzOld, tuningResult.ReferenceCenterFrequencyHz);
+            Volatile.Write(ref _referenceCenterFrequencyHz, tuningResult.ReferenceCenterFrequencyHz);
         }
     }
 

@@ -1,4 +1,4 @@
-﻿namespace SRdeckPlugin.Contracts;
+namespace SRdeckPlugin.Contracts;
 
 public sealed record FrequencyOverlayItem(
     string Id,
@@ -45,9 +45,11 @@ public interface IWaterfallAnnotationProvider
 /// </summary>
 public enum WaterfallTimeMode
 {
-    ThreeMinutes = 0,
+    DoubleSpeed = 0,
     Uncompressed = 1,
-    OneHour = 2
+    ThreeMinutes = 2,
+    FifteenMinutes = 3,
+    OneHour = 4
 }
 
 /// <summary>

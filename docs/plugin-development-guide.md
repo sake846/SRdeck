@@ -367,7 +367,7 @@ UI能力とヘッドレス能力を同時に宣言する場合も、ヘッドレ
 ```powershell
 dotnet restore SRdeck.sln
 dotnet build SRdeck.sln -c Release --no-restore
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build
 ```
 
 ## 10. 新規プラグインのレビューチェックリスト

@@ -23,8 +23,6 @@ public partial class CoreEngine
         BufferWPtr = 0;
         TotalSamplesReceived = 0;
         ResetPointersForRestart();
-        Array.Clear(WaterfallFftData, 0, WaterfallFftData.Length);
-        Array.Clear(SpectrumFftData, 0, SpectrumFftData.Length);
     }
 
     private void SyncPlaybackFrequencyToControl(int rfFrequencyHz)
@@ -45,6 +43,5 @@ public partial class CoreEngine
         radioControl.TunedFreqHz = (int)tunedFrequencyHz;
         radioControl.FreqOffsetHz = radioControl.TunedFreqHz - radioControl.CenterFreqHz;
         Control = radioControl;
-        OnFileFrequencyChanged?.Invoke();
     }
 }

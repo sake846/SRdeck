@@ -46,6 +46,7 @@ public:
         ComPtr<ID3D11Query> query;
         bool pending = false;
         uint64_t sequence = 0;
+        int64_t submissionTag = 0;
         int batchCount = 0;
     };
 
@@ -250,12 +251,18 @@ __declspec(dllexport) int gpufft_process_packed(
     const int* offsets,
     int batchCount,
     float offset,
+    int64_t submissionTag,
+    int64_t* completedTag,
+    int* inputAccepted,
     float* outputDbFlat)
 {
     auto* c = reinterpret_cast<GpuFftContext*>(handle);
-    if (!c || !inputI || !inputQ || !offsets || !outputDbFlat) return -30;
+    if (!c || !inputI || !inputQ || !offsets || !completedTag || !inputAccepted || !outputDbFlat) return -30;
     if (batchCount <= 0 || batchCount > c->maxBatchSize) return -31;
     if (inputLength <= 0) return -34;
+
+    *completedTag = 0;
+    *inputAccepted = 0;
 
     c->lastPackMs = 0.0;
     c->lastUploadMs = 0.0;
@@ -265,6 +272,7 @@ __declspec(dllexport) int gpufft_process_packed(
     auto t0 = std::chrono::steady_clock::now();
     bool hasOutput = false;
     uint64_t newestOutputSequence = 0;
+    int64_t newestOutputTag = 0;
     for (int i = 0; i < GpuFftContext::ReadbackSlotCount; ++i)
     {
         auto& slot = c->readbackSlots[i];
@@ -292,12 +300,14 @@ __declspec(dllexport) int gpufft_process_packed(
             int copyBatchCount = std::min(slot.batchCount, batchCount);
             memcpy(outputDbFlat, mapped.pData, sizeof(float) * c->fftSize * copyBatchCount);
             newestOutputSequence = slot.sequence;
+            newestOutputTag = slot.submissionTag;
             hasOutput = true;
         }
         c->context->Unmap(slot.stagingOut.Get(), 0);
         slot.pending = false;
     }
     c->lastReadbackMs = ElapsedMs(t0);
+    if (hasOutput) *completedTag = newestOutputTag;
 
     GpuFftContext::ReadbackSlot* freeSlot = nullptr;
     for (int i = 0; i < GpuFftContext::ReadbackSlotCount; ++i)
@@ -349,7 +359,9 @@ __declspec(dllexport) int gpufft_process_packed(
     c->context->Flush();
     freeSlot->pending = true;
     freeSlot->sequence = c->nextReadbackSequence++;
+    freeSlot->submissionTag = submissionTag;
     freeSlot->batchCount = batchCount;
+    *inputAccepted = 1;
     c->lastReadbackMs += ElapsedMs(t0);
     return hasOutput ? 0 : 1;
 }

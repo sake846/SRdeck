@@ -1,3 +1,4 @@
+using SRdeck.Services;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -25,7 +26,7 @@ public sealed class SignalProcessingWorkerFactory : ISignalProcessingWorkerFacto
 internal sealed class SignalProcessingWorker : ISignalProcessingWorker
 {
     private readonly Action _processCycle;
-    private readonly SemaphoreSlim _processSignal = new(0);
+    private readonly SemaphoreSlim _processSignal = new(0, 1);
     private readonly CancellationTokenSource _cancellation = new();
     private Task? _workerTask;
     private int _workerThreadId;
@@ -66,30 +67,46 @@ internal sealed class SignalProcessingWorker : ISignalProcessingWorker
         {
             // A racing producer may signal while shutdown completes.
         }
+        catch (SemaphoreFullException)
+        {
+            // The coordinator drains its bounded queue on each wake-up.
+        }
     }
 
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-        _cancellation.Cancel();
-        TryProcessSignalCycle();
-        Task? workerTask = _workerTask;
-        if (workerTask != null && !workerTask.IsCompleted)
+        using (ShutdownDiagnosticLog.Scope("SignalProcessingWorker.Dispose"))
         {
-            if (Environment.CurrentManagedThreadId == Volatile.Read(ref _workerThreadId))
+            _cancellation.Cancel();
+            TryProcessSignalCycle();
+            Task? workerTask = _workerTask;
+            if (workerTask != null && !workerTask.IsCompleted)
             {
-                return;
+                if (Environment.CurrentManagedThreadId == Volatile.Read(ref _workerThreadId))
+                {
+                    return;
+                }
+
+                ShutdownDiagnosticLog.Write("SignalProcessingWorker.WaitingWorkerTask", "Waiting up to 3s for worker task...");
+                var sw = Stopwatch.StartNew();
+                bool completed = workerTask.Wait(TimeSpan.FromSeconds(3));
+                sw.Stop();
+                if (!completed)
+                {
+                    ShutdownDiagnosticLog.Write("WARNING: SignalProcessingWorker workerTask.Wait timed out after 3s!");
+                    Debug.WriteLine("[SignalProcessingWorker] Timed out while stopping; resources will be released when the task exits.");
+                    return;
+                }
+                else
+                {
+                    ShutdownDiagnosticLog.Write("SignalProcessingWorker workerTask completed", "took " + sw.ElapsedMilliseconds + "ms");
+                }
             }
 
-            if (!workerTask.Wait(TimeSpan.FromSeconds(3)))
-            {
-                Debug.WriteLine("[SignalProcessingWorker] Timed out while stopping; resources will be released when the task exits.");
-                return;
-            }
+            DisposeResources();
         }
-
-        DisposeResources();
     }
 
     private void ExecuteProcessingLoop()
@@ -145,6 +162,7 @@ internal sealed class SignalProcessingWorker : ISignalProcessingWorker
             if (avrtHandle != IntPtr.Zero)
             {
                 AvRevertMmThreadCharacteristics(avrtHandle);
+                ShutdownDiagnosticLog.Write("SignalProcessingWorker.ExecuteProcessingLoop", "MMCSS AvRevertMmThreadCharacteristics called");
             }
             try { Thread.CurrentThread.Priority = ThreadPriority.Normal; }
             catch { /* Permissions or thread state issues during shutdown. */ }

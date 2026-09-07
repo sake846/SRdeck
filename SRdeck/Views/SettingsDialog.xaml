@@ -21,16 +21,30 @@
 
     <Grid Margin="12,4,12,12">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TabControl x:Name="SettingsTabs" Style="{StaticResource LocalTabControlStyle}" />
+        <Border Background="#FF4A3510" BorderBrush="#FFD9AA50" BorderThickness="1" Padding="8" Margin="0,0,0,6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SettingsPersistence.HasIssue}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding SettingsPersistence.Message}" Foreground="White" FontSize="12" TextWrapping="Wrap" />
+        </Border>
+        <TabControl Grid.Row="1" x:Name="SettingsTabs" Style="{StaticResource LocalTabControlStyle}" />
 
-        <Button Grid.Row="1" Content="{DynamicResource Btn_Close}" Style="{StaticResource FlatButtonStyle}" Width="120" Height="28" Margin="0,4,0,2" HorizontalAlignment="Center" Click="CloseButton_Click" IsCancel="True" />
+        <Button Grid.Row="2" Content="{DynamicResource Btn_Close}" Style="{StaticResource FlatButtonStyle}" Width="120" Height="28" Margin="0,4,0,2" HorizontalAlignment="Center" Click="CloseButton_Click" IsCancel="True" />
 
         <!-- Settings Reset Confirm Overlay (Red Warning Style) -->
-        <Grid Grid.Row="0" Grid.RowSpan="2" Background="#CC151515" Visibility="{Binding SettingsResetConfirmVisibility}" Panel.ZIndex="1000" Margin="-12">
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#CC151515" Visibility="{Binding SettingsResetConfirmVisibility}" Panel.ZIndex="1000" Margin="-12">
             <Border Background="#FF1E1E1E" BorderBrush="#FFFF5555" BorderThickness="1" CornerRadius="3"
                     HorizontalAlignment="Center" VerticalAlignment="Center" Padding="25" Margin="20">
                 <StackPanel>

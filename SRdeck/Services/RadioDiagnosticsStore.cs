@@ -1,11 +1,13 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using SRdeck.Models;
 using SRdeck.Models.SDR;
 
 namespace SRdeck.Services;
 
-public interface IRadioDiagnosticsStore
+public interface IRadioDiagnosticsStore : IDisposable
 {
     RadioDiagnostics Snapshot { get; }
     void Update(RadioDiagnosticsMutator mutator);
@@ -22,10 +24,21 @@ public interface IRadioDiagnosticsStore
 
 public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
 {
+    private sealed record SystemUsageSnapshot(
+        GpuUsageSnapshot Gpu,
+        CpuUsageSnapshot Cpu);
+
     private readonly object _sync = new();
     private readonly IGpuUsageMonitor _gpuUsageMonitor;
     private readonly ICpuUsageMonitor _cpuUsageMonitor;
     private readonly IRadioDiagnosticsCollector _collector;
+    private readonly TimeSpan _usageSampleInterval;
+    private readonly TimeSpan _shutdownWaitTimeout;
+    private readonly CancellationTokenSource _usageSamplerCancellation = new();
+    private readonly Task _usageSamplerTask;
+    private SystemUsageSnapshot _usageSnapshot = new(default, default);
+    private int _disposeStarted;
+    private int _resourcesDisposed;
     private RadioDiagnostics _snapshot;
     private long _fftFpsWindowStartTicks = Stopwatch.GetTimestamp();
     private int _fftFrameCount;
@@ -35,17 +48,62 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
         IGpuUsageMonitor gpuUsageMonitor,
         ICpuUsageMonitor cpuUsageMonitor,
         IRadioDiagnosticsCollector collector)
+        : this(gpuUsageMonitor, cpuUsageMonitor, collector, TimeSpan.FromMilliseconds(500))
+    {
+    }
+
+    internal RadioDiagnosticsStore(
+        IGpuUsageMonitor gpuUsageMonitor,
+        ICpuUsageMonitor cpuUsageMonitor,
+        IRadioDiagnosticsCollector collector,
+        TimeSpan usageSampleInterval)
+        : this(
+            gpuUsageMonitor,
+            cpuUsageMonitor,
+            collector,
+            usageSampleInterval,
+            TimeSpan.FromSeconds(2))
+    {
+    }
+
+    internal RadioDiagnosticsStore(
+        IGpuUsageMonitor gpuUsageMonitor,
+        ICpuUsageMonitor cpuUsageMonitor,
+        IRadioDiagnosticsCollector collector,
+        TimeSpan usageSampleInterval,
+        TimeSpan shutdownWaitTimeout)
     {
         _gpuUsageMonitor = gpuUsageMonitor ?? throw new ArgumentNullException(nameof(gpuUsageMonitor));
         _cpuUsageMonitor = cpuUsageMonitor ?? throw new ArgumentNullException(nameof(cpuUsageMonitor));
         _collector = collector ?? throw new ArgumentNullException(nameof(collector));
+        if (usageSampleInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(usageSampleInterval));
+        }
+        if (shutdownWaitTimeout < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(shutdownWaitTimeout));
+        }
+        _usageSampleInterval = usageSampleInterval;
+        _shutdownWaitTimeout = shutdownWaitTimeout;
+        _usageSamplerTask = Task.Run(SampleSystemUsageAsync);
     }
 
     public RadioDiagnostics Snapshot
     {
         get
         {
-            lock (_sync) return _snapshot;
+            lock (_sync)
+            {
+                ApplyCachedSystemUsage();
+                long nowTicks = Stopwatch.GetTimestamp();
+                double elapsedSeconds = (nowTicks - _fftFpsWindowStartTicks) / (double)Stopwatch.Frequency;
+                if (elapsedSeconds >= 1.5 && _snapshot.FftFps > 0)
+                {
+                    _snapshot.FftFps = 0;
+                }
+                return _snapshot;
+            }
         }
     }
 
@@ -78,8 +136,7 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
             _snapshot.AudioWriteIntervalMs = source.AudioWriteIntervalMs;
             _snapshot.EffectiveSampleRateHz = source.EffectiveSampleRateHz;
             _snapshot.TimeProcCycle = timeProcCycle;
-            SyncGpuUsage();
-            SyncCpuUsage();
+            ApplyCachedSystemUsage();
 
             _snapshot.BufferWPtr = source.BufferWPtr;
             _snapshot.BufferRPtr = source.BufferRPtr;
@@ -120,7 +177,7 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
             _snapshot.TimeGpuUploadNative = timing.GpuUploadNative;
             _snapshot.TimeGpuDispatch = timing.GpuDispatch;
             _snapshot.TimeGpuReadback = timing.GpuReadback;
-            SyncGpuUsage();
+            ApplyCachedSystemUsage();
             _snapshot.FftFps = _fftFps;
             _snapshot.FftRequestCount = metrics.RequestedCount;
             _snapshot.FftCompletedCount = metrics.CompletedCount;
@@ -141,17 +198,90 @@ public sealed class RadioDiagnosticsStore : IRadioDiagnosticsStore
         ProcessingCycleDiagnosticsSnapshot snapshot) =>
         _collector.ApplyProcessingCycle(ref diagnostics, snapshot);
 
-    private void SyncGpuUsage()
+    private async Task SampleSystemUsageAsync()
     {
-        var gpuUsage = _gpuUsageMonitor.GetUsage();
-        _snapshot.GpuAppUsagePercent = gpuUsage.AppUsagePercent;
-        _snapshot.GpuUsagePercent = gpuUsage.TotalUsagePercent;
+        CancellationToken cancellationToken = _usageSamplerCancellation.Token;
+        try
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                SystemUsageSnapshot previous = Volatile.Read(ref _usageSnapshot);
+                GpuUsageSnapshot gpu = previous.Gpu;
+                CpuUsageSnapshot cpu = previous.Cpu;
+                try
+                {
+                    gpu = _gpuUsageMonitor.GetUsage();
+                }
+                catch
+                {
+                    // Keep the last valid sample. Diagnostics must not stop the processing paths.
+                }
+                try
+                {
+                    cpu = _cpuUsageMonitor.GetUsage();
+                }
+                catch
+                {
+                    // Keep the last valid sample. Diagnostics must not stop the processing paths.
+                }
+                Volatile.Write(ref _usageSnapshot, new SystemUsageSnapshot(gpu, cpu));
+                await Task.Delay(_usageSampleInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
     }
 
-    private void SyncCpuUsage()
+    private void ApplyCachedSystemUsage()
     {
-        var cpuUsage = _cpuUsageMonitor.GetUsage();
-        _snapshot.CpuAppUsagePercent = cpuUsage.AppUsagePercent;
-        _snapshot.CpuTotalUsagePercent = cpuUsage.TotalUsagePercent;
+        SystemUsageSnapshot usage = Volatile.Read(ref _usageSnapshot);
+        _snapshot.GpuAppUsagePercent = usage.Gpu.AppUsagePercent;
+        _snapshot.GpuUsagePercent = usage.Gpu.TotalUsagePercent;
+        _snapshot.CpuAppUsagePercent = usage.Cpu.AppUsagePercent;
+        _snapshot.CpuTotalUsagePercent = usage.Cpu.TotalUsagePercent;
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposeStarted, 1) != 0) return;
+        _usageSamplerCancellation.Cancel();
+        bool completed;
+        try
+        {
+            completed = _usageSamplerTask.Wait(_shutdownWaitTimeout);
+        }
+        catch (AggregateException ex)
+        {
+            Debug.WriteLine($"[RadioDiagnosticsStore] Usage sampler stopped with an error: {ex.Flatten().InnerException}");
+            completed = true;
+        }
+
+        if (completed)
+        {
+            DisposeResources();
+            return;
+        }
+
+        Debug.WriteLine("[RadioDiagnosticsStore] Usage sampler shutdown timed out; cleanup will continue after the provider returns.");
+        _ = _usageSamplerTask.ContinueWith(
+            static (task, state) =>
+            {
+                _ = task.Exception;
+                ((RadioDiagnosticsStore)state!).DisposeResources();
+            },
+            this,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private void DisposeResources()
+    {
+        if (Interlocked.Exchange(ref _resourcesDisposed, 1) != 0) return;
+        _usageSamplerCancellation.Dispose();
+        if (_gpuUsageMonitor is IDisposable disposableGpu) disposableGpu.Dispose();
+        if (_cpuUsageMonitor is IDisposable disposableCpu) disposableCpu.Dispose();
     }
 }

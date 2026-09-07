@@ -53,16 +53,16 @@ dotnet build SRdeck.sln -c Release
 全試験:
 
 ```powershell
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release
 ```
 
 試験名の一覧:
 
 ```powershell
-dotnet run --project SRdeck.Tests\SRdeck.Tests.csproj -- --list-tests
+dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --list-tests
 ```
 
-`SRdeck.Tests`はxUnitではなく、失敗後も後続項目を実行して一覧を表示するコンソール型ハーネスです。文書へ試験件数を固定せず、`--list-tests`を正本にします。
+`SRdeck.Tests`はxUnit.net v3を使用し、各回帰試験を独立した子プロセスで実行します。Test Explorerからも個別に選択でき、失敗後も後続項目を実行します。文書へ試験件数を固定せず、`dotnet test --list-tests`を正本にします。
 
 ## リポジトリ内プラグイン
 

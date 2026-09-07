@@ -31,38 +31,6 @@
             <Setter Property="ToolTipService.ShowDuration" Value="60000" />
         </Style>
     </Window.Resources>
-    <Window.InputBindings>
-        <KeyBinding Key="Left" Command="{Binding ArrowKeyCommand}" CommandParameter="Left"/>
-        <KeyBinding Key="Right" Command="{Binding ArrowKeyCommand}" CommandParameter="Right"/>
-        <KeyBinding Key="Up" Command="{Binding ArrowKeyCommand}" CommandParameter="Up"/>
-        <KeyBinding Key="Down" Command="{Binding ArrowKeyCommand}" CommandParameter="Down"/>
-        <KeyBinding Key="Left" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftLeft"/>
-        <KeyBinding Key="Right" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftRight"/>
-        <KeyBinding Key="Up" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftUp"/>
-        <KeyBinding Key="Down" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftDown"/>
-        
-        <!-- Global Hotkeys (Shift = Rx2) -->
-        <KeyBinding Key="Q" Command="{Binding HotkeyCommand}" CommandParameter="Q1"/>
-        <KeyBinding Key="Q" Modifiers="Shift" Command="{Binding HotkeyCommand}" CommandParameter="Q2"/>
-        <KeyBinding Key="F" Command="{Binding HotkeyCommand}" CommandParameter="F1"/>
-        <KeyBinding Key="F" Modifiers="Shift" Command="{Binding HotkeyCommand}" CommandParameter="F2"/>
-        <KeyBinding Key="M" Command="{Binding HotkeyCommand}" CommandParameter="M1"/>
-        <KeyBinding Key="M" Modifiers="Shift" Command="{Binding HotkeyCommand}" CommandParameter="M2"/>
-        <KeyBinding Key="O" Command="{Binding HotkeyCommand}" CommandParameter="P1"/>
-        <KeyBinding Key="O" Modifiers="Shift" Command="{Binding HotkeyCommand}" CommandParameter="P2"/>
-        <KeyBinding Key="R" Command="{Binding HotkeyCommand}" CommandParameter="R1"/>
-        <KeyBinding Key="R" Modifiers="Shift" Command="{Binding HotkeyCommand}" CommandParameter="R2"/>
-        <KeyBinding Key="OemQuestion" Modifiers="Shift" Command="{Binding ToggleHelpCommand}"/>
-        
-        <KeyBinding Key="H" Command="{Binding ArrowKeyCommand}" CommandParameter="Left"/>
-        <KeyBinding Key="J" Command="{Binding ArrowKeyCommand}" CommandParameter="Down"/>
-        <KeyBinding Key="K" Command="{Binding ArrowKeyCommand}" CommandParameter="Up"/>
-        <KeyBinding Key="L" Command="{Binding ArrowKeyCommand}" CommandParameter="Right"/>
-        <KeyBinding Key="H" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftLeft"/>
-        <KeyBinding Key="J" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftDown"/>
-        <KeyBinding Key="K" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftUp"/>
-        <KeyBinding Key="L" Modifiers="Shift" Command="{Binding ArrowKeyCommand}" CommandParameter="ShiftRight"/>
-    </Window.InputBindings>
     <Border>
         <Border.Style>
             <Style TargetType="Border">
@@ -133,17 +101,13 @@
                     </Style>
                     <Style x:Key="ReceiverControlPanelBorderStyle" TargetType="Border" BasedOn="{StaticResource FlatRaisedPanelStyle}" />
                 </Grid.Resources>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />                    <!-- Spectrum and Waterfall -->
-                    <RowDefinition Height="140" /> <!-- Start and Display Controls -->
-                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="280" />
                     <ColumnDefinition Width="700" />
                 </Grid.ColumnDefinitions>
 
                 <!-- Left: Spectrum and Waterfall -->
-                <Border x:Name="_mainDisplayBorder" Grid.Row="0" Grid.Column="0"
+                <Border x:Name="_mainDisplayBorder" Grid.Column="0"
                         Margin="6,6,0,6" Padding="8">
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource FlatRaisedPanelStyle}">
@@ -181,272 +145,392 @@
                     </Grid>
                 </Border>
 
-                <!-- Right: active plugin workspace -->
-                <Grid Grid.Row="0" Grid.RowSpan="2" Grid.Column="1">
-                    <ContentControl Content="{Binding PluginWorkspace.ActiveContent}" />
-                </Grid>
+                <!-- Right: Top controls & active plugin workspace -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                <!-- Left: Start and display controls -->
-                    <Grid Grid.Row="1" Grid.Column="0">
+                    <!-- Top Controls Block (Start/MODE/RATE/SP/WF + SDR Settings) -->
+                    <Grid Grid.Row="0" Margin="6,6,6,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="300" />
+                            <ColumnDefinition Width="6" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource ReceiverControlPanelBorderStyle}"
-                                Height="134" VerticalAlignment="Top" Margin="6,0,0,6" Padding="0">
-                        <StackPanel Orientation="Vertical">
 
-                        <Grid VerticalAlignment="Top" Margin="0,6,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <!-- Lower Left Grid: Play, MEM-1, Settings, Exit -->
-                            <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Top" Margin="6,0,5,0">
-                                <!-- Section 1 -->
-                                <Button x:Name="_btnStart" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding SdrControl.IsStarted}" Width="60" Height="22" FontSize="10" Margin="3,4" Command="{Binding SdrControl.SdrToggleCommand}" IsEnabled="{Binding IsSdrToggleEnabled}" Focusable="False" IsTabStop="False">
-                                    <Button.Content>
-                                        <TextBlock>
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="{DynamicResource Btn_Start}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding SdrControl.StartButtonText}" Value="動作中">
-                                                            <Setter Property="Text" Value="{DynamicResource Btn_Running}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding SdrControl.StartButtonText}" Value="再生中">
-                                                            <Setter Property="Text" Value="{DynamicResource Btn_PlayingWeb}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Button.Content>
-                                </Button>
-                                <Button x:Name="_btnDetect" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding IsSdrDetected}" Content="検出" Width="60" Height="22" FontSize="10" Margin="3,4" Command="{Binding DetectSdrCommand}" IsEnabled="{Binding IsStopped}" Focusable="False" IsTabStop="False" />
-                                
-                                <Button x:Name="_btnSettings" Style="{DynamicResource PluginButtonStyle}" Content="{DynamicResource Btn_Settings}" Width="60" Height="22" FontSize="10" Margin="3,4" Command="{Binding OpenSettingsDialogCommand}" Focusable="False" IsTabStop="False" />
-                                <!-- Section 4 -->
-                                <Button x:Name="_btnExit" Style="{DynamicResource PluginButtonStyle}" Tag="False" Content="{DynamicResource Btn_Exit}" Width="60" Height="22" FontSize="10" Margin="3,4" Command="{Binding ExitCommand}" Focusable="False" IsTabStop="False" />
+                        <!-- Start and Display Controls -->
+                        <Border Grid.Column="0" Style="{StaticResource ReceiverControlPanelBorderStyle}"
+                                Height="136" VerticalAlignment="Top" Margin="0" Padding="0">
+                            <Grid VerticalAlignment="Center" Margin="0,6,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- Lower Left Grid: Play, MEM-1, Settings, Exit -->
+                                <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Top" Margin="4,0,0,0">
+                                    <!-- Section 1 -->
+                                    <Button x:Name="_btnStart" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding SdrControl.IsStarted}" Width="58" Margin="3,4" Command="{Binding SdrControl.SdrToggleCommand}" IsEnabled="{Binding IsSdrToggleEnabled}" Focusable="False" IsTabStop="False">
+                                        <Button.Content>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="{DynamicResource Btn_Start}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SdrControl.StartButtonText}" Value="動作中">
+                                                                <Setter Property="Text" Value="{DynamicResource Btn_Running}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding SdrControl.StartButtonText}" Value="再生中">
+                                                                <Setter Property="Text" Value="{DynamicResource Btn_PlayingWeb}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Button.Content>
+                                    </Button>
+                                    <Button x:Name="_btnDetect" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding IsSdrDetected}" Content="検出" Width="58" Margin="3,4" Command="{Binding DetectSdrCommand}" IsEnabled="{Binding IsStopped}" Focusable="False" IsTabStop="False" />
+                                    
+                                    <Button x:Name="_btnSettings" Style="{DynamicResource PluginButtonStyle}" Content="{DynamicResource Btn_Settings}" Width="58" Margin="3,4" Command="{Binding OpenSettingsDialogCommand}" Focusable="False" IsTabStop="False" />
+                                    <!-- Section 4 -->
+                                    <Button x:Name="_btnExit" Style="{DynamicResource PluginButtonStyle}" Tag="False" Content="{DynamicResource Btn_Exit}" Width="58" Margin="3,4" Command="{Binding ExitCommand}" Focusable="False" IsTabStop="False" />
                                 </StackPanel>
 
-                            <!-- Display Grid (Col 1: MODE, RATE, SP, WF) -->
-                            <Grid Grid.Column="1" VerticalAlignment="Top" Margin="12,0,4,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" /> <!-- Labels -->
-                                    <ColumnDefinition Width="Auto" /> <!-- Controls -->
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" /> <!-- MODE -->
-                                    <RowDefinition Height="Auto" /> <!-- RATE -->
-                                    <RowDefinition Height="Auto" /> <!-- SP -->
-                                    <RowDefinition Height="Auto" /> <!-- WF -->
-                                </Grid.RowDefinitions>
-
-                                <!-- Labels -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="MODE" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="10" Margin="3,4" Width="32" />
-                                 <Button Grid.Row="2" Grid.Column="0" Command="{Binding Display.ResetSpectrumBiasCommand}" Width="22" Margin="3,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False">
-                                     <Button.Template>
-                                         <ControlTemplate TargetType="Button">
-                                             <TextBlock Text="SP" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="10" Background="Transparent" />
-                                         </ControlTemplate>
-                                     </Button.Template>
-                                 </Button>
-                                 <Button Grid.Row="3" Grid.Column="0" Command="{Binding Display.ResetWaterfallBiasCommand}" Width="22" Margin="3,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False">
-                                     <Button.Template>
-                                         <ControlTemplate TargetType="Button">
-                                             <TextBlock Text="WF" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="10" Background="Transparent" />
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="RATE" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="10" Margin="3,4" Width="32" />
-
-                                 <!-- Controls -->
-                                <ComboBox Grid.Row="0" Grid.Column="1" Width="112" Height="22" FontSize="10" Margin="3,4"
-                                           ItemsSource="{Binding PluginWorkspace.Plugins}"
-                                           SelectedValuePath="Descriptor.Id"
-                                           SelectedValue="{Binding SelectedPluginId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                           IsEnabled="{Binding IsPluginSelectionEnabled}"
-                                           Focusable="False" IsTabStop="False"
-                                           Style="{DynamicResource PluginComboBoxStyle}">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Descriptor.DisplayName}"
-                                                       Style="{DynamicResource PluginSelectorTextStyle}" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-
-                                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
-                                     <Button Style="{DynamicResource PluginLeftStepButtonStyle}" Content="▼" Width="27" Height="22" FontSize="10" Command="{Binding Display.AdjustSpectrumIntensityOffsetCommand}" CommandParameter="-10" Focusable="False" IsTabStop="False" />
-                                     <Button Style="{DynamicResource PluginRightStepButtonStyle}" Content="▲" Width="27" Height="22" FontSize="10" Command="{Binding Display.AdjustSpectrumIntensityOffsetCommand}" CommandParameter="10" Focusable="False" IsTabStop="False" />
-                                     <TextBlock Text="{Binding Display.SpectrumBiasAdj, StringFormat={}{0} dB}"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontFamily="{StaticResource DisplayFontFamily}"
-                                               VerticalAlignment="Center"
-                                               Margin="10,0,0,0" />
-                                 </StackPanel>
-
-                                 <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
-                                     <Button Style="{DynamicResource PluginLeftStepButtonStyle}" Content="・" Width="27" Height="22" FontSize="10" Command="{Binding Display.AdjustWaterfallIntensityOffsetCommand}" CommandParameter="-5" Focusable="False" IsTabStop="False" />
-                                     <Button Style="{DynamicResource PluginRightStepButtonStyle}" Content="☀" Width="27" Height="22" FontSize="10" Command="{Binding Display.AdjustWaterfallIntensityOffsetCommand}" CommandParameter="5" Focusable="False" IsTabStop="False" />
-                                    <TextBlock Text="{Binding Display.WaterfallBiasAdj}"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               FontFamily="{StaticResource DisplayFontFamily}"
-                                               VerticalAlignment="Center"
-                                               Margin="10,0,0,0" />
-                                 </StackPanel>
-
-                                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="_cmbSampleRate" Width="90" Height="22" FontSize="10" Margin="3,4" HorizontalAlignment="Left"
-                                           ItemsSource="{Binding SampleRateOptions}"
-                                           DisplayMemberPath="Label"
-                                           SelectedValuePath="Value"
-                                           SelectedValue="{Binding SdrPlaySampleRateHz, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                           IsEnabled="{Binding IsSampleRateSelectionEnabled}"
-                                           Focusable="False" IsTabStop="False"
-                                            Style="{DynamicResource PluginComboBoxStyle}">
-                                </ComboBox>
-                            </Grid>
-
-                        </Grid>
-                        </StackPanel>
-                    </Border>
-
-                            <!-- SDR Settings Block (Col 2: right of SR, SP, WF, MODE controls) -->
-                            <Border Grid.Column="2" Style="{StaticResource FlatRaisedPanelStyle}"
-                                    Width="300" Height="134" Margin="6,0,0,6" Padding="6,3" HorizontalAlignment="Left" VerticalAlignment="Top"
-                                    Visibility="{Binding IsSdrSettingsVisible, Converter={StaticResource BoolToVis}}">
-                                <Grid>
+                                <!-- Display Grid (Col 1: 表示幅, 波形位置, 描画輝度, 描画速度) -->
+                                <Grid Grid.Column="1" VerticalAlignment="Top" Margin="16,0,4,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" /> <!-- Labels -->
+                                         <ColumnDefinition Width="Auto" /> <!-- Controls -->
+                                    </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="36" />
-                                        <RowDefinition Height="24" />
-                                        <RowDefinition Height="24" />
-                                        <RowDefinition Height="42" />
-                                        <RowDefinition Height="0" />
+                                        <RowDefinition Height="Auto" /> <!-- 表示幅 -->
+                                        <RowDefinition Height="Auto" /> <!-- 波形位置 -->
+                                        <RowDefinition Height="Auto" /> <!-- 描画輝度 -->
+                                        <RowDefinition Height="Auto" /> <!-- 描画速度 -->
                                     </Grid.RowDefinitions>
-                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="2,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="SDR設定  " Foreground="#FF88CC00" FontWeight="Bold" FontSize="11" />
-                                        <TextBlock Text="{Binding DeviceName}" Foreground="White" FontWeight="SemiBold" FontSize="11" />
-                                        <TextBlock Text="{Binding DeviceSn}" Foreground="#FFAAAAAA" FontSize="10" VerticalAlignment="Center" Margin="3,0,0,0" />
+
+                                    <!-- Labels -->
+                                    <Button Grid.Row="0" Grid.Column="0" Command="{Binding Display.ResetMainSpanCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="全帯域（フルスパン）にリセット">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <TextBlock Text="表示幅" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Grid.Row="1" Grid.Column="0" Command="{Binding Display.ResetSpectrumBiasCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="波形位置をリセット">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <TextBlock Text="波形位置" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Grid.Row="2" Grid.Column="0" Command="{Binding Display.ResetWaterfallBiasCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="描画輝度をリセット">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <TextBlock Text="描画輝度" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <Button Grid.Row="3" Grid.Column="0" Command="{Binding ResetWaterfallTimeModeCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="描画速度をリセット（3 分）">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <TextBlock Text="描画速度" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+
+                                    <!-- Controls -->
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
+                                        <Slider Width="104" Style="{DynamicResource PluginSliderStyle}"
+                                                Minimum="0" Maximum="100"
+                                                SmallChange="5" LargeChange="10"
+                                                Value="{Binding Display.MainSpanSliderPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                        <TextBlock Text="{Binding Display.CurrentMainSpanText}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontFamily="{StaticResource DisplayFontFamily}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0" />
                                     </StackPanel>
 
-                                    <!-- 中心周波数表示 (sdrplayとrtlsdrの両方で表示、デバイス名称のすぐ下) -->
-                                    <Grid Grid.Row="1" Margin="1,0">
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
+                                        <Slider Width="104" Style="{DynamicResource PluginSliderStyle}"
+                                                Minimum="-100" Maximum="100"
+                                                TickFrequency="10" IsSnapToTickEnabled="True"
+                                                SmallChange="10" LargeChange="10"
+                                                Value="{Binding Display.SpectrumBiasSlider, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                        <TextBlock Text="{Binding Display.SpectrumBiasAdj, StringFormat={}{0} dB}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontFamily="{StaticResource DisplayFontFamily}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
+                                        <Slider Width="104" Style="{DynamicResource PluginSliderStyle}"
+                                                Minimum="-100" Maximum="100"
+                                                TickFrequency="5" IsSnapToTickEnabled="True"
+                                                SmallChange="5" LargeChange="5"
+                                                Value="{Binding Display.WaterfallBiasSlider, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                        <TextBlock Text="{Binding Display.WaterfallBiasAdj}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontFamily="{StaticResource DisplayFontFamily}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="3,4">
+                                        <Slider Width="104" Style="{DynamicResource PluginSliderStyle}"
+                                                Minimum="0" Maximum="4"
+                                                TickFrequency="1" IsSnapToTickEnabled="True"
+                                                SmallChange="1" LargeChange="1"
+                                                Value="{Binding WaterfallDisplayTimeModeIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                        <TextBlock Text="{Binding WaterfallDisplayTimeModeText}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontFamily="{StaticResource DisplayFontFamily}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- SDR Settings Block -->
+                        <Border Grid.Column="2" Style="{StaticResource FlatRaisedPanelStyle}"
+                                Height="136" Margin="0" Padding="8,6" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                                Visibility="{Binding IsSdrSettingsVisible, Converter={StaticResource BoolToVis}}">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Left Column: SDR 5 Rows -->
+                                <Grid Grid.Column="0" VerticalAlignment="Top">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" MinWidth="60" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Row 0: Device Info -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DeviceName}" Foreground="#FF88CC00" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceSn}" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" VerticalAlignment="Center" Margin="0,3,0,3" />
+
+                                    <!-- Row 1: Sample Rate -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="サンプリング" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
+                                        <ComboBox x:Name="_cmbSampleRate" Width="95" HorizontalAlignment="Left"
+                                                   ItemsSource="{Binding SampleRateOptions}"
+                                                   DisplayMemberPath="Label"
+                                                   SelectedValuePath="Value"
+                                                   SelectedValue="{Binding SdrPlaySampleRateHz, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                   IsEnabled="{Binding IsSampleRateSelectionEnabled}"
+                                                   Focusable="False" IsTabStop="False"
+                                                   Style="{DynamicResource PluginComboBoxStyle}">
+                                        </ComboBox>
+                                        <TextBlock Text="{Binding EffectiveBitDepthText}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontFamily="{StaticResource DisplayFontFamily}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Margin="8,0,0,0" />
+                                    </StackPanel>
+
+                                    <!-- Row 2: Center Frequency -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="中心周波数" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tuner.CenterFreqDisplay}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,3,0,3"/>
+
+                                    <!-- Row 3: Sensitivity Control (AGC Mode) -->
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="感度制御" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <ComboBox Grid.Row="3" Grid.Column="1" Width="110" HorizontalAlignment="Left" Margin="0,3,0,3"
+                                              SelectedValuePath="Tag"
+                                              SelectedValue="{Binding AgcReleaseMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              IsEnabled="{Binding IsSdrDetected}"
+                                              Focusable="False" IsTabStop="False"
+                                              Style="{DynamicResource PluginComboBoxStyle}">
+                                        <ComboBoxItem Content="制御なし" Tag="{x:Static models:AgcReleaseMode.Off}"/>
+                                        <ComboBoxItem Content="高速 (0.1秒)" Tag="{x:Static models:AgcReleaseMode.Fast}"/>
+                                        <ComboBoxItem Content="中速 (1秒)" Tag="{x:Static models:AgcReleaseMode.Medium}"/>
+                                        <ComboBoxItem Content="低速 (10秒)" Tag="{x:Static models:AgcReleaseMode.Slow}"/>
+                                        <ComboBoxItem Content="アタックのみ" Tag="{x:Static models:AgcReleaseMode.AttackOnly}"/>
+                                    </ComboBox>
+
+                                    <!-- Row 4: Sensitivity / Gain Slider -->
+                                    <!-- SDRplay: Sensitivity Label -->
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="受信感度" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <!-- RTL-SDR: RF Gain Label -->
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="RFゲイン" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- SDRplay Slider Controls (Row 4, Col 1) -->
+                                    <Grid Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,3,0,3">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="65"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="中心周波数" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Tuner.CenterFreqDisplay}" Foreground="White" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                        <Slider Grid.Column="0" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                                Value="{Binding SdrPlaySensitivity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="左: 強信号向け / 右: 微弱信号向け"
+                                                VerticalAlignment="Center" Margin="2,0,4,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SdrPlayMaxGainRatioText}" ToolTip="{Binding SdrPlayLnaGrText}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
                                     </Grid>
 
-                                    <Grid Grid.Row="2" Margin="1,0" VerticalAlignment="Center">
+                                    <!-- RTL-SDR Slider Controls (Row 4, Col 1) -->
+                                    <Grid Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,3,0,3">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="65"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="AGC" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button x:Name="_btnAgc" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding IsAgcEnabled}" Content="AGC" Width="60" Height="22" FontSize="10" Margin="0,0,6,0" Command="{Binding ToggleAgcCommand}" IsEnabled="{Binding IsSdrDetected}" Focusable="False" IsTabStop="False" />
-                                            <ComboBox Width="110" Height="22" HorizontalAlignment="Left"
-                                                      SelectedValuePath="Tag"
-                                                      SelectedValue="{Binding AgcReleaseMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                      IsEnabled="{Binding IsSdrDetected}"
-                                                      Style="{DynamicResource PluginComboBoxStyle}">
-                                                 <ComboBoxItem Content="高速 (0.1秒)" Tag="{x:Static models:AgcReleaseMode.Fast}"/>
-                                                <ComboBoxItem Content="中速 (1秒)" Tag="{x:Static models:AgcReleaseMode.Medium}"/>
-                                                <ComboBoxItem Content="低速 (10秒)" Tag="{x:Static models:AgcReleaseMode.Slow}"/>
-                                                <ComboBoxItem Content="アタックのみ" Tag="{x:Static models:AgcReleaseMode.AttackOnly}"/>
-                                            </ComboBox>
-
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- デバイス別ゲイン表示 -->
-                                    <Grid Grid.Row="3">
-                                        <!-- SDRplay: sensitivity changes the LNA/GR gain profile. -->
-                                        <Grid>
-                                            <Grid.Style>
-                                                <Style TargetType="Grid">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Grid.Style>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="24"/>
-                                                <RowDefinition Height="18"/>
-                                            </Grid.RowDefinitions>
-
-                                            <Grid Grid.Row="0" Margin="1,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="26"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="受信感度" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                                <Slider Grid.Column="1" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
-                                                        Value="{Binding SdrPlaySensitivity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                        ToolTip="左: 強信号向け / 右: 微弱信号向け"
-                                                        VerticalAlignment="Center" Margin="2,0,4,0"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding SdrPlaySensitivity}" Foreground="White" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                                            </Grid>
-
-                                            <Grid Grid.Row="1" Margin="1,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="状態" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding SdrPlayGainSummary}" Foreground="White" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
-                                            </Grid>
-                                        </Grid>
-
-                                        <!-- RTL-SDR: the same host AGC controls this normalized tuner gain. -->
-                                        <Grid>
-                                            <Grid.Style>
-                                                <Style TargetType="Grid">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Grid.Style>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="24"/>
-                                                <RowDefinition Height="18"/>
-                                            </Grid.RowDefinitions>
-
-                                            <Grid Grid.Row="0" Margin="1,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="26"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="RFゲイン" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                                <Slider Grid.Column="1" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
-                                                        Value="{Binding RtlSdrRfGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                        ToolTip="RTL-SDR チューナーの正規化ゲイン。AGCオン時は現在の自動ゲインを表示します。"
-                                                        VerticalAlignment="Center" Margin="2,0,4,0"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding RtlSdrRfGainDb}" Foreground="White" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                                            </Grid>
-
-                                            <Grid Grid.Row="1" Margin="1,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="状態" Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding RtlSdrGainSummary}" Foreground="White" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/>
-                                            </Grid>
-                                        </Grid>
+                                        <Slider Grid.Column="0" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                                Value="{Binding RtlSdrRfGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="RTL-SDR チューナーの正規化ゲイン。AGCオン時は現在の自動ゲインを表示します。"
+                                                VerticalAlignment="Center" Margin="2,0,4,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding RtlSdrRfGainDb}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
                                     </Grid>
                                 </Grid>
-                            </Border>
 
-                        </Grid>
+                                <!-- Right Column: IQ Level Meter (Vertical, bottom-to-top) -->
+                                <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10,0,2,0" ToolTip="{Binding Diagnostics.IqToolTip}">
+                                    <TextBlock Text="IQ" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="10pt" FontWeight="Normal" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                                    <Border BorderBrush="#FF888888" BorderThickness="1" Background="Transparent" HorizontalAlignment="Center">
+                                        <Grid Width="80" Height="21" HorizontalAlignment="Left" UseLayoutRounding="True" SnapsToDevicePixels="True">
+                                            <Grid.LayoutTransform>
+                                                <RotateTransform Angle="-90" />
+                                            </Grid.LayoutTransform>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="10" />
+                                                <RowDefinition Height="1" />
+                                                <RowDefinition Height="10" />
+                                            </Grid.RowDefinitions>
+                                            <!-- Invalid Bits Background (Gray fill for bits below device ADC resolution) -->
+                                            <Rectangle Grid.Row="0" Grid.RowSpan="3"
+                                                       Width="{Binding Diagnostics.InvalidBitsWidth}"
+                                                       Height="21"
+                                                       Fill="#FF383838"
+                                                       HorizontalAlignment="Left" />
+                                            <!-- I Channel (10px) -->
+                                            <Rectangle Grid.Row="0"
+                                                       Width="{Binding Diagnostics.InputLevelI}"
+                                                       Height="10"
+                                                       Fill="{Binding Diagnostics.InputLevelIDb, Converter={StaticResource LevelColorConverter}}"
+                                                       HorizontalAlignment="Left" />
+                                            <!-- Center Divider (1px) -->
+                                            <Rectangle Grid.Row="1"
+                                                       Width="80"
+                                                       Height="1"
+                                                       Fill="#FF888888"
+                                                       HorizontalAlignment="Left" />
+                                            <!-- Q Channel (10px) -->
+                                            <Rectangle Grid.Row="2"
+                                                       Width="{Binding Diagnostics.InputLevelQ}"
+                                                       Height="10"
+                                                       Fill="{Binding Diagnostics.InputLevelQDb, Converter={StaticResource LevelColorConverter}}"
+                                                       HorizontalAlignment="Left" />
+                                            <!-- Invalid Bits Overlay (Mutes signal bars in invalid bit zone) -->
+                                            <Rectangle Grid.Row="0" Grid.RowSpan="3"
+                                                       Width="{Binding Diagnostics.InvalidBitsWidth}"
+                                                       Height="21"
+                                                       Fill="#80282828"
+                                                       HorizontalAlignment="Left" />
+                                            <!-- Grid Lines (16 bits) -->
+                                            <Grid Grid.Row="0" Grid.RowSpan="3" Width="80" Height="21" HorizontalAlignment="Left" Background="Transparent" SnapsToDevicePixels="True">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                    <ColumnDefinition Width="1*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="1" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="2" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="3" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="4" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="5" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="6" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="7" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="8" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="9" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="10" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="11" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="12" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="13" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                                <Border Grid.Column="14" BorderBrush="#FF888888" BorderThickness="0,0,1,0" />
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Host-owned receiver mode selector -->
+                    <ContentControl Grid.Row="1" Style="{DynamicResource PluginSettingsSelectorStyle}" />
+
+                    <!-- Active Plugin Workspace -->
+                    <ContentControl Grid.Row="2" Content="{Binding PluginWorkspace.ActiveContent}" />
+                </Grid>
 
             </Grid>
 

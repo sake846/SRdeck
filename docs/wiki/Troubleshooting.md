@@ -206,3 +206,7 @@ Attachments: screenshot / IQ WAV / diagnostics JSON / export
 ```
 
 無線データや位置情報を添付する前に、法令、プライバシー、公開範囲を確認してください。
+
+---
+- **関連情報:** [よくある質問 (FAQ)](FAQ) / [SDR入力設定](SDR-Source-Settings) / [インストール](Installation) / [最初の受信](Getting-Started)
+

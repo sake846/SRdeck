@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SRdeck.DSP;
@@ -20,8 +22,10 @@ public sealed class MainFftRequest
     public long WaterfallBlockSequence { get; init; }
     public long CycleStartTicks { get; init; }
     public int InputCenterFreqHz { get; init; }
+    public long Generation { get; init; }
 
     public long RequestId { get; set; }
+    public long MetricsEpoch { get; set; }
 }
 
 public readonly record struct MainFftMetrics(
@@ -53,6 +57,9 @@ public readonly record struct MainFftTiming(
     double GpuReadback);
 
 public sealed record MainFftResult(
+    long RequestId,
+    long Generation,
+    bool HasFrame,
     float[] SpectrumFftData,
     float[] WaterfallFftData,
     float[] WaterfallAveragingBuffer,
@@ -93,6 +100,13 @@ public sealed class MainFftWorkerFactory : IMainFftWorkerFactory
 
 internal sealed class MainFftWorker : IMainFftWorker
 {
+    private readonly record struct RequestMetadata(
+        long Generation,
+        long MetricsEpoch,
+        int CenterFrequencyHz,
+        long WaterfallBlockSequence);
+
+    private const int MaximumPendingMetadataEntries = 64;
     private static readonly AsyncLocal<MainFftWorker?> ExecutingWorker = new();
     private readonly IFftProcessor _processor;
     private readonly Action<MainFftResult> _onCompleted;
@@ -106,10 +120,13 @@ internal sealed class MainFftWorker : IMainFftWorker
     private bool _isDisposed;
     private int _resourcesDisposed;
     private long _nextRequestId;
+    private long _latestRequestId;
+    private long _metricsEpoch;
     private long _requestedCount;
     private long _completedCount;
     private long _droppedCount;
     private long _latestCompletedId;
+    private readonly Dictionary<long, RequestMetadata> _requestMetadata = [];
 
     public MainFftWorker(IFftProcessor processor, Action<MainFftResult> onCompleted)
     {
@@ -145,6 +162,8 @@ internal sealed class MainFftWorker : IMainFftWorker
             }
 
             request.RequestId = ++_nextRequestId;
+            request.MetricsEpoch = _metricsEpoch;
+            _latestRequestId = request.RequestId;
             _requestedCount++;
             _isBusy = true;
             _pendingRequest = request;
@@ -161,7 +180,7 @@ internal sealed class MainFftWorker : IMainFftWorker
                 _requestedCount,
                 _completedCount,
                 _droppedCount,
-                _nextRequestId,
+                _latestRequestId,
                 _latestCompletedId,
                 _pendingRequest != null ? 1 : 0);
         }
@@ -171,7 +190,8 @@ internal sealed class MainFftWorker : IMainFftWorker
     {
         lock (_sync)
         {
-            _nextRequestId = 0;
+            _metricsEpoch++;
+            _latestRequestId = 0;
             _requestedCount = 0;
             _completedCount = 0;
             _droppedCount = 0;
@@ -221,21 +241,25 @@ internal sealed class MainFftWorker : IMainFftWorker
 
     private void Execute(MainFftRequest request)
     {
+        float[] spectrum = request.SpectrumFftData;
+        float[] waterfall = request.WaterfallFftData;
+        float[] waterfallAverage = request.WaterfallAveragingBuffer;
+        float[] fullResolution = request.FullResFftData;
+        float[] noiseFloor = request.NoiseFloorFftData;
+        MainFftResult result;
         try
         {
             var stopwatch = Stopwatch.StartNew();
             double osLagMs = (Stopwatch.GetTimestamp() - request.CycleStartTicks) * 1000.0 / Stopwatch.Frequency;
-            float[] spectrum = request.SpectrumFftData;
-            float[] waterfall = request.WaterfallFftData;
-            float[] waterfallAverage = request.WaterfallAveragingBuffer;
-            float[] fullResolution = request.FullResFftData;
-            float[] noiseFloor = request.NoiseFloorFftData;
 
-            _processor.ProcessFft(
+            bool hasFreshFrame = _processor.ProcessFft(
                 request.Buffer,
                 request.ReferencePtr,
                 request.Control,
                 request.RequestedWidth,
+                request.RequestId,
+                out long completedTag,
+                out bool inputAccepted,
                 ref spectrum,
                 ref waterfall,
                 ref waterfallAverage,
@@ -264,26 +288,70 @@ internal sealed class MainFftWorker : IMainFftWorker
                 _processor.LastGpuDispatch,
                 _processor.LastGpuReadback);
 
+            RequestMetadata completedMetadata = default;
+            bool hasMatchedFrame;
             lock (_sync)
             {
-                _completedCount++;
-                _latestCompletedId = request.RequestId;
+                if (inputAccepted)
+                {
+                    _requestMetadata[request.RequestId] = new RequestMetadata(
+                        request.Generation,
+                        request.MetricsEpoch,
+                        request.InputCenterFreqHz,
+                        request.WaterfallBlockSequence);
+                    PrunePendingMetadataLocked();
+                }
+
+                bool hasMatchedMetadata = completedTag != 0 &&
+                                          _requestMetadata.Remove(completedTag, out completedMetadata);
+                hasMatchedFrame = hasFreshFrame && hasMatchedMetadata;
+                if (hasMatchedFrame)
+                {
+                    if (completedMetadata.MetricsEpoch == _metricsEpoch)
+                    {
+                        _completedCount++;
+                        _latestCompletedId = completedTag;
+                    }
+                }
             }
 
-            int centerFrequencyHz = request.InputCenterFreqHz;
-            _onCompleted(new MainFftResult(
+            result = new MainFftResult(
+                hasMatchedFrame ? completedTag : request.RequestId,
+                hasMatchedFrame ? completedMetadata.Generation : request.Generation,
+                hasMatchedFrame,
                 spectrum,
                 waterfall,
                 waterfallAverage,
                 fullResolution,
                 noiseFloor,
-                centerFrequencyHz,
-                request.WaterfallBlockSequence,
-                timing));
+                hasMatchedFrame ? completedMetadata.CenterFrequencyHz : request.InputCenterFreqHz,
+                hasMatchedFrame ? completedMetadata.WaterfallBlockSequence : request.WaterfallBlockSequence,
+                timing);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[MainFftWorker] FFT request failed: {ex}");
+            result = new MainFftResult(
+                request.RequestId,
+                request.Generation,
+                false,
+                spectrum,
+                waterfall,
+                waterfallAverage,
+                fullResolution,
+                noiseFloor,
+                request.InputCenterFreqHz,
+                request.WaterfallBlockSequence,
+                default);
+        }
+
+        try
+        {
+            _onCompleted(result);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[MainFftWorker] FFT completion callback failed: {ex}");
         }
         finally
         {
@@ -291,6 +359,14 @@ internal sealed class MainFftWorker : IMainFftWorker
             {
                 _isBusy = false;
             }
+        }
+    }
+
+    private void PrunePendingMetadataLocked()
+    {
+        while (_requestMetadata.Count > MaximumPendingMetadataEntries)
+        {
+            _requestMetadata.Remove(_requestMetadata.Keys.Min());
         }
     }
 

@@ -6,6 +6,7 @@ namespace SRdeck.Services;
 
 public interface ISignalBufferState
 {
+    object SyncRoot { get; }
     int BufferSize { get; }
     IqSampleRingBuffer IqBuffer { get; }
     float[] GainHistory { get; }
@@ -14,6 +15,7 @@ public interface ISignalBufferState
     int ReadPointer { get; set; }
     int CurrentReadPointer { get; set; }
     long CurrentReadAbsoluteSampleEnd { get; set; }
+    SignalBlockContext CurrentReadContext { get; set; }
     int NextReadPointer { get; set; }
     long TotalSamplesReceived { get; set; }
     long InputBlockSequence { get; }
@@ -29,6 +31,7 @@ public interface ISignalBufferState
 
 public sealed class SignalBufferState : ISignalBufferState
 {
+    public object SyncRoot { get; } = new();
     public SignalBufferState()
     {
         IqBuffer = new IqSampleRingBuffer((int)AppConstants.FULL_BW);
@@ -43,6 +46,7 @@ public sealed class SignalBufferState : ISignalBufferState
     public int ReadPointer { get; set; }
     public int CurrentReadPointer { get; set; }
     public long CurrentReadAbsoluteSampleEnd { get; set; }
+    public SignalBlockContext CurrentReadContext { get; set; }
     public int NextReadPointer { get; set; }
     public long TotalSamplesReceived { get; set; }
     public long InputBlockSequence { get; private set; }

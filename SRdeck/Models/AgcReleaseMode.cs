@@ -6,6 +6,7 @@ namespace SRdeck.Models;
 /// </summary>
 public enum AgcReleaseMode
 {
+    Off,
     Fast,
     Medium,
     Slow,

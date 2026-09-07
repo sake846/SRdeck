@@ -25,48 +25,42 @@ public partial class CoreEngine
         CycleControlContext cycleControl = PrepareCycleControl(ref diagnostics);
         RadioControl control = cycleControl.Control;
         int inputCenterFreqHz = cycleControl.InputCenterFreqHz;
+        SignalBlockContext inputBlock = _signalPipeline.CurrentReadContext;
+        int inputSampleRateHz = inputBlock.SampleRateHz > 0 ? inputBlock.SampleRateHz : control.FsHz;
         _pluginIqDispatcher.TryPublish(new PluginIqPublishRequest(
             IqBuffer,
             BufferRPtrNow,
-            Math.Max(1, control.FsHz / 10),
-            control.FsHz,
-            inputCenterFreqHz,
+            Math.Max(1, inputSampleRateHz / 10),
+            inputSampleRateHz,
+            inputBlock.CenterFrequencyHz != 0 ? inputBlock.CenterFrequencyHz : inputCenterFreqHz,
             CurrentReadAbsoluteSampleEnd,
-            IsPlaying ? SignalInputSource.Playback : SignalInputSource.Sdr));
+            inputBlock.SampleRateHz > 0 ? inputBlock.Source :
+                IsPlaying ? SignalInputSource.Playback : SignalInputSource.Sdr,
+            inputBlock.Discontinuity)
+        {
+            SamplesI = _signalPipeline.CurrentSamplesI,
+            SamplesQ = _signalPipeline.CurrentSamplesQ
+        });
         // FFT の非同期化処理 — Rx1/Rx2 復調と並列実行するため、Demod の前に開始する
         // IQリングは読み取り専用のため、Demod との並行読み出しでデータ競合は発生しない
         bool fftTriggered = TrySubmitMainFft(control, inputCenterFreqHz, totalStopwatch);
         var radioState = _radioStateStore.WorkingState;
-        bool demodHistoryUpdated = ProcessDemodulationCycle();
 
         SyncRxStatistics(ref radioState, CreateInputCenteredControl(control, inputCenterFreqHz));
-        radioState.MainFftData = _mainFftService.FullResolutionData; // 前回値または最新値をセット
         SyncCycleDiagnostics(ref diagnostics);
-        FinalizeSignalProcessingCycle(diagnostics, totalStopwatch, fftTriggered, demodHistoryUpdated);
-    }
-
-    private bool ProcessDemodulationCycle()
-    {
-        HasNewDemodRenderData = true;
-        return true;
+        FinalizeSignalProcessingCycle(diagnostics, totalStopwatch, fftTriggered);
     }
 
     private void FinalizeSignalProcessingCycle(
         RadioDiagnostics diagnostics,
         Stopwatch totalStopwatch,
-        bool fftTriggered,
-        bool demodHistoryUpdated)
+        bool fftTriggered)
     {
         double processingCycleElapsedMs = totalStopwatch.Elapsed.TotalMilliseconds;
         double? forceTimeTotal = fftTriggered ? null : processingCycleElapsedMs;
         SyncMainDiagnostics(diagnostics, processingCycleElapsedMs, forceTimeTotal);
 
-        const float errorExponentialMovingAverageAlpha = 0.001f;
-        _radioStateStore.PublishProcessingState(errorExponentialMovingAverageAlpha);
-        if (demodHistoryUpdated)
-        {
-            DemodHistoryUpdated?.Invoke();
-        }
+        _radioStateStore.Publish();
     }
 
     private readonly record struct CycleControlContext(RadioControl Control, int InputCenterFreqHz);
@@ -152,10 +146,12 @@ public partial class CoreEngine
         // which must not be folded into the noise-floor EMA.
         if (!HasValidMainFftData) return;
 
+        using MainFftFrameLease lease = _mainFftService.AcquireFrame();
+        MainFftFrame frame = lease.Frame;
         SpectrumStatisticsCalculator.Update(
             ref radioState,
-            _mainFftService.SpectrumData,
-            _mainFftService.NoiseFloorData,
+            frame.SpectrumData,
+            frame.NoiseFloorData,
             control,
             new SpectrumStatisticsOptions(
                 SdrDevice?.FsHz ?? (int)AppConstants.FULL_BW,

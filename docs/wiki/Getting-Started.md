@@ -95,3 +95,8 @@ RATEは観測帯域の広さです。対象信号や複数チャネルが帯域�
 - 必要ならCSV／JSONエクスポートまたはIQキャプチャ
 
 画面操作の詳細は[画面構成と操作](UI-Overview)、個別方式の調整は[公式プラグイン一覧](Plugins-Overview)から各ページへ進んでください。
+
+---
+- **次のステップ:** [画面構成と操作](UI-Overview) / [公式プラグイン一覧](Plugins-Overview)
+- **関連情報:** [SDR入力設定](SDR-Source-Settings) / [スペクトラム／ウォーターフォール](Spectrum-and-Waterfall) / [トラブルシューティング](Troubleshooting)
+

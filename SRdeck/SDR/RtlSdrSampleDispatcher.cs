@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using SRdeck.Models;
 
 namespace SRdeck.SDR;
 
@@ -23,6 +24,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
     internal const int QueueCapacity = 64;
 
     private readonly Action<short[], short[], uint> _samplesReceived;
+    private readonly Action<SdrSampleBlock>? _sampleBlockReceived;
     private readonly ArrayPool<byte> _bytePool;
     private readonly ArrayPool<short> _shortPool;
     private readonly int _expectedBlockLength;
@@ -31,6 +33,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
     private CancellationTokenSource? _cancellation;
     private Task? _dispatchTask;
     private long _callbackCount;
+    private long _sourceSampleCount;
     private long _droppedCallbackCount;
     private long _enqueuedBlocks;
     private long _dequeuedBlocks;
@@ -39,15 +42,17 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
     private long _unexpectedCallbackLengthCount;
     private int _disposed;
 
-    private readonly record struct RawSampleBlock(byte[] Bytes, int Length);
+    private readonly record struct RawSampleBlock(byte[] Bytes, int Length, SdrSampleMetadata Metadata);
 
     public RtlSdrSampleDispatcher(
         Action<short[], short[], uint> samplesReceived,
         int expectedBlockLength = 0,
         ArrayPool<byte>? bytePool = null,
-        ArrayPool<short>? shortPool = null)
+        ArrayPool<short>? shortPool = null,
+        Action<SdrSampleBlock>? sampleBlockReceived = null)
     {
         _samplesReceived = samplesReceived ?? throw new ArgumentNullException(nameof(samplesReceived));
+        _sampleBlockReceived = sampleBlockReceived;
         _expectedBlockLength = Math.Max(0, expectedBlockLength);
         _bytePool = bytePool ?? ArrayPool<byte>.Shared;
         _shortPool = shortPool ?? ArrayPool<short>.Shared;
@@ -87,6 +92,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
         {
             if (_queue is not null) return;
             Volatile.Write(ref _callbackCount, 0);
+            Volatile.Write(ref _sourceSampleCount, 0);
             Volatile.Write(ref _droppedCallbackCount, 0);
             Volatile.Write(ref _enqueuedBlocks, 0);
             Volatile.Write(ref _dequeuedBlocks, 0);
@@ -114,7 +120,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
 
     public bool TryEnqueue(IntPtr source, int length)
     {
-        RecordCallback(length);
+        SdrSampleMetadata metadata = RecordCallback(length);
         if (source == IntPtr.Zero || length < 2 || (length & 1) != 0)
         {
             Interlocked.Increment(ref _droppedCallbackCount);
@@ -125,7 +131,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
         try
         {
             Marshal.Copy(source, raw, 0, length);
-            return TryEnqueueOwned(raw, length);
+            return TryEnqueueOwned(raw, length, metadata);
         }
         catch (Exception exception)
         {
@@ -138,7 +144,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
 
     internal bool TryEnqueue(ReadOnlySpan<byte> source)
     {
-        RecordCallback(source.Length);
+        SdrSampleMetadata metadata = RecordCallback(source.Length);
         if (source.Length < 2 || (source.Length & 1) != 0)
         {
             Interlocked.Increment(ref _droppedCallbackCount);
@@ -147,15 +153,15 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
 
         byte[] raw = _bytePool.Rent(source.Length);
         source.CopyTo(raw);
-        return TryEnqueueOwned(raw, source.Length);
+        return TryEnqueueOwned(raw, source.Length, metadata);
     }
 
-    private bool TryEnqueueOwned(byte[] raw, int length)
+    private bool TryEnqueueOwned(byte[] raw, int length, SdrSampleMetadata metadata)
     {
         lock (_gate)
         {
             Channel<RawSampleBlock>? queue = _queue;
-            if (queue is not null && queue.Writer.TryWrite(new RawSampleBlock(raw, length)))
+            if (queue is not null && queue.Writer.TryWrite(new RawSampleBlock(raw, length, metadata)))
             {
                 Interlocked.Increment(ref _enqueuedBlocks);
                 return true;
@@ -167,17 +173,21 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
         return false;
     }
 
-    private void RecordCallback(int length)
+    private SdrSampleMetadata RecordCallback(int length)
     {
-        Interlocked.Increment(ref _callbackCount);
+        long sequence = Interlocked.Increment(ref _callbackCount);
+        int samples = Math.Max(0, length / 2);
+        long start = Interlocked.Add(ref _sourceSampleCount, samples) - samples;
         Interlocked.Exchange(ref _lastCallbackTimestamp, Stopwatch.GetTimestamp());
         Volatile.Write(ref _lastCallbackLength, length);
         if (_expectedBlockLength > 0 && length != _expectedBlockLength)
             Interlocked.Increment(ref _unexpectedCallbackLengthCount);
+        return new(sequence, start);
     }
 
     private void Dispatch(Channel<RawSampleBlock> queue, CancellationToken cancellationToken)
     {
+        var continuity = new SdrSampleDeliveryTracker();
         try
         {
             try
@@ -190,12 +200,13 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
                 Debug.WriteLine($"[RtlSdrController] Failed to configure IQ dispatcher: {exception.Message}");
             }
 
-            while (queue.Reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
+            while (!cancellationToken.IsCancellationRequested &&
+                   queue.Reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
             {
-                while (queue.Reader.TryRead(out RawSampleBlock block))
+                while (!cancellationToken.IsCancellationRequested && queue.Reader.TryRead(out RawSampleBlock block))
                 {
                     Interlocked.Increment(ref _dequeuedBlocks);
-                    DispatchBlock(block);
+                    DispatchBlock(block, continuity, cancellationToken);
                 }
             }
         }
@@ -214,7 +225,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
         }
     }
 
-    private void DispatchBlock(RawSampleBlock block)
+    private void DispatchBlock(RawSampleBlock block, SdrSampleDeliveryTracker continuity, CancellationToken cancellationToken)
     {
         int sampleCount = block.Length / 2;
         short[] samplesI = _shortPool.Rent(sampleCount);
@@ -235,10 +246,14 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
 
             try
             {
+                if (cancellationToken.IsCancellationRequested) return;
+                SdrSampleMetadata metadata = continuity.Observe(block.Metadata, (uint)sampleCount);
+                _sampleBlockReceived?.Invoke(new(samplesI, samplesQ, (uint)sampleCount, metadata));
                 _samplesReceived(samplesI, samplesQ, (uint)sampleCount);
             }
             catch (Exception exception)
             {
+                continuity.MarkFailedDelivery();
                 Debug.WriteLine($"[RtlSdrController] IQ consumer failed: {exception}");
             }
         }
