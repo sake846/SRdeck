@@ -12,8 +12,9 @@
 
 - [画面構成と操作](UI-Overview)
 - [SDR入力設定](SDR-Source-Settings)
-- [スペクトラム／ウォーターフォール](Spectrum-and-Waterfall)
-- [音声出力／IQキャプチャ](Audio-and-Recording)
+- [スペクトラムとウォーターフォール](Spectrum-and-Waterfall)
+- [音声出力とIQキャプチャ](Audio-and-Recording)
+- [地図とオフライン地図](Map-and-Offline-Data)
 
 ## プラグイン
 
@@ -22,14 +23,17 @@
 - [ACARS](Plugins-Acars)
 - [ADS-B](Plugins-AdsB)
 - [AIS](Plugins-Ais)
-- [国際VHF／DSC](Plugins-Maritime-VHF)
 - [アナログ復調](Plugins-Analog)
 - [CW Skimmer](Plugins-Cw)
+- [国際VHF](Plugins-Maritime-VHF)
 - [HF-FAX](Plugins-HfFax)
 - [FT8／FT4／JT65A](Plugins-Ft8)
 - [HFDL](Plugins-Hfdl)
 - [VDL Mode 2](Plugins-Vdl)
 - [Wi-SUN](Plugins-WiSun)
+
+## ソース公開のプラグイン
+
 - [Meshtastic（ソースのみ）](Plugins-Meshtastic)
 - [ワンセグ（ソースのみ）](Plugins-OneSeg)
 

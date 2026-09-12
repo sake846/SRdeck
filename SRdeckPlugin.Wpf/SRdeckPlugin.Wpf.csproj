@@ -9,6 +9,11 @@
     <ProjectReference Include="..\SRdeckPlugin.Contracts\SRdeckPlugin.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="MapAssets\leaflet\leaflet.css" LogicalName="SRdeckPlugin.Wpf.MapAssets.leaflet.leaflet.css" />
+    <EmbeddedResource Include="MapAssets\leaflet\leaflet.js" LogicalName="SRdeckPlugin.Wpf.MapAssets.leaflet.leaflet.js" />
   </ItemGroup>
 </Project>

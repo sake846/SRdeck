@@ -25,13 +25,14 @@ Windows既定の出力デバイス
 
 | プラグイン | 音声の用途 | 主な調整 |
 |---|---|---|
-| Analog | AM／FM／SSBの復調音声 | ミュート、スケルチ、AFC、FMステレオ |
 | ACARS | 選択チャネルの信号モニター | 音声出力、スケルチ、受信ブザー |
 | AIS | 2チャネル信号のモニター | 音声出力、スケルチ、しきい値 |
+| アナログ復調 | AM／FM／SSBの復調音声 | ミュート、スケルチ、AFC、FMステレオ |
 | CW Skimmer | 選択信号の800 Hzモニター | 音声出力、音量 |
+| 国際VHF | 音声CHとDSC CH 70のモニター | 音声出力、音量、スケルチ、自動追尾 |
+| HF-FAX | USB向け1900 Hzサブキャリアのモニター | 音声出力、音量 |
 | FT8 | 選択した弱信号帯域のUSBモニター | 音声出力、200～3000 Hz帯域 |
 | HFDL | 選択した地上局チャネルのUSBモニター | 音声出力、USB +1.440 kHz |
-| HF-FAX | USB向け1900 Hzサブキャリアのモニター | 音声出力、音量 |
 | VDL Mode 2 | 選択チャネルの信号モニター | 音声出力、スケルチ |
 
 モニター音声が聞こえることと、デジタルフレームが復号できることは同じではありません。信号が聞こえても、同期、SNR、PPM、マルチパス、CRC／FECの条件により結果が出ない場合があります。
@@ -58,7 +59,7 @@ Bluetooth機器の切断や既定出力の変更後は、受信を停止して�
 |---|---:|---|
 | ACARS | 直前3秒 | IQ WAV + 診断JSON |
 | ADS-B | 直前3秒 | IQ WAV + 診断JSON |
-| Analog | 直前3秒 | IQ WAV + 診断JSON |
+| アナログ復調 | 直前3秒 | IQ WAV + 診断JSON |
 | CW Skimmer | 直前10秒 | チャネルIQ WAV + 診断JSON |
 | FT8 | 直前20秒 | IQ WAV + 診断JSON |
 | HFDL | 直前20秒 | IQ WAV + 診断JSON |
@@ -74,7 +75,7 @@ AIS、HF-FAX、Wi-SUNの現行設定画面には、このプリトリガーIQ保
 %LOCALAPPDATA%\SRdeck\plugins\<plugin-id>\captures
 ```
 
-例えばAnalogは次です。
+例えばアナログ復調は次です。
 
 ```text
 %LOCALAPPDATA%\SRdeck\plugins\analog\captures

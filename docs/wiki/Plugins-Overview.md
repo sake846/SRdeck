@@ -61,13 +61,13 @@
 - `地図`: 位置が得られた対象と航跡
 - `診断`: 入力、チャネル、同期、復調、CRC／FEC
 
-Wi-SUNは`概要`、`一覧`、`時系列`、`診断`、Analogは`概要`と`診断`が中心です。タブ名が同じでも項目の意味は方式ごとに異なるため、個別ガイドを参照してください。
+Wi-SUNは`概要`、`一覧`、`時系列`、`診断`、アナログ復調は`概要`と`診断`が中心です。CW Skimmer、HF-FAX、国際VHFは方式固有の結果画面を持ちます。タブ名が同じでも項目の意味は方式ごとに異なるため、個別ガイドを参照してください。
 
 ## 保存とエクスポート
 
-ACARS、ADS-B、AIS、FT8、HFDL、VDL Mode 2は復号履歴をJSONLへ保持し、CSV／JSONエクスポートを提供します。Wi-SUNもCSV／JSONエクスポートに対応します。保存先、最大件数、フィールドは方式ごとに異なります。
+ACARS、ADS-B、AIS、CW Skimmer、FT8、HFDL、VDL Mode 2は復号履歴をJSONLへ保持し、CSV／JSONエクスポートを提供します。Wi-SUNもCSV／JSONエクスポートに対応し、HF-FAXは画像履歴とPNG保存に対応します。保存先、最大件数、フィールドは方式ごとに異なります。
 
-IQプリトリガーキャプチャはACARS、ADS-B、Analog、CW Skimmer、FT8、HFDL、VDL Mode 2で利用できます。詳細は[音声出力とIQキャプチャ](Audio-and-Recording)を参照してください。
+IQプリトリガーキャプチャはACARS、ADS-B、アナログ復調、CW Skimmer、FT8、HFDL、VDL Mode 2で利用できます。詳細は[音声出力とIQキャプチャ](Audio-and-Recording)を参照してください。
 
 ## ソース公開・バイナリ配布対象外
 
@@ -80,7 +80,3 @@ IQプリトリガーキャプチャはACARS、ADS-B、Analog、CW Skimmer、FT8�
 - RATEは必要帯域が収まる最小値から始める
 - ゲインを上げすぎず、オーバーレイ全体が帯域内にあることを確認する
 - 結果が出ないときは`診断`を入力から順に読む
-
----
-- **関連ガイド:** [プラグイン管理](Plugin-Management) / [音声出力とIQキャプチャ](Audio-and-Recording)
-- **個別プラグイン:** [ACARS](Plugins-Acars) | [ADS-B](Plugins-AdsB) | [AIS](Plugins-Ais) | [国際VHF](Plugins-Maritime-VHF) | [Analog](Plugins-Analog) | [CW](Plugins-Cw) | [HF-FAX](Plugins-HfFax) | [FT8](Plugins-Ft8) | [HFDL](Plugins-Hfdl) | [VDL2](Plugins-Vdl) | [Wi-SUN](Plugins-WiSun)

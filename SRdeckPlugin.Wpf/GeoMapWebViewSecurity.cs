@@ -66,10 +66,8 @@ public static class GeoMapWebViewSecurity
             uri.Scheme.Equals("blob", StringComparison.OrdinalIgnoreCase)) return true;
         if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
 
-        return (uri.Host.Equals("unpkg.com", StringComparison.OrdinalIgnoreCase) &&
-                uri.AbsolutePath.StartsWith("/leaflet@1.9.4/dist/", StringComparison.Ordinal)) ||
-               (uri.Host.Equals("tile.openstreetmap.org", StringComparison.OrdinalIgnoreCase) &&
-                uri.AbsolutePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+        return GeoMapAssetProvider.IsAssetUri(value) ||
+               MbTilesTileProvider.TryParseTileUri(value, out _, out _, out _);
     }
 
     private static bool IsInternalDocument(string value)

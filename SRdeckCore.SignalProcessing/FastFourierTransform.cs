@@ -25,6 +25,8 @@ internal class FastFourierTransform
     public Complex[] InputData => _inputData;
     public float[] OutputData;
     private int _sampleSize;
+    private bool _nativeDbUnavailable;
+    private bool _nativePowerUnavailable;
 
     public FastFourierTransform(int sampleSize)
     {
@@ -39,16 +41,19 @@ internal class FastFourierTransform
     /// </summary>
     public int Execute(int logN, float bias)
     {
-        try
+        if (!_nativeDbUnavailable)
         {
-            int rc = NativeMethods.ExecuteDb(_inputData, _sampleSize, logN, bias, OutputData);
-            if (rc == 0)
+            try
             {
-                return 0;
+                int rc = NativeMethods.ExecuteDb(_inputData, _sampleSize, logN, bias, OutputData);
+                if (rc == 0) return 0;
             }
-        }
-        catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException || ex is BadImageFormatException)
-        {
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException || ex is BadImageFormatException)
+            {
+                // A missing/incompatible binary will not recover on the next
+                // symbol. Do not repeat loader exceptions in the managed path.
+                _nativeDbUnavailable = true;
+            }
         }
 
         ManagedExecute(logN, bias, outputPower: false);
@@ -57,13 +62,17 @@ internal class FastFourierTransform
 
     public int ExecutePower(int logN)
     {
-        try
+        if (!_nativePowerUnavailable)
         {
-            int rc = NativeMethods.ExecutePower(_inputData, _sampleSize, logN, OutputData);
-            if (rc == 0) return 0;
-        }
-        catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException || ex is BadImageFormatException)
-        {
+            try
+            {
+                int rc = NativeMethods.ExecutePower(_inputData, _sampleSize, logN, OutputData);
+                if (rc == 0) return 0;
+            }
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException || ex is BadImageFormatException)
+            {
+                _nativePowerUnavailable = true;
+            }
         }
 
         ManagedExecute(logN, 0.0f, outputPower: true);

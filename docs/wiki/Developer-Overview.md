@@ -203,7 +203,3 @@ IQコールバックで重いI/OやWPF更新を行いません。DSPはUI非依�
 4. [右ペインUIデザイン指針](https://github.com/sake846/SRdeck/blob/main/docs/plugin-right-pane-design-guidelines.md)
 5. [回帰試験仕様](https://github.com/sake846/SRdeck/blob/main/docs/regression-test-specification.md)
 6. [最初のプラグイン](Creating-First-Plugin)
-
----
-- **次のステップ:** [開発環境の構築](Development-Environment) → [最初のプラグイン作成](Creating-First-Plugin)
-- **関連ガイド:** [右ペインUI設計](Right-Pane-UI-Design) / [テストと配布](Testing-and-Distribution)

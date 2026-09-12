@@ -141,6 +141,25 @@
 
             <StackPanel Orientation="Horizontal" Margin="12,1,0,0"
                         VerticalAlignment="Center">
+                <TextBlock Text="FFT"
+                           Foreground="White"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,1,0" />
+                <TextBlock Text="{Binding Diagnostics.FftFps, StringFormat={}{0:#0}}"
+                           Width="16"
+                           TextAlignment="Right"
+                           Foreground="#FFB4E632"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="fps   WPF"
+                           Foreground="White"
+                           FontSize="10"
+                           FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}"
+                           VerticalAlignment="Center"
+                           Margin="1,0,1,0" />
                 <TextBlock Text="{Binding Diagnostics.WpfFps, StringFormat={}{0:#0}}"
                            Width="16"
                            TextAlignment="Right"

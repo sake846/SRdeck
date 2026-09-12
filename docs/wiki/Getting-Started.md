@@ -44,6 +44,9 @@ RATEは観測帯域の広さです。対象信号や複数チャネルが帯域�
 | 1090 MHzの航空機を受信 | ADS-B | 受信機位置、2 MS/s以上 |
 | 船舶を受信 | AIS | 固定2チャネル、音声／スケルチ |
 | VHF航空データを受信 | ACARS／VDL Mode 2 | 地域または周波数 |
+| CWを複数局受信 | CW Skimmer | 10／20／50 kHz、WPM範囲 |
+| HF気象ファクシミリを受信 | HF-FAX | 局の周波数、放送時刻、IOC／LPM |
+| 国際VHF音声とDSCを受信 | 国際VHF | 音声CH、受信側、CH 70監視 |
 | HF航空データを受信 | HFDL | 地上局と時間帯に合う周波数 |
 | アマチュア弱信号を受信 | FT8 | モード、バンド、正確なPC時計 |
 | 920 MHz帯を解析 | Wi-SUN | PHY Modeとチャネル |
@@ -95,8 +98,3 @@ RATEは観測帯域の広さです。対象信号や複数チャネルが帯域�
 - 必要ならCSV／JSONエクスポートまたはIQキャプチャ
 
 画面操作の詳細は[画面構成と操作](UI-Overview)、個別方式の調整は[公式プラグイン一覧](Plugins-Overview)から各ページへ進んでください。
-
----
-- **次のステップ:** [画面構成と操作](UI-Overview) / [公式プラグイン一覧](Plugins-Overview)
-- **関連情報:** [SDR入力設定](SDR-Source-Settings) / [スペクトラム／ウォーターフォール](Spectrum-and-Waterfall) / [トラブルシューティング](Troubleshooting)
-

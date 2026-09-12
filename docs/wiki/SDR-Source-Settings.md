@@ -1,5 +1,7 @@
 # SDR入力設定
 
+`Settings`で選ぶSDR種別、サンプルレート、ゲイン、PPM、プラグイン同調の関係を説明します。画面全体の操作は[画面構成と操作](UI-Overview)、要件は[システム要件](System-Requirements)を参照してください。
+
 ## 入力種別と検出
 
 `Settings`のSDR種別には次の3つがあります。
