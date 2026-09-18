@@ -70,6 +70,11 @@ public interface IWaterfallDisplayProvider
     WaterfallDisplayRequest WaterfallDisplayRequest { get; }
 }
 
+public interface IWaterfallDisplayRequestChangedProvider
+{
+    event EventHandler? WaterfallDisplayRequestChanged;
+}
+
 public enum PluginResultSeverity
 {
     Trace,

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.ObjectModel;
 using SRdeckPlugin.Contracts;
 using CommunityToolkit.Mvvm.ComponentModel;

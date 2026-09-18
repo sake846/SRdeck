@@ -146,7 +146,7 @@ public static class GeoMapStateStore
 
                 if (found && mapStateElement.ValueKind == JsonValueKind.Object)
                 {
-                    GeoMapState? loaded = JsonSerializer.Deserialize<GeoMapState>(mapStateElement.GetRawText());
+                    GeoMapState? loaded = mapStateElement.Deserialize<GeoMapState>();
                     if (loaded is not null && IsValidState(loaded))
                     {
                         return loaded;

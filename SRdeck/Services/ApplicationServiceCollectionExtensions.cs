@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using SRdeckPlugin.Contracts;
+using SRdeckPlugin.Sdk;
 using SRdeck.Audio;
 using SRdeck.Configuration;
 using SRdeck.Models;
@@ -101,9 +102,7 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<ISignalProcessingWorkerFactory, SignalProcessingWorkerFactory>()
             .AddSingleton<IPlaybackProcessor, PlaybackProcessor>()
             .AddSingleton<IAudioService, AudioService>()
-            .AddSingleton<IGainUpdateWorkerFactory, GainUpdateWorkerFactory>()
             .AddSingleton<IAgcManagerFactory, AgcManagerFactory>()
-            .AddSingleton<IFftProcessorFactory, FftProcessorFactory>()
             .AddSingleton<IMainFftWorkerFactory, MainFftWorkerFactory>()
             .AddSingleton<IMainFftServiceFactory, MainFftServiceFactory>()
             .AddSingleton<IGpuUsageMonitor, GpuUsageMonitor>()

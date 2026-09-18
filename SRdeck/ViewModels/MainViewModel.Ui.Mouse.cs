@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -102,7 +99,7 @@ public partial class MainViewModel : ObservableObject
         double horizontalDelta = translation.X;
         if (PanMainView(ref radioControl, horizontalDelta, WaterfallWidth)) isControlChanged = true;
         horizontalDelta = 0;
-        if (_inputService.ProcessWaterfallSwipe(horizontalDelta, translation.Y, (Keyboard.Modifiers & ModifierKeys.Shift) != 0, ref radioControl, GetMaxHistorySec())) isControlChanged = true;
+        if (_inputService.ProcessWaterfallSwipe(horizontalDelta, translation.Y, ref radioControl, GetMaxHistorySec())) isControlChanged = true;
         if (isControlChanged)
         {
             WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));

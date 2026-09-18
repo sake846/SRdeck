@@ -1,10 +1,6 @@
 using SRdeck.Services;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Messages;
 using SRdeck.Models;

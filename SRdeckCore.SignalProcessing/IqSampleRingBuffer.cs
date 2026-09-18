@@ -1,4 +1,3 @@
-using System;
 
 // Shared bounded IQ storage used by the host and plugin test/benchmark paths.
 namespace SRdeck.DSP;

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Runtime.Intrinsics;
 using SRdeck.DSP;
@@ -47,16 +44,6 @@ public interface IFftProcessor : IDisposable
         bool isGpuEnabled,
         float[] outputBuffer,
         RadioControl control);
-}
-
-public interface IFftProcessorFactory
-{
-    IFftProcessor Create();
-}
-
-public sealed class FftProcessorFactory : IFftProcessorFactory
-{
-    public IFftProcessor Create() => new FftProcessor();
 }
 
 /// <summary>
@@ -264,10 +251,23 @@ public partial class FftProcessor : IFftProcessor
                 return false;
             }
         }
-        float invBatchSize = 1.0f / (float)batchSize;
-        for (int i = 0; i < fftSize; i++)
+        // RF measurements need every bin, averaged as linear power. The display
+        // buffers deliberately retain their log averaging and peak aggregation.
+        if (batchSize == 1)
         {
-            fullResFftData[i] = _fftOutputMovingAverageBuffer[i] * invBatchSize;
+            Array.Copy(_fftOutputMovingAverageBuffer, fullResFftData, fftSize);
+        }
+        else
+        {
+            Array.Clear(fullResFftData);
+            for (int batch = 0; batch < batchSize; batch++)
+            {
+                float[] bins = control.IsGpuFftEnabled ? _gpuOutDb[batch] : ffts[batch].OutputData;
+                for (int i = 0; i < fftSize; i++)
+                    fullResFftData[i] += MathF.Pow(10f, bins[i] * 0.1f);
+            }
+            for (int i = 0; i < fftSize; i++)
+                fullResFftData[i] = 10f * MathF.Log10(MathF.Max(fullResFftData[i] / batchSize, 1e-30f));
         }
         LastFullResCopy = swFullRes.Elapsed.TotalMilliseconds;
 

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using SRdeckPlugin.Contracts;
+using SRdeckPlugin.Sdk;
 using SRdeck.Services;
 
 namespace SRdeck.Services.Plugins;

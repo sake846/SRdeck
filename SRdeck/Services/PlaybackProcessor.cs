@@ -1,6 +1,4 @@
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Audio;
 using SRdeck.Messages;
@@ -82,6 +80,7 @@ public sealed class PlaybackProcessor : IPlaybackProcessor
 
     private void ProcessPlaybackBlock(PlaybackProcessingRequest request)
     {
+        string? fileNameBeforeRead = _audioFileReader.CurrentFileName;
         using PlaybackIqBlock? block = PlaybackIqBlockReader.TryRead(
             _audioFileReader,
             request.GetFallbackCenterFrequencyHz());
@@ -96,7 +95,8 @@ public sealed class PlaybackProcessor : IPlaybackProcessor
             block.SampleCount,
             block.SystemGainDb,
             block.RfFrequencyHz);
-        if (block.DidFileChange)
+        if (block.DidFileChange ||
+            !string.Equals(fileNameBeforeRead, block.CurrentFileName, StringComparison.Ordinal))
         {
             request.NotifyFileChanged(block.CurrentFileName);
         }

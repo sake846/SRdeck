@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using SRdeckPlugin.Contracts;
 using SRdeck.Models;
 

@@ -13,6 +13,7 @@ internal static class SpectrumStatisticsCalculator
         ref RadioState radioState,
         float[]? spectrum,
         float[]? noiseFloorSpectrum,
+        float[] powerSpectrum,
         RadioControl control,
         SpectrumStatisticsOptions options)
     {
@@ -29,7 +30,7 @@ internal static class SpectrumStatisticsCalculator
             options,
             out radioState.MinFftScanMinHz,
             out radioState.MinFftScanMaxHz) - (float)control.SystemDb + options.RfCalibrationOffset;
-        SyncRssi(ref radioState, spectrum, control, options);
+        SyncRssi(ref radioState, powerSpectrum, control, options);
     }
 
     private static float CalculateMaxPower(float[] spectrum)
@@ -140,16 +141,21 @@ internal static class SpectrumStatisticsCalculator
         int sampleRateHz = control.FsHz > 0 ? control.FsHz : options.FallbackSampleRateHz;
         if (sampleRateHz <= 0) sampleRateHz = (int)AppConstants.FULL_BW;
 
-        double binWidthHz = Math.Max(1.0, (double)sampleRateHz / dataLength);
+        if (dataLength == 0) return;
+        double binWidthHz = (double)sampleRateHz / dataLength;
         int centerBin = dataLength / 2;
-        int tunedBinIndex = centerBin + (int)(control.FreqOffsetHz / binWidthHz);
-        int halfSpan = (int)((control.SpanHz / binWidthHz) / 2);
+        int tunedBinIndex = centerBin + (int)Math.Round(control.FreqOffsetHz / binWidthHz);
+        double halfSpanHz = Math.Max(0, control.SpanHz) / 2.0;
+        int startBin = (int)Math.Clamp(Math.Ceiling(centerBin +
+            (control.FreqOffsetHz - halfSpanHz) / binWidthHz), 0, dataLength);
+        int endBin = (int)Math.Clamp(Math.Floor(centerBin +
+            (control.FreqOffsetHz + halfSpanHz) / binWidthHz), -1, dataLength - 1);
         double linearSum = 0;
         int binCount = 0;
         const double Ln10 = 2.302585092994046;
-        for (int binIndex = tunedBinIndex - halfSpan; binIndex <= tunedBinIndex + halfSpan; binIndex++)
+        for (int binIndex = startBin; binIndex <= endBin; binIndex++)
         {
-            if (binIndex >= 0 && binIndex < dataLength)
+            if (float.IsFinite(spectrum[binIndex]))
             {
                 linearSum += Math.Exp(spectrum[binIndex] * 0.1 * Ln10);
                 binCount++;
@@ -157,7 +163,7 @@ internal static class SpectrumStatisticsCalculator
         }
         if (binCount > 0)
         {
-            float powerDbFs = 10.0f * MathF.Log10((float)linearSum);
+            float powerDbFs = (float)(10.0 * Math.Log10(Math.Max(linearSum, 1e-30)));
             radioState.RfCalibrationDelta = -(float)control.SystemDb + options.RfCalibrationOffset;
             radioState.AveRxPwr = powerDbFs + radioState.RfCalibrationDelta;
             float centerValDb = (tunedBinIndex >= 0 && tunedBinIndex < dataLength) ? spectrum[tunedBinIndex] : AppConstants.MIN_RSSI_DB;

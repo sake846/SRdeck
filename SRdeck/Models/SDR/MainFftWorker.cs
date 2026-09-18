@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using SRdeck.DSP;
 
 namespace SRdeck.Models.SDR;
@@ -85,17 +80,8 @@ public interface IMainFftWorkerFactory
 
 public sealed class MainFftWorkerFactory : IMainFftWorkerFactory
 {
-    private readonly IFftProcessorFactory _fftProcessorFactory;
-
-    public MainFftWorkerFactory(IFftProcessorFactory fftProcessorFactory)
-    {
-        _fftProcessorFactory = fftProcessorFactory;
-    }
-
-    public IMainFftWorker Create(Action<MainFftResult> onCompleted)
-    {
-        return new MainFftWorker(_fftProcessorFactory.Create(), onCompleted);
-    }
+    public IMainFftWorker Create(Action<MainFftResult> onCompleted) =>
+        new MainFftWorker(new FftProcessor(), onCompleted);
 }
 
 internal sealed class MainFftWorker : IMainFftWorker
@@ -345,6 +331,13 @@ internal sealed class MainFftWorker : IMainFftWorker
                 default);
         }
 
+        lock (_sync)
+        {
+            // Make the worker available before notifying consumers. A completion
+            // callback may submit the next request synchronously.
+            _isBusy = false;
+        }
+
         try
         {
             _onCompleted(result);
@@ -352,13 +345,6 @@ internal sealed class MainFftWorker : IMainFftWorker
         catch (Exception ex)
         {
             Debug.WriteLine($"[MainFftWorker] FFT completion callback failed: {ex}");
-        }
-        finally
-        {
-            lock (_sync)
-            {
-                _isBusy = false;
-            }
         }
     }
 

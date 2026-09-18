@@ -1,4 +1,3 @@
-using System;
 using System.Buffers;
 using SRdeck.Audio;
 
@@ -46,13 +45,13 @@ internal static class PlaybackIqBlockReader
     public static PlaybackIqBlock? TryRead(IAudioFileReader reader, int fallbackRfFrequencyHz)
     {
         byte[] rawBuffer = reader.GetDefaultBuffer();
+        string? previousFileName = reader.CurrentFileName;
         int bytesRead = reader.Read(rawBuffer);
         if (bytesRead <= 0) return null;
 
         int samplesRead = bytesRead / 4;
         short[] samplesI = ArrayPool<short>.Shared.Rent(samplesRead);
         short[] samplesQ = ArrayPool<short>.Shared.Rent(samplesRead);
-        string? previousFileName = reader.CurrentFileName;
         try
         {
             for (int sampleIndex = 0; sampleIndex < samplesRead; sampleIndex++)

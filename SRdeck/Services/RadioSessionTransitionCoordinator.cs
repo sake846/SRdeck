@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using SRdeck.Models;
 
@@ -61,6 +60,7 @@ public sealed class RadioSessionTransitionCoordinator : IRadioSessionTransitionC
     {
         CloseAudioFileReader();
         _engine.StopPlaybackSession();
+        StopAudioOutput();
     }
 
     public void SyncControlToPlaybackSampleRate()

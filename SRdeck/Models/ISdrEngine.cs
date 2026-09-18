@@ -1,6 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-using SRdeckPlugin.Contracts;
+﻿using SRdeckPlugin.Contracts;
 using SRdeck.Models;
 using SRdeck.Models.SDR;
 using SRdeck.DSP;

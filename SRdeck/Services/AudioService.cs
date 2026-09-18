@@ -54,8 +54,21 @@ public sealed class AudioService : IAudioService
 
     public void Shutdown()
     {
-        _output.Stop();
-        _output.ClearBuffer();
-        _output.Dispose();
+        try
+        {
+            _output.Stop();
+            _output.ClearBuffer();
+        }
+        finally
+        {
+            try
+            {
+                _output.Dispose();
+            }
+            finally
+            {
+                _fileReader.Dispose();
+            }
+        }
     }
 }

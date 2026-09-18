@@ -296,8 +296,3 @@ internal class ChannelProcessorRegistry(IStandardChannelGpuBackend? gpuBackend =
         }
     }
 }
-
-// Preserve the existing internal test and host injection seam while the
-// implementation is named after its responsibility.
-internal sealed class SharedChannelProcessorRegistry(IStandardChannelGpuBackend? gpuBackend = null)
-    : ChannelProcessorRegistry(gpuBackend);

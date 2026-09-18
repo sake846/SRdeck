@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using SRdeck.DSP;
 using SRdeck.Models;
@@ -152,6 +151,7 @@ public partial class CoreEngine
             ref radioState,
             frame.SpectrumData,
             frame.NoiseFloorData,
+            frame.PowerSpectrumData,
             control,
             new SpectrumStatisticsOptions(
                 SdrDevice?.FsHz ?? (int)AppConstants.FULL_BW,

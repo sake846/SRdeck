@@ -14,11 +14,7 @@ public static class GeoMapWebViewSecurity
     public static void Configure(CoreWebView2 core)
     {
         ArgumentNullException.ThrowIfNull(core);
-        lock (ConfiguredCores)
-        {
-            if (ConfiguredCores.TryGetValue(core, out _)) return;
-            ConfiguredCores.Add(core, ConfiguredMarker);
-        }
+        if (!ConfiguredCores.TryAdd(core, ConfiguredMarker)) return;
 
         CoreWebView2Settings settings = core.Settings;
         if (!settings.UserAgent.Contains("SRdeck/", StringComparison.Ordinal))

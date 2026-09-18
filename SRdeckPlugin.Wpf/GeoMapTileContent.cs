@@ -13,8 +13,8 @@ internal static class GeoMapTileContent
 
     public static string DetectContentType(ReadOnlySpan<byte> data)
     {
-        if (data.StartsWith(new byte[] { 0x89, 0x50, 0x4e, 0x47 })) return "image/png";
-        if (data.StartsWith(new byte[] { 0xff, 0xd8, 0xff })) return "image/jpeg";
+        if (data.StartsWith<byte>([0x89, 0x50, 0x4e, 0x47])) return "image/png";
+        if (data.StartsWith<byte>([0xff, 0xd8, 0xff])) return "image/jpeg";
         if (data.Length >= 12 && data[..4].SequenceEqual("RIFF"u8) && data[8..12].SequenceEqual("WEBP"u8))
             return "image/webp";
         return string.Empty;

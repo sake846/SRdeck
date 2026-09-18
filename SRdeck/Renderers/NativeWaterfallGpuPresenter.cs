@@ -1,4 +1,3 @@
-using System;
 using System.Windows.Media;
 using SRdeck.Models;
 using SRdeckPlugin.Contracts;

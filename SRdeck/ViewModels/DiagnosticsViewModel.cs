@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;

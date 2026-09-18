@@ -14,6 +14,13 @@ public partial class MainViewModel : ObservableObject
     private readonly SemaphoreSlim _pluginSelectionGate = new(1, 1);
     private bool _isSynchronizingPluginSelection;
     private int _restoreActiveDisplayAfterRetune;
+    private int _mainSpanToRestoreAfterRetune;
+    private int _waterfallDisplayRequestVersion;
+    private int _waterfallDisplayRequestVersionAtRetune;
+    private int _waterfallDisplayRequestVersionAtRetuneCompletion;
+    private int _lastAppliedWaterfallDisplayWidthHz;
+    private IWaterfallDisplayRequestChangedProvider? _waterfallDisplayRequestNotifier;
+    private bool _hasInitializedWaterfallDisplayWidth;
 
     private string? _selectedPluginId;
     [ObservableProperty] private bool _isPluginSelectionBusy;
@@ -68,18 +75,36 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ApplyActiveWaterfallDisplayRequest()
+    private void ApplyActiveWaterfallDisplayRequest(bool bandwidthChanged = false)
     {
+        if (_waterfallDisplayRequestNotifier is not null)
+            _waterfallDisplayRequestNotifier.WaterfallDisplayRequestChanged -=
+                OnWaterfallDisplayRequestChanged;
+        _waterfallDisplayRequestNotifier = null;
+
         WaterfallDisplayRequest request = new();
+        bool isDynamicDisplayRequest = false;
         if (_pluginManager.TryGetActiveCapability<IWaterfallDisplayProvider>(
                 out IWaterfallDisplayProvider? provider) && provider is not null)
         {
             request = provider.WaterfallDisplayRequest ?? new WaterfallDisplayRequest();
+            if (provider is IWaterfallDisplayRequestChangedProvider notifier)
+            {
+                isDynamicDisplayRequest = true;
+                _waterfallDisplayRequestNotifier = notifier;
+                notifier.WaterfallDisplayRequestChanged += OnWaterfallDisplayRequestChanged;
+            }
         }
 
         WaterfallDisplayTimeMode = Enum.IsDefined(request.TimeMode)
             ? request.TimeMode
             : WaterfallTimeMode.ThreeMinutes;
+        bool hasPreferredBandwidth = request.PreferredDisplayBandwidthHz is > 0;
+        if (!hasPreferredBandwidth ||
+            (isDynamicDisplayRequest && !bandwidthChanged && _hasInitializedWaterfallDisplayWidth))
+            return;
+
+        _hasInitializedWaterfallDisplayWidth = true;
         bool prefersZoom = request.PreferredDisplayBandwidthHz is > 0 &&
             request.PreferredDisplayBandwidthHz < Display.BaseMainSpanHz;
         if (!Display.IsMainViewZoomed && prefersZoom)
@@ -104,6 +129,22 @@ public partial class MainViewModel : ObservableObject
         {
             Display.ApplyPreferredMainSpanHz(request.PreferredDisplayBandwidthHz);
         }
+        _lastAppliedWaterfallDisplayWidthHz = Display.CurrentMainSpanHz;
+        Volatile.Write(ref _waterfallDisplayRequestVersionAtRetuneCompletion,
+            Volatile.Read(ref _waterfallDisplayRequestVersion));
+    }
+
+    private void OnWaterfallDisplayRequestChanged(object? sender, EventArgs e)
+    {
+        Interlocked.Increment(ref _waterfallDisplayRequestVersion);
+        if (Application.Current?.Dispatcher is { } dispatcher)
+        {
+            // Process after pending retune/display updates; bandwidth changes then win.
+            _ = dispatcher.InvokeAsync(() => ApplyActiveWaterfallDisplayRequest(
+                bandwidthChanged: true), DispatcherPriority.Background);
+            return;
+        }
+        ApplyActiveWaterfallDisplayRequest(bandwidthChanged: true);
     }
 
     private void CenterPreferredPluginDisplayOnTunedFrequency()
@@ -124,13 +165,62 @@ public partial class MainViewModel : ObservableObject
         WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
     }
 
-    private void QueueActiveDisplayRestoreAfterRetune() =>
+    private void QueueActiveDisplayRestoreAfterRetune()
+    {
+        int requestVersion = Volatile.Read(ref _waterfallDisplayRequestVersion);
+        bool hasNewDisplayRequest = requestVersion !=
+            Volatile.Read(ref _waterfallDisplayRequestVersionAtRetuneCompletion);
+        Interlocked.Exchange(ref _mainSpanToRestoreAfterRetune,
+            hasNewDisplayRequest
+                ? -1
+                : Display.IsMainViewZoomed ? Display.CurrentMainSpanHz : 0);
+        Interlocked.Exchange(ref _waterfallDisplayRequestVersionAtRetune,
+            requestVersion);
         Interlocked.Exchange(ref _restoreActiveDisplayAfterRetune, 1);
+    }
 
     private void RestoreActiveDisplayAfterRetune()
     {
         if (Interlocked.Exchange(ref _restoreActiveDisplayAfterRetune, 0) == 0) return;
-        ApplyActiveWaterfallDisplayRequest();
+        int requestVersionAtRetune = Interlocked.Exchange(
+            ref _waterfallDisplayRequestVersionAtRetune, 0);
+        int spanHz = Interlocked.Exchange(ref _mainSpanToRestoreAfterRetune, 0);
+        if (requestVersionAtRetune != Volatile.Read(ref _waterfallDisplayRequestVersion))
+        {
+            ApplyActiveWaterfallDisplayRequest(bandwidthChanged: true);
+            Volatile.Write(ref _waterfallDisplayRequestVersionAtRetuneCompletion,
+                Volatile.Read(ref _waterfallDisplayRequestVersion));
+            return;
+        }
+        if (spanHz < 0)
+        {
+            ApplyActiveWaterfallDisplayRequest(bandwidthChanged: true);
+            Volatile.Write(ref _waterfallDisplayRequestVersionAtRetuneCompletion,
+                requestVersionAtRetune);
+            return;
+        }
+        if (spanHz > 0 && spanHz != Volatile.Read(ref _lastAppliedWaterfallDisplayWidthHz))
+        {
+            CompleteSdrCenterSnapBeforeZoom();
+            _isApplyingAtomicMainViewUpdate = true;
+            try
+            {
+                Display.ApplyPreferredMainSpanHz(spanHz);
+            }
+            finally
+            {
+                _isApplyingAtomicMainViewUpdate = false;
+            }
+            CenterPreferredPluginDisplayOnTunedFrequency();
+            Volatile.Write(ref _waterfallDisplayRequestVersionAtRetuneCompletion,
+                requestVersionAtRetune);
+            return;
+        }
+        ApplyActiveWaterfallDisplayRequest(
+            bandwidthChanged: spanHz > 0 || requestVersionAtRetune !=
+                Volatile.Read(ref _waterfallDisplayRequestVersion));
+        Volatile.Write(ref _waterfallDisplayRequestVersionAtRetuneCompletion,
+            Volatile.Read(ref _waterfallDisplayRequestVersion));
     }
 
     private void ReassertPluginSelection()

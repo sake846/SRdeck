@@ -1,4 +1,5 @@
 ﻿using SRdeckPlugin.Contracts;
+using SRdeckPlugin.Sdk;
 using SRdeck.DSP;
 
 namespace SRdeck.Services.Plugins;

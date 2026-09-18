@@ -1,4 +1,3 @@
-using System;
 using SRdeck.Renderers.Compat.Direct2D1;
 using SRdeck.Models;
 using Rect = SRdeck.Renderers.Compat.Mathematics.Rect;

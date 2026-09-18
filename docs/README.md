@@ -13,6 +13,7 @@
 3. [開発・配布ガイド](plugin-development-guide.md) — プロジェクト作成、実装、配布、レビュー手順
 4. [右ペインUIデザイン指針](plugin-right-pane-design-guidelines.md) — WPF UIを提供する場合の情報設計と視覚規約
 5. [回帰試験仕様](regression-test-specification.md) — 横断試験マトリクス、実行区分、受入試験、更新規則
+6. [試験レビュー記録テンプレート](regression-test-review-template.md) — 変更ごとの要求・対象・アサート・実行証拠、未充足の確認
 
 新規プラグインを作成する場合は、開発ガイドと
 [ヘッドレス生IQスターター](samples/SRdeckPlugin.Example/README.md) または

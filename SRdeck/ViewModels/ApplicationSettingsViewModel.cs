@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SRdeck.Configuration;

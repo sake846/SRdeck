@@ -1,6 +1,4 @@
-﻿using System;
-using System.Windows;
-using System.Collections.Generic;
+﻿using System.Windows;
 using SRdeckPlugin.Contracts;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SRdeck.Configuration;

@@ -1,4 +1,3 @@
-using System;
 using System.Windows.Media;
 
 namespace SRdeck.Renderers.Compat.Direct2D1

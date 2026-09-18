@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using SRdeck.Configuration;
 using SRdeck.DSP;
 using SRdeck.Models.SDR;

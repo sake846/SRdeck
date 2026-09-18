@@ -14,7 +14,6 @@ public class BoundedIqWavWriter : IDisposable
     private const int BytesPerIqSample = sizeof(short) * 2;
     private const int PcmChunkSamples = 16_384;
 
-    private readonly FileStream stream;
     private readonly BinaryWriter writer;
     private readonly long maximumSamples;
     private long samplesWritten;
@@ -32,8 +31,8 @@ public class BoundedIqWavWriter : IDisposable
         if (maximumSamples <= 0)
             throw new ArgumentOutOfRangeException(nameof(duration));
 
-        stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-        writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
+        writer = new BinaryWriter(
+            new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read), Encoding.ASCII);
         Path = path;
         SampleRateHz = sampleRateHz;
         WriteHeader();
@@ -109,15 +108,14 @@ public class BoundedIqWavWriter : IDisposable
         {
             writer.Flush();
             long dataLength = samplesWritten * BytesPerIqSample;
-            stream.Position = 4;
+            writer.BaseStream.Position = 4;
             writer.Write((uint)Math.Min(36 + dataLength, uint.MaxValue));
-            stream.Position = 40;
+            writer.BaseStream.Position = 40;
             writer.Write((uint)Math.Min(dataLength, uint.MaxValue));
         }
         finally
         {
             writer.Dispose();
-            stream.Dispose();
         }
     }
 

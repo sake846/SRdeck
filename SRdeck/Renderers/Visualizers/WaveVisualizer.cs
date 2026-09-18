@@ -1,4 +1,3 @@
-using System;
 using System.Numerics;
 using SRdeck.Renderers.Compat.Direct2D1;
 using Color = SRdeck.Renderers.Compat.Mathematics.Color4;

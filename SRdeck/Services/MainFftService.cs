@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
 using SRdeck.DSP;
 using SRdeck.Models;
 using SRdeck.Models.SDR;
@@ -21,6 +18,8 @@ public sealed record MainFftFrame(
     float[] SpectrumData,
     float[] WaterfallData,
     float[] NoiseFloorData,
+    // Full-resolution FFT bin levels in dB, time-averaged as linear power.
+    float[] PowerSpectrumData,
     int CenterFrequencyHz,
     long WaterfallBlockSequence);
 
@@ -107,7 +106,8 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
     private readonly record struct DisplayBuffers(
         float[] Spectrum,
         float[] Waterfall,
-        float[] NoiseFloor);
+        float[] NoiseFloor,
+        float[] PowerSpectrum);
 
     private readonly record struct PreparationKey(
         int SampleRateHz,
@@ -246,11 +246,13 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                 Array.Clear(buffers.Spectrum);
                 Array.Clear(buffers.Waterfall);
                 Array.Clear(buffers.NoiseFloor);
+                Array.Clear(buffers.PowerSpectrum);
                 _publishedSlot = new MainFftFrameSlot(new MainFftFrame(
                     0,
                     buffers.Spectrum,
                     buffers.Waterfall,
                     buffers.NoiseFloor,
+                    buffers.PowerSpectrum,
                     0,
                     0));
             }
@@ -277,7 +279,6 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
         {
             _requestInFlight = false;
             _waterfallAveragingBuffer = result.WaterfallAveragingBuffer;
-            _fullResolutionData = result.FullResFftData;
             currentGeneration = result.Generation == _generation;
 
             if (result.HasFrame && currentGeneration && !_isDisposed)
@@ -289,6 +290,7 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                     result.SpectrumFftData,
                     result.WaterfallFftData,
                     result.NoiseFloorFftData,
+                    result.FullResFftData,
                     result.CenterFrequencyHz,
                     result.WaterfallBlockSequence));
                 SetWriteBuffersLocked(TakeReusableBuffersLocked(previous));
@@ -299,7 +301,8 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                 SetWriteBuffersLocked(new DisplayBuffers(
                     result.SpectrumFftData,
                     result.WaterfallFftData,
-                    result.NoiseFloorFftData));
+                    result.NoiseFloorFftData,
+                    result.FullResFftData));
             }
         }
 
@@ -336,7 +339,8 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                 DisplayBuffers currentWrite = new(
                     _writeSpectrumData,
                     _writeWaterfallData,
-                    _writeNoiseFloorData);
+                    _writeNoiseFloorData,
+                    _fullResolutionData);
                 SetWriteBuffersLocked(released);
                 _availableDisplayBuffers.Enqueue(currentWrite);
             }
@@ -363,7 +367,8 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
         return new DisplayBuffers(
             new float[previous.Frame.SpectrumData.Length],
             new float[previous.Frame.WaterfallData.Length],
-            new float[previous.Frame.NoiseFloorData.Length]);
+            new float[previous.Frame.NoiseFloorData.Length],
+            new float[previous.Frame.PowerSpectrumData.Length]);
     }
 
     private void SetWriteBuffersLocked(DisplayBuffers buffers)
@@ -371,15 +376,18 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
         _writeSpectrumData = buffers.Spectrum;
         _writeWaterfallData = buffers.Waterfall;
         _writeNoiseFloorData = buffers.NoiseFloor;
+        _fullResolutionData = buffers.PowerSpectrum;
     }
 
     private static DisplayBuffers GetBuffers(MainFftFrame frame) => new(
         frame.SpectrumData,
         frame.WaterfallData,
-        frame.NoiseFloorData);
+        frame.NoiseFloorData,
+        frame.PowerSpectrumData);
 
     private static MainFftFrame CreateEmptyFrame() => new(
         0,
+        new float[AppConstants.FFT_SIZE],
         new float[AppConstants.FFT_SIZE],
         new float[AppConstants.FFT_SIZE],
         new float[AppConstants.FFT_SIZE],

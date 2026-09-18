@@ -55,8 +55,7 @@ public static partial class PluginJsonLinesHistory
 
         if (changed) RewriteLines(path, retained.Select(entry => entry.Text));
         state.Count = retained.Count;
-        state.Earliest = null;
-        foreach (RetainedLine entry in retained) state.Earliest = Earlier(state.Earliest, entry.Timestamp);
+        state.Earliest = retained.Min(entry => entry.Timestamp);
         state.AgeKnown = timestampSelector is not null;
         RememberFile(path, state);
     }

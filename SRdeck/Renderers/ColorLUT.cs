@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.CompilerServices;
 using Color = SRdeck.Renderers.Compat.Mathematics.Color4;
 

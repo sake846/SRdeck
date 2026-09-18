@@ -1,7 +1,6 @@
 using SRdeck.Configuration;
 using SRdeck.Models;
 #if ENABLE_RTLSDR
-using System;
 #endif
 
 namespace SRdeck.SDR;

@@ -1,6 +1,4 @@
-using System;
 using System.Diagnostics;
-using System.Threading;
 using SRdeck.Models;
 using SRdeck.Models.SDR;
 
@@ -24,15 +22,8 @@ public interface IAgcManagerFactory
 
 public sealed class AgcManagerFactory : IAgcManagerFactory
 {
-    private readonly IGainUpdateWorkerFactory _gainUpdateWorkerFactory;
-
-    public AgcManagerFactory(IGainUpdateWorkerFactory gainUpdateWorkerFactory)
-    {
-        _gainUpdateWorkerFactory = gainUpdateWorkerFactory;
-    }
-
     public IAgcManager Create(Action applyGainUpdate) =>
-        new AgcManager(_gainUpdateWorkerFactory.Create(applyGainUpdate));
+        new AgcManager(new GainUpdateWorker(applyGainUpdate));
 }
 
 internal sealed class AgcManager : IAgcManager

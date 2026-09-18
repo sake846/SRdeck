@@ -1,4 +1,3 @@
-using System;
 using System.Numerics;
 using SRdeck.Renderers.Compat;
 using SRdeck.Renderers.Compat.Direct2D1;

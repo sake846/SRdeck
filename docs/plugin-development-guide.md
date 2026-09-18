@@ -283,7 +283,7 @@ Null実装を考慮し、DSPの成立条件として必須にしない。
 | `BoundedIqWavWriter` | 上限時間付き16-bitステレオI/Q WAV保存。診断メタデータはプラグインが別途保存する |
 | `PluginAudioGenerationTracker` | 音声ストリームID、世代、連番の追跡 |
 | `PluginJsonLinesHistory` / `PluginJsonLinesHistoryWriter<T>` | JSON Lines履歴の読込、追記、保持上限、直列非同期保存 |
-| `PluginBenchmark` | ウォームアップを分離した処理時間、割り当て量、実時間倍率の測定 |
+| `PluginBenchmark` | ウォームアップを分離し、反復ごとの処理時間・割り当て量、中央値(p50)、p95、平均、実時間倍率を測定。性能判定では生測定値と入力条件を記録する |
 
 SDK補助型も方式固有の上限、ファイル名、履歴スキーマ、エラー表示を決定しない。
 プラグインが値を検証し、停止・破棄・保存失敗の動作を適合試験で確認する。
@@ -371,6 +371,11 @@ dotnet test SRdeck.Tests\SRdeck.Tests.csproj -c Release --no-build
 ```
 
 ## 10. 新規プラグインのレビューチェックリスト
+
+[回帰試験仕様](regression-test-specification.md)の4章・8章に従い、
+[試験レビュー記録](regression-test-review-template.md)を変更記録へ添付する。
+共通試験の対象モジュールは明示列挙されている場合があるため、新規プラグインの登録だけで網羅済みとせず、
+提供する能力と各試験の対象集合を比較する。次のチェックは実際の入力・アサート・実行証拠を確認して行う。
 
 - ID、プロファイルID、設定スキーマIDが安定している。
 - Contracts API互換範囲と能力フラグが実装に一致する。

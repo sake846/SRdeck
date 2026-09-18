@@ -172,7 +172,7 @@
                                 <!-- Lower Left Grid: Play, MEM-1, Settings, Exit -->
                                 <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Top" Margin="4,0,0,0">
                                     <!-- Section 1 -->
-                                    <Button x:Name="_btnStart" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding SdrControl.IsStarted}" Width="58" Margin="3,4" Command="{Binding SdrControl.SdrToggleCommand}" IsEnabled="{Binding IsSdrToggleEnabled}" Focusable="False" IsTabStop="False">
+                                    <Button x:Name="_btnStart" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding SdrControl.IsStarted}" Width="58" Margin="3,4" Command="{Binding SdrControl.SdrToggleCommand}" IsEnabled="{Binding IsSdrToggleEnabled}">
                                         <Button.Content>
                                             <TextBlock>
                                                 <TextBlock.Style>
@@ -191,11 +191,11 @@
                                             </TextBlock>
                                         </Button.Content>
                                     </Button>
-                                    <Button x:Name="_btnDetect" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding IsSdrDetected}" Content="検出" Width="58" Margin="3,4" Command="{Binding DetectSdrCommand}" IsEnabled="{Binding IsStopped}" Focusable="False" IsTabStop="False" />
+                                    <Button x:Name="_btnDetect" Style="{DynamicResource PluginButtonStyle}" Tag="{Binding IsSdrDetected}" Content="検出" Width="58" Margin="3,4" Command="{Binding DetectSdrCommand}" IsEnabled="{Binding IsStopped}" />
                                     
-                                    <Button x:Name="_btnSettings" Style="{DynamicResource PluginButtonStyle}" Content="{DynamicResource Btn_Settings}" Width="58" Margin="3,4" Command="{Binding OpenSettingsDialogCommand}" Focusable="False" IsTabStop="False" />
+                                    <Button x:Name="_btnSettings" Style="{DynamicResource PluginButtonStyle}" Content="{DynamicResource Btn_Settings}" Width="58" Margin="3,4" Command="{Binding OpenSettingsDialogCommand}" />
                                     <!-- Section 4 -->
-                                    <Button x:Name="_btnExit" Style="{DynamicResource PluginButtonStyle}" Tag="False" Content="{DynamicResource Btn_Exit}" Width="58" Margin="3,4" Command="{Binding ExitCommand}" Focusable="False" IsTabStop="False" />
+                                    <Button x:Name="_btnExit" Style="{DynamicResource PluginButtonStyle}" Tag="False" Content="{DynamicResource Btn_Exit}" Width="58" Margin="3,4" Command="{Binding ExitCommand}" />
                                 </StackPanel>
 
                                 <!-- Display Grid (Col 1: 表示幅, 波形位置, 描画輝度, 描画速度) -->
@@ -212,28 +212,28 @@
                                     </Grid.RowDefinitions>
 
                                     <!-- Labels -->
-                                    <Button Grid.Row="0" Grid.Column="0" Command="{Binding Display.ResetMainSpanCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="全帯域（フルスパン）にリセット">
+                                    <Button Grid.Row="0" Grid.Column="0" Command="{Binding Display.ResetMainSpanCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" ToolTip="全帯域（フルスパン）にリセット">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <TextBlock Text="表示幅" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
                                             </ControlTemplate>
                                         </Button.Template>
                                     </Button>
-                                    <Button Grid.Row="1" Grid.Column="0" Command="{Binding Display.ResetSpectrumBiasCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="波形位置をリセット">
+                                    <Button Grid.Row="1" Grid.Column="0" Command="{Binding Display.ResetSpectrumBiasCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" ToolTip="波形位置をリセット">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <TextBlock Text="波形位置" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
                                             </ControlTemplate>
                                         </Button.Template>
                                     </Button>
-                                    <Button Grid.Row="2" Grid.Column="0" Command="{Binding Display.ResetWaterfallBiasCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="描画輝度をリセット">
+                                    <Button Grid.Row="2" Grid.Column="0" Command="{Binding Display.ResetWaterfallBiasCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" ToolTip="描画輝度をリセット">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <TextBlock Text="描画輝度" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
                                             </ControlTemplate>
                                         </Button.Template>
                                     </Button>
-                                    <Button Grid.Row="3" Grid.Column="0" Command="{Binding ResetWaterfallTimeModeCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" Focusable="False" ToolTip="描画速度をリセット（3 分）">
+                                    <Button Grid.Row="3" Grid.Column="0" Command="{Binding ResetWaterfallTimeModeCommand}" Width="46" Margin="1,4" Cursor="Hand" Background="Transparent" BorderThickness="0" ToolTip="描画速度をリセット（3 分）">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <TextBlock Text="描画速度" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" FontSize="11" Background="Transparent" />
@@ -329,11 +329,11 @@
                                     </Grid.RowDefinitions>
 
                                     <!-- Row 0: Device Info -->
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DeviceName}" Foreground="#FF88CC00" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DeviceName}" Foreground="#FF88CC00" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="0,3,16,3" />
                                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceSn}" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="11" VerticalAlignment="Center" Margin="0,3,0,3" />
 
                                     <!-- Row 1: Sample Rate -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="サンプリング" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="サンプリング" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,16,3" />
                                     <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,3,0,3">
                                         <ComboBox x:Name="_cmbSampleRate" Width="95" HorizontalAlignment="Left"
                                                    ItemsSource="{Binding SampleRateOptions}"
@@ -341,7 +341,6 @@
                                                    SelectedValuePath="Value"
                                                    SelectedValue="{Binding SdrPlaySampleRateHz, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                    IsEnabled="{Binding IsSampleRateSelectionEnabled}"
-                                                   Focusable="False" IsTabStop="False"
                                                    Style="{DynamicResource PluginComboBoxStyle}">
                                         </ComboBox>
                                         <TextBlock Text="{Binding EffectiveBitDepthText}"
@@ -353,16 +352,15 @@
                                     </StackPanel>
 
                                     <!-- Row 2: Center Frequency -->
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="中心周波数" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="中心周波数" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,16,3" />
                                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tuner.CenterFreqDisplay}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource MainFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,3,0,3"/>
 
                                     <!-- Row 3: Sensitivity Control (AGC Mode) -->
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="感度制御" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3" />
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="感度制御" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,16,3" />
                                     <ComboBox Grid.Row="3" Grid.Column="1" Width="110" HorizontalAlignment="Left" Margin="0,3,0,3"
                                               SelectedValuePath="Tag"
                                               SelectedValue="{Binding AgcReleaseMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                               IsEnabled="{Binding IsSdrDetected}"
-                                              Focusable="False" IsTabStop="False"
                                               Style="{DynamicResource PluginComboBoxStyle}">
                                         <ComboBoxItem Content="制御なし" Tag="{x:Static models:AgcReleaseMode.Off}"/>
                                         <ComboBoxItem Content="高速 (0.1秒)" Tag="{x:Static models:AgcReleaseMode.Fast}"/>
@@ -373,7 +371,7 @@
 
                                     <!-- Row 4: Sensitivity / Gain Slider -->
                                     <!-- SDRplay: Sensitivity Label -->
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="受信感度" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3">
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="受信感度" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,16,3">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Visibility" Value="Visible" />
@@ -384,7 +382,7 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     <!-- RTL-SDR: RF Gain Label -->
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="RFゲイン" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,8,3">
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="RFゲイン" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,3,16,3">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -396,7 +394,7 @@
                                     </TextBlock>
 
                                     <!-- SDRplay Slider Controls (Row 4, Col 1) -->
-                                    <Grid Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,3,0,3">
+                                    <Grid Grid.Row="4" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,3,0,3">
                                         <Grid.Style>
                                             <Style TargetType="Grid">
                                                 <Setter Property="Visibility" Value="Visible" />
@@ -406,19 +404,19 @@
                                             </Style>
                                         </Grid.Style>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
-                                        <Slider Grid.Column="0" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                        <Slider Grid.Column="0" Width="120" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
                                                 Value="{Binding SdrPlaySensitivity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 ToolTip="左: 強信号向け / 右: 微弱信号向け"
                                                 VerticalAlignment="Center" Margin="2,0,4,0"/>
                                         <TextBlock Grid.Column="1" Text="{Binding SdrPlayMaxGainRatioText}" ToolTip="{Binding SdrPlayLnaGrText}"
-                                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                     </Grid>
 
                                     <!-- RTL-SDR Slider Controls (Row 4, Col 1) -->
-                                    <Grid Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,3,0,3">
+                                    <Grid Grid.Row="4" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,3,0,3">
                                         <Grid.Style>
                                             <Style TargetType="Grid">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -428,14 +426,13 @@
                                             </Style>
                                         </Grid.Style>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
-                                        <Slider Grid.Column="0" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                        <Slider Grid.Column="0" Width="120" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
                                                 Value="{Binding RtlSdrRfGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                ToolTip="RTL-SDR チューナーの正規化ゲイン。AGCオン時は現在の自動ゲインを表示します。"
                                                 VerticalAlignment="Center" Margin="2,0,4,0"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding RtlSdrRfGainDb}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding RtlSdrRfGainDb}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                     </Grid>
                                 </Grid>
 

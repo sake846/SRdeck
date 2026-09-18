@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -130,8 +128,8 @@ public partial class MainViewModel : ObservableObject
                         vm.SyncCursorOverlayVisuals(vm._engine.Control);
                     } else {
                         if (m.ResetMainViewZoom) {
-                            vm.SyncMainSpanForAtomicViewUpdate(0);
                             vm.QueueActiveDisplayRestoreAfterRetune();
+                            vm.SyncMainSpanForAtomicViewUpdate(0);
                         }
                         vm.SyncSampleRateSelectionFromAppliedControl(vm._engine.Control.FsHz);
                         vm.Tuner.SyncFrequencyFromAppliedControl(m.NewControl);
@@ -322,11 +320,17 @@ public partial class MainViewModel : ObservableObject
     private void InitializeAudioEngine() { _audioService.InitializeOutput(32000, 2); _audioService.PlayOutput(); }
     private void ApplyStartupMainSpanSelection()
     {
+        int previousMainSpanHz = Display.IsMainViewZoomed ? Display.CurrentMainSpanHz : 0;
+        int lastAppliedDisplayWidthHz = _lastAppliedWaterfallDisplayWidthHz;
         int previousFsHz = _engine.Control.FsHz;
         int fsHz = _engine.SdrDevice?.FsHz > 0 ? _engine.SdrDevice.FsHz : previousFsHz;
         if (fsHz <= 0) return;
 
         SyncMainSpanOptionsToFs(fsHz, IsRtlDevice || IsRtlSdrDeviceController(), selectFullSpan: previousFsHz > 0 && previousFsHz != fsHz);
+        if (previousMainSpanHz > 0 && previousMainSpanHz != lastAppliedDisplayWidthHz)
+            Display.ApplyPreferredMainSpanHz(previousMainSpanHz);
+        else
+            ApplyActiveWaterfallDisplayRequest(bandwidthChanged: true);
     }
 
     private void SyncMainSpanOptionsToFs(int fsHz, bool isRtlDevice, bool selectFullSpan = false)

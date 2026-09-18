@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Windows;
 using SRdeck.Renderers.Compat.DCommon;

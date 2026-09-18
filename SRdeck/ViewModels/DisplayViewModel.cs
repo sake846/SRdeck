@@ -5,7 +5,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Messages;
 using SRdeck.Models;
 using System.Collections.ObjectModel;
-using System.Linq;
 
 namespace SRdeck.ViewModels;
 

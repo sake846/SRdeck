@@ -1,4 +1,3 @@
-using System;
 using SRdeck.DSP;
 using SRdeck.Models;
 using SRdeck.Models.SDR;

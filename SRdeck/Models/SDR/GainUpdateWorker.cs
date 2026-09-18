@@ -1,23 +1,10 @@
-using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SRdeck.Models.SDR;
 
 public interface IGainUpdateWorker : IDisposable
 {
     void RequestUpdate();
-}
-
-public interface IGainUpdateWorkerFactory
-{
-    IGainUpdateWorker Create(Action applyUpdate);
-}
-
-public sealed class GainUpdateWorkerFactory : IGainUpdateWorkerFactory
-{
-    public IGainUpdateWorker Create(Action applyUpdate) => new GainUpdateWorker(applyUpdate);
 }
 
 internal sealed class GainUpdateWorker : IGainUpdateWorker

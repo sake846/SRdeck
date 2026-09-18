@@ -1,4 +1,3 @@
-using System;
 using System.Windows;
 using SRdeck.Models;
 
@@ -26,6 +25,11 @@ public class InputCoordinationService
             isChanged = true;
         }
 
+        if (swipeStep <= 0)
+        {
+            return isChanged;
+        }
+
         _spectrumSwipeAccumulator += deltaX;
         
         if (Math.Abs(_spectrumSwipeAccumulator) >= SPECTRUM_SWIPE_SENSITIVITY)
@@ -48,13 +52,14 @@ public class InputCoordinationService
         return isChanged;
     }
 
-    public bool ProcessWaterfallSwipe(double deltaX, double deltaY, bool isShift, ref RadioControl radioControl, int maxHistorySec = AppConstants.MAX_HISTORY_SEC)
+    public bool ProcessWaterfallSwipe(double deltaX, double deltaY, ref RadioControl radioControl, int maxHistorySec = AppConstants.MAX_HISTORY_SEC)
     {
         bool isChanged = false;
         if (radioControl.CursorFreqHz != -1) { radioControl.CursorFreqHz = -1; isChanged = true; }
 
-        double spanHz = radioControl.SpanHz;
-        double stepHz = radioControl.StepHz;
+        double spanHz = Math.Max(0.0, radioControl.SpanHz);
+        int stepHz = radioControl.StepHz > 0 ? radioControl.StepHz : RadioControl.DefaultStepHz;
+        int historyLimit = Math.Max(0, maxHistorySec);
         
         // 周波数移動
         _waterfallSwipeXAccumulator += deltaX * (spanHz / WATERFALL_X_SENSITIVITY); 
@@ -67,11 +72,11 @@ public class InputCoordinationService
         }
 
         // 履歴移動 (Y軸は方向反転)
-        _waterfallSwipeYAccumulator -= deltaY * ((maxHistorySec + 1) / WATERFALL_Y_SENSITIVITY); 
+        _waterfallSwipeYAccumulator -= deltaY * ((historyLimit + 1) / WATERFALL_Y_SENSITIVITY);
         if (Math.Abs(_waterfallSwipeYAccumulator) >= 1.0)
         {
             int secondsDifference = (int)_waterfallSwipeYAccumulator;
-            radioControl.HistorySec = Math.Clamp(radioControl.HistorySec - secondsDifference, 0, maxHistorySec);
+            radioControl.HistorySec = Math.Clamp(radioControl.HistorySec - secondsDifference, 0, historyLimit);
             _waterfallSwipeYAccumulator = 0;
             isChanged = true;
         }

@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.InteropServices;
 
 // Shared by the host spectrum pipeline and IQ-consuming plugins.
