@@ -42,6 +42,8 @@ public class WavFilePlayer : IAudioFileReader
         {
             Close();
             _reader = new PcmWaveFileReader(fileName);
+            if (_reader.WaveFormat is not { Channels: 2, BitsPerSample: 16 })
+                throw new InvalidDataException("IQ WAV は 16 bit PCM・2チャンネル（左=I、右=Q）のみ再生できます。");
             CurrentFileName = fileName;
             EnsureBufferMatchesReaderFormat();
             LoadGainLog(fileName);
@@ -58,6 +60,7 @@ public class WavFilePlayer : IAudioFileReader
         }
         catch (Exception ex)
         {
+            Close();
             Debug.WriteLine($"Error opening WAV file: {ex.Message}");
             throw;
         }
@@ -74,6 +77,7 @@ public class WavFilePlayer : IAudioFileReader
         string path = Path.ChangeExtension(fileName, ".gain");
         if (!File.Exists(path))
         {
+            CurrentRfFrequencyHz = IqPlaybackFileInspector.TryReadCenterFrequencyHz(fileName) ?? 0;
             return;
         }
 
@@ -105,13 +109,17 @@ public class WavFilePlayer : IAudioFileReader
                 CurrentSystemGainDb = _gainLog[0].SystemGainDb;
                 CurrentRfFrequencyHz = _gainLog[0].CenterFrequencyHz;
             }
+            else
+            {
+                CurrentRfFrequencyHz = IqPlaybackFileInspector.TryReadCenterFrequencyHz(fileName) ?? 0;
+            }
         }
         catch (Exception ex)
         {
             _gainLog.Clear();
             _gainLogIndex = 0;
             CurrentSystemGainDb = 0.0;
-            CurrentRfFrequencyHz = 0;
+            CurrentRfFrequencyHz = IqPlaybackFileInspector.TryReadCenterFrequencyHz(fileName) ?? 0;
             Debug.Print("Failed to read .gain file: " + ex.Message);
         }
     }
@@ -186,6 +194,8 @@ public class WavFilePlayer : IAudioFileReader
             {
                 Close();
                 _reader = new PcmWaveFileReader(nextFilePath);
+                if (_reader.WaveFormat is not { Channels: 2, BitsPerSample: 16 })
+                    throw new InvalidDataException("連番ファイルの形式が IQ WAV（16 bit PCM・2チャンネル）ではありません。");
                 CurrentFileName = nextFilePath;
                 EnsureBufferMatchesReaderFormat();
                 LoadGainLog(nextFilePath);

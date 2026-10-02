@@ -1,4 +1,7 @@
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -31,12 +34,24 @@ namespace SRdeck.ViewModels
             _engine = engine;
             _sessions = sessions;
             _sessions.SdrConfigurationChanged += HandleSdrConfigurationChanged;
+            _sessions.PlaybackEnded += HandlePlaybackEnded;
             _dialogService = dialogService;
             _setWindowTitle = setWindowTitle;
             _streamRecoveryDelay = streamRecoveryDelay ?? TimeSpan.FromMilliseconds(750);
             _engine.DeviceRemoved += HandleDeviceRemoved;
             _engine.StreamStalled += HandleStreamStalled;
         }
+
+        public ObservableCollection<FrequencyDisplayOption> FrequencyDisplayOptions { get; set; } = new();
+        public ICommand? OpenStationCatalogCommand { get; set; }
+        public ICommand? OpenBandPlanCatalogCommand { get; set; }
+        internal Action<FrequencyDisplayOption?>? FrequencyDisplayOptionChanged { get; set; }
+
+        [ObservableProperty]
+        private FrequencyDisplayOption? _selectedFrequencyDisplayOption;
+
+        partial void OnSelectedFrequencyDisplayOptionChanged(FrequencyDisplayOption? value) =>
+            FrequencyDisplayOptionChanged?.Invoke(value);
 
         [ObservableProperty]
         private string _startButtonText = "開始";
@@ -46,6 +61,12 @@ namespace SRdeck.ViewModels
 
         [ObservableProperty]
         private bool _isStopped = true;
+
+        [ObservableProperty]
+        private string _iqPlaybackButtonText = "IQ WAV を再生";
+
+        [ObservableProperty]
+        private string _iqPlaybackStatus = "IQ再生: 待機";
 
         [RelayCommand]
         public Task Start() => StartCore(resetRecoveryAttempts: true);
@@ -101,8 +122,85 @@ namespace SRdeck.ViewModels
             {
                 IsStarted = _engine.IsSdrRunning || _engine.IsPlaying;
                 IsStopped = !IsStarted;
-                StartButtonText = _engine.IsSdrRunning ? "動作中" : "開始";
+                StartButtonText = _engine.IsSdrRunning ? "動作中" : _engine.IsPlaying ? "再生中" : "開始";
                 if (IsStopped) _setWindowTitle("SRdeck");
+            }
+
+            if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+                _ = dispatcher.InvokeAsync(SyncState);
+            else
+                SyncState();
+        }
+
+        [RelayCommand]
+        public async Task IqPlayback()
+        {
+            if (_isStarting) return;
+            if (_engine.IsPlaying)
+            {
+                await Stop();
+                return;
+            }
+
+            IqPlaybackSelection? selection = _dialogService.ShowIqPlaybackDialog();
+            if (selection is null) return;
+
+            _isStarting = true;
+            try
+            {
+                if (IsStarted || _engine.SessionState != InputSessionState.Stopped)
+                    await Stop();
+
+                RadioControl control = _engine.Control;
+                control.CenterFreqHz = selection.CenterFrequencyHz;
+                control.TunedFreqHz = selection.CenterFrequencyHz;
+                control.FreqOffsetHz = 0;
+                _engine.Control = control;
+
+                RadioSessionStartResult result = await _sessions.StartPlaybackAsync(
+                    selection.FilePath, selection.StartSeconds);
+                if (!result.Success)
+                {
+                    ShowPlaybackError(result.Error ?? "ファイルのオープンに失敗しました。");
+                    return;
+                }
+
+                StartButtonText = "再生中";
+                IqPlaybackButtonText = "再生を停止";
+                IqPlaybackStatus = $"IQ再生中: {Path.GetFileName(selection.FilePath)}";
+                _setWindowTitle($"SRdeck [ {FormatFilePath(selection.FilePath)} ]");
+                IsStarted = true;
+                IsStopped = false;
+                WeakReferenceMessenger.Default.Send(new ResetWaterfallTimingMessage());
+                WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(_engine.Control));
+            }
+            finally
+            {
+                _isStarting = false;
+            }
+        }
+
+        private void ShowPlaybackError(string message)
+        {
+            IsStarted = false;
+            IsStopped = true;
+            StartButtonText = "開始";
+            IqPlaybackButtonText = "IQ WAV を再生";
+            IqPlaybackStatus = "IQ再生: 開始失敗";
+            _setWindowTitle("SRdeck");
+            WeakReferenceMessenger.Default.Send(new SdrErrorMessage(message));
+        }
+
+        private void HandlePlaybackEnded(object? sender, EventArgs args)
+        {
+            void SyncState()
+            {
+                IsStarted = false;
+                IsStopped = true;
+                StartButtonText = "開始";
+                IqPlaybackButtonText = "IQ WAV を再生";
+                IqPlaybackStatus = "IQ再生: 終了";
+                _setWindowTitle("SRdeck");
             }
 
             if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
@@ -220,6 +318,7 @@ namespace SRdeck.ViewModels
         [RelayCommand]
         public async Task Stop()
         {
+            bool wasPlaying = _engine.IsPlaying;
             IsStopped = true;
             IsStarted = false;
             _setWindowTitle("SRdeck");
@@ -230,6 +329,11 @@ namespace SRdeck.ViewModels
             WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
             
             await _sessions.StopAsync();
+            if (wasPlaying)
+            {
+                IqPlaybackButtonText = "IQ WAV を再生";
+                IqPlaybackStatus = "IQ再生: 停止";
+            }
         }
 
         private string FormatFilePath(string filePath)

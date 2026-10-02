@@ -1,6 +1,12 @@
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using SRdeck.Configuration;
 using SRdeck.Models;
 using SRdeck.Services.Plugins;
 
@@ -53,6 +59,15 @@ public partial class DiagnosticsViewModel : ObservableObject
     [ObservableProperty] private double _coreProcessingLoad = 0.0;
     [ObservableProperty] private double _pluginProcessingLoad = 0.0;
 
+    [ObservableProperty] private bool _isLoadCaptureRunning;
+    [ObservableProperty] private string _loadCaptureStatus = "計測ログ: 停止中";
+
+    private CancellationTokenSource? _loadCaptureCancellation;
+    private Task? _loadCaptureTask;
+    private string? _loadCapturePath;
+
+    public string LoadCaptureButtonText => IsLoadCaptureRunning ? "計測停止" : "計測開始";
+
     private double _peakTimeMainFft = 0.0;
     private double _peakTimeCpuPrep = 0.0;
     private double _peakTimeCpuPost = 0.0;
@@ -79,6 +94,300 @@ public partial class DiagnosticsViewModel : ObservableObject
         _pluginManager = pluginManager;
         _pluginIqDispatcher = pluginIqDispatcher;
     }
+
+    [RelayCommand]
+    private async Task ToggleLoadCaptureAsync()
+    {
+        if (IsLoadCaptureRunning)
+        {
+            await StopLoadCaptureAsync();
+            return;
+        }
+
+        await ReleasePreviousLoadCaptureAsync();
+        StartLoadCapture();
+    }
+
+    public async Task StopLoadCaptureAsync()
+    {
+        _loadCaptureCancellation?.Cancel();
+        await ReleasePreviousLoadCaptureAsync();
+        IsLoadCaptureRunning = false;
+        LoadCaptureStatus = _loadCapturePath is null
+            ? "計測ログ: 停止中"
+            : $"保存先: {_loadCapturePath}";
+    }
+
+    private void StartLoadCapture()
+    {
+        ISdrStreamTimingDiagnostics? timingDiagnostics = null;
+        try
+        {
+            string directory = Path.Combine(UserDataPaths.UserDataDirectory, "logs", "performance");
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory,
+                $"radio-load-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}.jsonl");
+            _loadCapturePath = path;
+            var cancellation = new CancellationTokenSource();
+            _loadCaptureCancellation = cancellation;
+            timingDiagnostics = _engine.SdrDevice as ISdrStreamTimingDiagnostics;
+            timingDiagnostics?.StartTimingCapture();
+            _loadCaptureTask = Task.Run(() => CaptureLoadAsync(path, cancellation.Token, timingDiagnostics));
+            IsLoadCaptureRunning = true;
+            LoadCaptureStatus = $"記録中（1秒間隔）: {path}";
+        }
+        catch (Exception exception)
+        {
+            timingDiagnostics?.StopTimingCapture();
+            LoadCaptureStatus = $"計測ログを開始できません: {exception.Message}";
+        }
+    }
+
+    private async Task ReleasePreviousLoadCaptureAsync()
+    {
+        CancellationTokenSource? cancellation = _loadCaptureCancellation;
+        Task? task = _loadCaptureTask;
+        if (task is null) return;
+
+        cancellation?.Cancel();
+        try { await task; }
+        finally
+        {
+            cancellation?.Dispose();
+            if (ReferenceEquals(_loadCaptureTask, task))
+            {
+                _loadCaptureCancellation = null;
+                _loadCaptureTask = null;
+            }
+        }
+    }
+
+    private async Task CaptureLoadAsync(
+        string path,
+        CancellationToken cancellationToken,
+        ISdrStreamTimingDiagnostics? timingDiagnostics)
+    {
+        try
+        {
+            await using var writer = new StreamWriter(new FileStream(
+                path, FileMode.CreateNew, FileAccess.Write, FileShare.Read,
+                4096, FileOptions.Asynchronous | FileOptions.SequentialScan), new UTF8Encoding(false));
+            IReadOnlyList<PluginPerformanceConfiguration> pluginConfigurations =
+                await _pluginManager.GetPerformanceConfigurationsAsync(cancellationToken).ConfigureAwait(false);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                type = "session",
+                startedUtc = DateTimeOffset.UtcNow,
+                os = RuntimeInformation.OSDescription,
+                architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                runtime = RuntimeInformation.FrameworkDescription,
+                logicalCpuCount = Environment.ProcessorCount,
+                applicationVersion = typeof(DiagnosticsViewModel).Assembly.GetName().Version?.ToString(),
+                sdrDevice = _engine.SdrDevice?.GetType().Name,
+                pluginConfigurations
+            }));
+            await writer.FlushAsync(cancellationToken);
+
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await writer.WriteLineAsync(JsonSerializer.Serialize(CreateLoadSample(timingDiagnostics)));
+                await writer.FlushAsync(cancellationToken);
+                await timer.WaitForNextTickAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"[RadioLoadCapture] {exception}");
+            if (Application.Current is { } app)
+                await app.Dispatcher.InvokeAsync(() =>
+                {
+                    LoadCaptureStatus = $"計測ログの記録に失敗: {exception.Message}";
+                    IsLoadCaptureRunning = false;
+                });
+        }
+        finally
+        {
+            timingDiagnostics?.StopTimingCapture();
+        }
+    }
+
+    private object CreateLoadSample(ISdrStreamTimingDiagnostics? timingDiagnostics)
+    {
+        RadioDiagnostics diagnostics = _engine.Diagnostics;
+        SdrStreamTimingSnapshot streamTiming = timingDiagnostics?.TakeTimingSnapshot() ?? default;
+        double ticksToMilliseconds = 1000.0 / Stopwatch.Frequency;
+        RadioControl control = _engine.Control;
+        int fftMode = control.FftResolutionMode is >= 0 and <= 10 ? control.FftResolutionMode : 0;
+        int fftBatchCount = control.FftBatchCount <= 0 ? 10 : Math.Min(control.FftBatchCount, 32);
+        PluginRuntimeInfo[] pluginRuntime = _pluginManager.Plugins.ToArray();
+        var plugins = _pluginManager.StreamingPluginIds.Select(pluginId =>
+        {
+            PluginIqDispatchSnapshot snapshot = _pluginIqDispatcher.GetSnapshot(pluginId);
+            PluginRuntimeInfo? runtime = pluginRuntime.FirstOrDefault(info =>
+                StringComparer.Ordinal.Equals(info.Descriptor.Id, pluginId));
+            return new
+            {
+                id = pluginId,
+                state = runtime?.State.ToString(),
+                selectedProfileId = runtime?.SelectedProfileId,
+                snapshot.SubmittedBlocks,
+                snapshot.ProcessedBlocks,
+                snapshot.DroppedBlocks,
+                snapshot.DroppedSamples,
+                snapshot.QueueDepth,
+                snapshot.MaximumQueueDepth,
+                snapshot.CurrentProcessingTimeMs,
+                snapshot.CurrentBlockDurationMs,
+                snapshot.AverageProcessingTimeMs,
+                snapshot.MaximumProcessingTimeMs,
+                stages = snapshot.ProcessingStages.Select(stage => new
+                {
+                    stage.Operation,
+                    device = stage.Device.ToString(),
+                    stage.Backend,
+                    stage.Detail,
+                    stage.CurrentProcessingTimeMs,
+                    stage.AverageProcessingTimeMs,
+                    stage.MeasurementCount
+                }).ToArray()
+            };
+        }).ToArray();
+
+        using Process process = Process.GetCurrentProcess();
+        return new
+        {
+            type = "sample",
+            sampledAtUtc = DateTimeOffset.UtcNow,
+            input = new
+            {
+                sessionState = _engine.SessionState.ToString(),
+                sdrRunning = _engine.IsSdrRunning,
+                playbackRunning = _engine.IsPlaying,
+                configuredSampleRateHz = control.FsHz,
+                hardwareSampleRateHz = _engine.SdrDevice?.FsHz,
+                diagnostics.EffectiveSampleRateHz,
+                diagnostics.SdrQueuedSampleBlockCount,
+                diagnostics.SdrDroppedCallbackCount,
+                diagnostics.SdrLastCallbackAgeSeconds,
+                diagnostics.SdrUnexpectedCallbackLengthCount
+            },
+            sdrTiming = new
+            {
+                callbackCount = streamTiming.CallbackCount,
+                callbackElapsedMs = streamTiming.CallbackElapsedTicks * ticksToMilliseconds,
+                callbackAverageMs = streamTiming.CallbackCount > 0
+                    ? streamTiming.CallbackElapsedTicks * ticksToMilliseconds / streamTiming.CallbackCount
+                    : 0,
+                sampleDeliveryCount = streamTiming.SampleDeliveryCount,
+                sampleDeliveryElapsedMs = streamTiming.SampleDeliveryElapsedTicks * ticksToMilliseconds,
+                sampleDeliveryAverageMs = streamTiming.SampleDeliveryCount > 0
+                    ? streamTiming.SampleDeliveryElapsedTicks * ticksToMilliseconds / streamTiming.SampleDeliveryCount
+                    : 0,
+                queueWaitCount = streamTiming.QueueWaitCount,
+                queueWaitElapsedMs = streamTiming.QueueWaitElapsedTicks * ticksToMilliseconds,
+                queueWaitAverageMs = streamTiming.QueueWaitCount > 0
+                    ? streamTiming.QueueWaitElapsedTicks * ticksToMilliseconds / streamTiming.QueueWaitCount
+                    : 0,
+                queueWaitMaximumMs = streamTiming.QueueWaitMaxTicks * ticksToMilliseconds
+            },
+            radio = new
+            {
+                control.CenterFreqHz,
+                control.TunedFreqHz,
+                control.MainSpanHz,
+                control.SpanHz,
+                control.HistorySec,
+                demodulationMode = control.DemodMode.ToString(),
+                requestedSpectrumWidth = _engine.RequestedSpectrumWidth,
+                control.FftResolutionMode,
+                effectiveFftResolutionMode = fftMode,
+                fftSize = 4096 << fftMode,
+                control.FftBatchCount,
+                effectiveFftBatchCount = fftBatchCount,
+                control.IsGpuFftEnabled,
+                control.ZoomSpectrumMode
+            },
+            processingRoutes = new
+            {
+                mainFft = control.IsGpuFftEnabled ? "GPU requested" : "CPU",
+                wpfGpuPathFlags = diagnostics.WpfGpuPathFlags,
+                spectrumGpu = (diagnostics.WpfGpuPathFlags & 0x1) != 0,
+                waterfallGpu = (diagnostics.WpfGpuPathFlags & 0x2) != 0,
+                zoomGpu = (diagnostics.WpfGpuPathFlags & 0x4) != 0,
+                demodGpu = (diagnostics.WpfGpuPathFlags & 0x8) != 0,
+                diagnostics.WpfGpuInitSp,
+                diagnostics.WpfGpuInitWf,
+                diagnostics.WpfGpuInitZm,
+                diagnostics.WpfGpuInitDm
+            },
+            pluginRuntime = pluginRuntime.Select(runtime => new
+            {
+                id = runtime.Descriptor.Id,
+                runtime.Descriptor.DisplayName,
+                state = runtime.State.ToString(),
+                runtime.IsCompatible,
+                runtime.SelectedProfileId,
+                isActive = _pluginManager.IsPluginActive(runtime.Descriptor.Id),
+                isStreaming = _pluginManager.IsPluginStreaming(runtime.Descriptor.Id)
+            }).ToArray(),
+            cpu = new
+            {
+                diagnostics.CpuAppUsagePercent,
+                diagnostics.CpuTotalUsagePercent
+            },
+            gpu = new
+            {
+                diagnostics.GpuAppUsagePercent,
+                diagnostics.GpuUsagePercent
+            },
+            core = new
+            {
+                diagnostics.TimeProcCycle,
+                diagnostics.TimeMainFft,
+                diagnostics.TimeFftCore,
+                diagnostics.TimeCpuPrep,
+                diagnostics.TimeCpuPost,
+                diagnostics.TimeFftFullResCopy,
+                diagnostics.TimeFftAggregate,
+                diagnostics.TimeGpuPrep,
+                diagnostics.TimeGpuUpload,
+                diagnostics.TimeGpuShader,
+                diagnostics.TimeGpuDownload,
+                diagnostics.TimeGpuPost,
+                diagnostics.TimeGpuPack,
+                diagnostics.TimeGpuUploadNative,
+                diagnostics.TimeGpuDispatch,
+                diagnostics.TimeGpuReadback,
+                diagnostics.TimeWpfSpectrum,
+                diagnostics.TimeWpfWaterfall,
+                diagnostics.TimeWpfZoom,
+                diagnostics.TimeWpfDemod,
+                diagnostics.FftFps,
+                diagnostics.WpfFps,
+                diagnostics.DemodFps,
+                diagnostics.FftQueueDepth,
+                diagnostics.FftDroppedCount,
+                diagnostics.WpfFftDroppedFrames,
+                diagnostics.TimeOsLag
+            },
+            process = new
+            {
+                workingSetBytes = process.WorkingSet64,
+                cpuTimeMs = process.TotalProcessorTime.TotalMilliseconds,
+                managedHeapBytes = GC.GetTotalMemory(false),
+                gen0Collections = GC.CollectionCount(0),
+                gen1Collections = GC.CollectionCount(1),
+                gen2Collections = GC.CollectionCount(2)
+            },
+            plugins
+        };
+    }
+
+    partial void OnIsLoadCaptureRunningChanged(bool value) =>
+        OnPropertyChanged(nameof(LoadCaptureButtonText));
 
     public void SyncDiagnostics(RadioControl radioControl, string selectedLnaState)
     {
@@ -112,6 +421,15 @@ public partial class DiagnosticsViewModel : ObservableObject
         }
 
         bool isSourceActive = _engine.IsSdrRunning || _engine.IsPlaying;
+        FftFps = diagnostics.FftFps;
+        WpfFps = diagnostics.WpfFps;
+        GpuAppUsagePercent = diagnostics.GpuAppUsagePercent;
+        GpuUsagePercent = diagnostics.GpuUsagePercent;
+        CpuAppUsagePercent = diagnostics.CpuAppUsagePercent;
+        CpuTotalUsagePercent = diagnostics.CpuTotalUsagePercent;
+        CpuToolTip = $"CPU: プログラム {CpuAppUsagePercent:0}% / 全体 {CpuTotalUsagePercent:0}%";
+        GpuToolTip = $"GPU: プログラム {GpuAppUsagePercent:0}% / 全体 {GpuUsagePercent:0}%";
+
         if (!isSourceActive)
         {
             TimeProcCycle = 0.0;
@@ -119,8 +437,6 @@ public partial class DiagnosticsViewModel : ObservableObject
             TimeMainFft = 0.0;
             CoreProcessingLoad = 0.0;
             PluginProcessingLoad = 0.0;
-            FftFps = 0.0;
-            WpfFps = 0.0;
             DemodFps = 0.0;
             FftRequestCount = 0;
             FftCompletedCount = 0;
@@ -136,12 +452,6 @@ public partial class DiagnosticsViewModel : ObservableObject
             InputLevelQDb = -100.0;
             InputLevel = 0.0;
             InputLevelDb = -100.0;
-            GpuAppUsagePercent = 0.0;
-            GpuUsagePercent = 0.0;
-            CpuAppUsagePercent = 0.0;
-            CpuTotalUsagePercent = 0.0;
-            CpuToolTip = "CPU";
-            GpuToolTip = "GPU";
         }
         else
         {
@@ -165,8 +475,6 @@ public partial class DiagnosticsViewModel : ObservableObject
             CoreProcessingLoad = Math.Clamp(coreCriticalPathMs * 100.0 / blockDurationMs, 0, 100);
             double pluginInstantLoad = plugin.CurrentProcessingTimeMs * 100.0 / blockDurationMs;
             PluginProcessingLoad = Math.Clamp(pluginInstantLoad, 0, 100);
-            FftFps = diagnostics.FftFps;
-            WpfFps = diagnostics.WpfFps;
             DemodFps = diagnostics.DemodFps;
             FftRequestCount = diagnostics.FftRequestCount;
             FftCompletedCount = diagnostics.FftCompletedCount;
@@ -204,12 +512,6 @@ public partial class DiagnosticsViewModel : ObservableObject
             InputLevelQDb = decibelsQ;
             InputLevel = Math.Clamp((decibels + 96.0) / 96.0 * 80.0, 0.0, 80.0);
             InputLevelDb = decibels;
-            GpuAppUsagePercent = diagnostics.GpuAppUsagePercent;
-            GpuUsagePercent = diagnostics.GpuUsagePercent;
-            CpuAppUsagePercent = diagnostics.CpuAppUsagePercent;
-            CpuTotalUsagePercent = diagnostics.CpuTotalUsagePercent;
-            CpuToolTip = $"CPU: プログラム {CpuAppUsagePercent:0}% / 全体 {CpuTotalUsagePercent:0}%";
-            GpuToolTip = $"GPU: プログラム {GpuAppUsagePercent:0}% / 全体 {GpuUsagePercent:0}%";
         }
 
         var (bitDepth, bitDepthDesc) = GetEffectiveBitDepth(_engine.SdrDevice, radioControl.FsHz);

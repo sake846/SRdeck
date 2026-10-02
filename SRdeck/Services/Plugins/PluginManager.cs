@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using SRdeckPlugin.Contracts;
 using SRdeckPlugin.Sdk;
 using SRdeck.Services;
@@ -11,6 +14,16 @@ public sealed record PluginRuntimeInfo(
     bool IsCompatible,
     string? LastError,
     string? SelectedProfileId = null);
+
+public sealed record PluginPerformanceConfiguration(
+    string PluginId,
+    string DisplayName,
+    string State,
+    bool IsCompatible,
+    string? SelectedProfileId,
+    int? SettingsSchemaVersion,
+    JsonElement? Settings,
+    string? SettingsReadError);
 
 public sealed record PluginOperationResult(bool Succeeded, string? Error)
 {
@@ -59,10 +72,13 @@ public interface IPluginManager : IAsyncDisposable
     bool IsPluginActive(string pluginId);
     bool IsPluginStreaming(string pluginId);
     void ReportFault(string pluginId, string operation, Exception exception);
+    Task<IReadOnlyList<PluginPerformanceConfiguration>> GetPerformanceConfigurationsAsync(
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class PluginManager : IPluginManager
 {
+    private static readonly Regex JsonArrayIndex = new(@"\[\d+\]", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private readonly PluginRuntimeRegistry _runtimeRegistry;
     private readonly PluginLifecycleCoordinator _lifecycleCoordinator;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
@@ -118,6 +134,127 @@ public sealed class PluginManager : IPluginManager
 
     public bool TryGetActiveCapability<TCapability>(out TCapability? capability) where TCapability : class =>
         _runtimeRegistry.TryGetActiveCapability(out capability);
+
+    public async Task<IReadOnlyList<PluginPerformanceConfiguration>> GetPerformanceConfigurationsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var configurations = new List<PluginPerformanceConfiguration>();
+        foreach (PluginRuntimeEntry entry in _runtimeRegistry.Entries)
+        {
+            PluginSettingsDocument? settings = null;
+            string? settingsReadError = null;
+            try
+            {
+                settings = await entry.Context.Settings.LoadAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                settingsReadError = exception.GetType().Name;
+            }
+
+            JsonElement? settingsSnapshot = null;
+            if (settings is not null)
+            {
+                try { settingsSnapshot = RedactSettings(settings); }
+                catch (Exception exception) { settingsReadError = exception.GetType().Name; }
+            }
+
+            configurations.Add(new PluginPerformanceConfiguration(
+                entry.Module.Descriptor.Id,
+                entry.Module.Descriptor.DisplayName,
+                entry.State.ToString(),
+                entry.IsCompatible,
+                (entry.Module as IPluginProfileProvider)?.SelectedProfileId,
+                settings?.SchemaVersion,
+                settingsSnapshot,
+                settingsReadError));
+        }
+
+        return configurations;
+    }
+
+    private static JsonElement RedactSettings(PluginSettingsDocument settings)
+    {
+        JsonNode? root = JsonNode.Parse(settings.Json);
+        if (root is null)
+        {
+            using JsonDocument nullDocument = JsonDocument.Parse("null");
+            return nullDocument.RootElement.Clone();
+        }
+
+        string[] secretPaths = (settings.SecretJsonPaths ?? Array.Empty<string>())
+            .Select(NormalizeJsonPath)
+            .ToArray();
+        if (secretPaths.Contains(string.Empty, StringComparer.OrdinalIgnoreCase))
+        {
+            using JsonDocument redactedDocument = JsonDocument.Parse("\"[redacted]\"");
+            return redactedDocument.RootElement.Clone();
+        }
+
+        RedactSettingsNode(root, "$", secretPaths);
+        using JsonDocument sanitized = JsonDocument.Parse(root.ToJsonString());
+        return sanitized.RootElement.Clone();
+    }
+
+    private static void RedactSettingsNode(JsonNode? node, string path, IReadOnlyList<string> secretPaths)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach ((string name, JsonNode? value) in obj.ToArray())
+            {
+                string childPath = $"{path}.{name}";
+                if (IsSensitiveSettingName(name) || secretPaths.Contains(NormalizeJsonPath(childPath), StringComparer.OrdinalIgnoreCase))
+                {
+                    obj[name] = "[redacted]";
+                }
+                else
+                {
+                    RedactSettingsNode(value, childPath, secretPaths);
+                }
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (int index = 0; index < array.Count; index++)
+                RedactSettingsNode(array[index], $"{path}[{index}]", secretPaths);
+        }
+    }
+
+    private static string NormalizeJsonPath(string path)
+    {
+        string normalized = path.Trim();
+        if (normalized.StartsWith("$.", StringComparison.Ordinal)) normalized = normalized[2..];
+        else if (normalized == "$") normalized = string.Empty;
+        else if (normalized.StartsWith("/", StringComparison.Ordinal))
+            normalized = normalized[1..].Replace("/", ".", StringComparison.Ordinal);
+
+        normalized = normalized.Replace("['", ".", StringComparison.Ordinal)
+            .Replace("']", string.Empty, StringComparison.Ordinal)
+            .Replace("[\"", ".", StringComparison.Ordinal)
+            .Replace("\"]", string.Empty, StringComparison.Ordinal)
+            .Replace("[*]", "[]", StringComparison.Ordinal);
+        return JsonArrayIndex.Replace(normalized, "[]").TrimStart('.');
+    }
+
+    private static bool IsSensitiveSettingName(string name)
+    {
+        string normalized = name.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+        return normalized.Contains("password", StringComparison.Ordinal) ||
+               normalized.Contains("passphrase", StringComparison.Ordinal) ||
+               normalized.Contains("secret", StringComparison.Ordinal) ||
+               normalized.Contains("token", StringComparison.Ordinal) ||
+               normalized.Contains("apikey", StringComparison.Ordinal) ||
+               normalized.Contains("privatekey", StringComparison.Ordinal) ||
+               normalized.Contains("accesskey", StringComparison.Ordinal) ||
+               normalized.Contains("credential", StringComparison.Ordinal) ||
+               normalized is "pwd" or "authorization" or "bearer";
+    }
 
     public async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
     {

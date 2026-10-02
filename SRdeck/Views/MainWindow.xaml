@@ -5,9 +5,11 @@
         xmlns:localBehaviors="clr-namespace:SRdeck.Behaviors"
         xmlns:localViews="clr-namespace:SRdeck.Views"
         xmlns:models="clr-namespace:SRdeck.Models"
+        xmlns:pluginWpf="clr-namespace:SRdeckPlugin.Wpf;assembly=SRdeckPlugin.Wpf"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:conv="clr-namespace:SRdeck.Converters"
         Title="{Binding WindowTitle}" Height="700" Width="1280" MinWidth="982"
+        pluginWpf:PluginHost.SdrControl="{Binding SdrControl}"
         Background="{StaticResource PanelBaseBrush}" FontFamily="{StaticResource MainFontFamily}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
@@ -376,7 +378,7 @@
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Visibility" Value="Visible" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsDirectGainDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
@@ -387,7 +389,7 @@
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsDirectGainDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
@@ -399,7 +401,7 @@
                                             <Style TargetType="Grid">
                                                 <Setter Property="Visibility" Value="Visible" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsDirectGainDevice}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Grid.Style>
@@ -421,7 +423,7 @@
                                             <Style TargetType="Grid">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsRtlDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsDirectGainDevice}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Grid.Style>
@@ -430,9 +432,9 @@
                                             <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
                                         <Slider Grid.Column="0" Width="120" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
-                                                Value="{Binding RtlSdrRfGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Value="{Binding DirectRfGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 VerticalAlignment="Center" Margin="2,0,4,0"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding RtlSdrRfGainDb}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding DirectRfGainDb}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                     </Grid>
                                 </Grid>
 

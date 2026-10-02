@@ -27,7 +27,6 @@ public partial class MainViewModel : ObservableObject
     // --- ComboBox Selections & Persistent Settings ---
     [ObservableProperty] private SettingsComboBoxOption<float?>? _selectedGridTopDb;
     [ObservableProperty] private SettingsComboBoxOption<int?>? _selectedDebugDraw;
-    [ObservableProperty] private SettingsComboBoxOption<FrequencyDisplayMode?>? _selectedFrequencyDisplayMode;
     [ObservableProperty] private SettingsComboBoxOption<bool?>? _selectedIsGpuFftEnabled;
     [ObservableProperty] private SettingsComboBoxOption<int?>? _selectedFftResolutionMode;
     [ObservableProperty] private SettingsComboBoxOption<SdrDeviceType>? _selectedSdrDeviceType;
@@ -39,6 +38,10 @@ public partial class MainViewModel : ObservableObject
 
         _engine.InitialAppSettings.SdrDeviceType = value.Value;
         _settingsService.SaveSettings(_engine.InitialAppSettings);
+        IsRtlDevice = IsRtlSdrConfigured(value.Value);
+        IsHackRfDevice = IsHackRfConfigured(value.Value);
+        IsRx888Device = IsRx888Configured(value.Value);
+        UpdateSampleRateOptions();
     }
 
     partial void OnSelectedGridTopDbChanged(SettingsComboBoxOption<float?>? value)
@@ -70,13 +73,6 @@ public partial class MainViewModel : ObservableObject
             _engine.Control = control;
             WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(control));
         }
-    }
-
-    partial void OnSelectedFrequencyDisplayModeChanged(SettingsComboBoxOption<FrequencyDisplayMode?>? value)
-    {
-        if (value == null || _engine?.InitialAppSettings?.Display == null) return;
-        _engine.InitialAppSettings.Display.FrequencyDisplayMode = value.Value;
-        _settingsService.SaveSettings(_engine.InitialAppSettings);
     }
 
     partial void OnSelectedIsGpuFftEnabledChanged(SettingsComboBoxOption<bool?>? value)
@@ -114,9 +110,13 @@ public partial class MainViewModel : ObservableObject
 
     private string GetEffectiveBitDepthText()
     {
-        if (IsRtlDevice)
+        if (IsRtlDevice || IsHackRfDevice)
         {
             return "有効 8 bit";
+        }
+        if (IsRx888Device)
+        {
+            return "有効 16 bit";
         }
 
         int sampleRate = SdrPlaySampleRateHz > 0 ? SdrPlaySampleRateHz : 6_000_000;
@@ -142,6 +142,12 @@ public partial class MainViewModel : ObservableObject
     public record SampleRateOption(string Label, int Value);
     public ObservableCollection<SampleRateOption> SampleRateOptions { get; } = new();
 
+    private SdrDeviceKind CurrentSampleRateDeviceKind => IsRtlDevice
+        ? SdrDeviceKind.RtlSdr
+        : IsHackRfDevice
+            ? SdrDeviceKind.HackRf
+            : IsRx888Device ? SdrDeviceKind.Rx888 : SdrDeviceKind.SdrPlay;
+
     public void UpdateSampleRateOptions()
     {
         int previousSampleRateHz = SdrPlaySampleRateHz;
@@ -150,7 +156,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             SampleRateOptions.Clear();
-            foreach (int sampleRateHz in SdrSampleRatePolicy.GetSupportedRates(IsRtlDevice))
+            foreach (int sampleRateHz in SdrSampleRatePolicy.GetSupportedRates(CurrentSampleRateDeviceKind))
             {
                 SampleRateOptions.Add(new SampleRateOption(
                     FormattableString.Invariant($"{sampleRateHz / 1_000_000.0:0.#} MS/s"), sampleRateHz));
@@ -165,7 +171,7 @@ public partial class MainViewModel : ObservableObject
         // Zero means settings have not been loaded yet during construction.
         if (previousSampleRateHz > 0)
         {
-            SdrPlaySampleRateHz = NormalizeSampleRateForDevice(previousSampleRateHz, IsRtlDevice);
+            SdrPlaySampleRateHz = NormalizeSampleRateForDevice(previousSampleRateHz, CurrentSampleRateDeviceKind);
         }
         // Re-select even when the value did not change but the items were replaced.
         OnPropertyChanged(nameof(SdrPlaySampleRateHz));
@@ -174,31 +180,54 @@ public partial class MainViewModel : ObservableObject
     partial void OnSdrPlaySampleRateHzChanged(int value)
     {
         if (_isSynchronizingSampleRateSelection || _engine?.InitialAppSettings == null) return;
-        int normalizedValue = NormalizeSampleRateForDevice(value, IsRtlDevice);
+        int normalizedValue = NormalizeSampleRateForDevice(value, CurrentSampleRateDeviceKind);
         if (value != normalizedValue)
         {
             SdrPlaySampleRateHz = normalizedValue;
             return;
         }
         bool settingsChanged = _engine.InitialAppSettings.SdrPlaySampleRateHz != value;
+#if ENABLE_RX888
+        if (_engine.SdrDevice is Rx888Mk2Controller rx888)
+        {
+            if (!rx888.ApplySampleRate(value))
+            {
+                SdrPlaySampleRateHz = rx888.FsHz;
+                return;
+            }
+            var rx888Control = _engine.Control;
+            rx888Control.FsHz = value;
+            _engine.Control = rx888Control;
+            _engine.EnsureIqBufferCapacity();
+            SyncMainSpanOptionsToFs(
+                value, isRtlDevice: false, isRx888Device: true, selectFullSpan: true);
+            if (settingsChanged)
+            {
+                _engine.InitialAppSettings.SdrPlaySampleRateHz = value;
+                _settingsService.SaveSettings(_engine.InitialAppSettings);
+            }
+            return;
+        }
+#endif
         if (settingsChanged)
         {
             _engine.InitialAppSettings.SdrPlaySampleRateHz = value;
             _settingsService.SaveSettings(_engine.InitialAppSettings);
         }
 
-        if (_engine.SdrDevice is RtlSdrController rtlSdr)
+        if (_engine.SdrDevice is { } directDevice &&
+            directDevice.Capabilities.Kind is SdrDeviceKind.RtlSdr or SdrDeviceKind.HackRf)
         {
-            if (!rtlSdr.ApplySampleRate(value))
+            if (!directDevice.ApplySampleRate(value))
             {
-                SdrPlaySampleRateHz = rtlSdr.FsHz;
+                SdrPlaySampleRateHz = directDevice.FsHz;
                 return;
             }
-            var rtlControl = _engine.Control;
-            rtlControl.FsHz = value;
-            _engine.Control = rtlControl;
+            var directControl = _engine.Control;
+            directControl.FsHz = value;
+            _engine.Control = directControl;
             _engine.EnsureIqBufferCapacity();
-            SyncMainSpanOptionsToFs(value, isRtlDevice: true, selectFullSpan: true);
+            SyncMainSpanOptionsToFs(value, isRtlDevice: IsRtlDevice, selectFullSpan: true);
         }
         else if (_engine.SdrDevice != null && _engine.SdrDevice.Capabilities.Kind == SdrDeviceKind.SdrPlay)
         {
@@ -219,7 +248,7 @@ public partial class MainViewModel : ObservableObject
 
     internal void SyncSampleRateSelectionFromAppliedControl(int sampleRateHz)
     {
-        if (sampleRateHz <= 0 || NormalizeSampleRateForDevice(sampleRateHz, IsRtlDevice) != sampleRateHz ||
+        if (sampleRateHz <= 0 || NormalizeSampleRateForDevice(sampleRateHz, CurrentSampleRateDeviceKind) != sampleRateHz ||
             SdrPlaySampleRateHz == sampleRateHz)
         {
             return;
@@ -235,7 +264,8 @@ public partial class MainViewModel : ObservableObject
             _isSynchronizingSampleRateSelection = false;
         }
         if (!_engine.IsPlaying && _engine.SdrDevice?.FsHz == sampleRateHz)
-            SyncMainSpanOptionsToFs(sampleRateHz, IsRtlDevice, selectFullSpan: true);
+            SyncMainSpanOptionsToFs(
+                sampleRateHz, IsRtlDevice, IsRx888Device, selectFullSpan: true);
     }
 }
 

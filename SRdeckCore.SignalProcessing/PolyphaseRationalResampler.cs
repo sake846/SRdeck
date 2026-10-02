@@ -8,7 +8,6 @@ public sealed class PolyphaseRationalResampler
     private readonly int tapsPerPhase;
     private readonly int maximumExactPhases;
     private readonly bool allowUpsampling;
-    private float[][] phaseTaps = [];
     private float[][] reversedPhaseTaps = [];
     private float[] historyI;
     private float[] historyQ;
@@ -58,7 +57,6 @@ public sealed class PolyphaseRationalResampler
             throw new ArgumentOutOfRangeException(nameof(cutoffHz));
 
         int phaseCount = Math.Min(interpolationFactor, maximumExactPhases);
-        phaseTaps = new float[phaseCount][];
         reversedPhaseTaps = new float[phaseCount][];
         double center = (tapsPerPhase - 1) * 0.5;
         double normalizedCutoff = cutoffHz / intermediateRateHz;
@@ -78,10 +76,8 @@ public sealed class PolyphaseRationalResampler
                 sum += taps[tap];
             }
             for (int tap = 0; tap < taps.Length; tap++) taps[tap] /= (float)sum;
-            phaseTaps[phase] = taps;
-            float[] reversed = new float[taps.Length];
-            for (int tap = 0; tap < taps.Length; tap++) reversed[tap] = taps[taps.Length - 1 - tap];
-            reversedPhaseTaps[phase] = reversed;
+            Array.Reverse(taps);
+            reversedPhaseTaps[phase] = taps;
         }
 
         ResetState();
@@ -186,18 +182,22 @@ public sealed class PolyphaseRationalResampler
 
     private void Filter(long sourceIndex, out float outputI, out float outputQ)
     {
-        long remainder = nextOutputNumerator % interpolationFactor;
-        int phase = (int)((remainder * phaseTaps.Length + interpolationFactor / 2L) /
-            interpolationFactor) % phaseTaps.Length;
-        float[] taps = phaseTaps[phase];
+        int phaseCount = reversedPhaseTaps.Length;
+        int phase = 0;
+        if (phaseCount != 1)
+        {
+            long remainder = nextOutputNumerator % interpolationFactor;
+            phase = (int)((remainder * phaseCount + interpolationFactor / 2L) /
+                interpolationFactor) % phaseCount;
+        }
         float[] reversedTaps = reversedPhaseTaps[phase];
         int delay = Math.Clamp(checked((int)(inputIndex - sourceIndex)), 0, tapsPerPhase - 1);
         int historyIndex = historyPosition - delay;
         while (historyIndex < 0) historyIndex += tapsPerPhase;
-        int start = historyIndex - taps.Length + 1;
+        int start = historyIndex - tapsPerPhase + 1;
         if (start < 0) start += tapsPerPhase;
-        outputI = Dot(historyI.AsSpan(start, taps.Length), reversedTaps);
-        outputQ = Dot(historyQ.AsSpan(start, taps.Length), reversedTaps);
+        outputI = Dot(historyI.AsSpan(start, tapsPerPhase), reversedTaps);
+        outputQ = Dot(historyQ.AsSpan(start, tapsPerPhase), reversedTaps);
     }
 
     private void ResetState()

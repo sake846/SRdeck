@@ -177,8 +177,8 @@ public partial class MainViewModel : ObservableObject
         radioControl.SpanHz = _lastState.SpanHz;
         radioControl.IsAfcEnabled = false;
         radioControl.IsMonoMode = false;
-        radioControl.IsBandPlanVisible = (_lastState.FrequencyDisplayMode == FrequencyDisplayMode.Both || _lastState.FrequencyDisplayMode == FrequencyDisplayMode.BandOnly);
-        radioControl.IsStationNameVisible = (_lastState.FrequencyDisplayMode == FrequencyDisplayMode.Both || _lastState.FrequencyDisplayMode == FrequencyDisplayMode.StationOnly);
+        radioControl.IsBandPlanVisible = false;
+        radioControl.IsStationNameVisible = false;
 
         _engine.Control = radioControl;
 
@@ -192,8 +192,7 @@ public partial class MainViewModel : ObservableObject
         FftResolutionMode = _engine.InitialAppSettings.Display.FftResolutionMode;
         
         // UIプロパティへの同期
-        IsBandPlanVisible = radioControl.IsBandPlanVisible;
-        IsStationNameVisible = radioControl.IsStationNameVisible;
+        ApplyFrequencyDisplayMode(FrequencyDisplayMode.None);
         IsReceiver1Visible = radioControl.IsR1Visible;
 
         WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));

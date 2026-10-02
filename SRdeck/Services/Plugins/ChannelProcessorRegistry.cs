@@ -87,6 +87,17 @@ internal class ChannelProcessorRegistry(IStandardChannelGpuBackend? gpuBackend =
             planned[index] = request with { AccelerationPreference = preference };
         }
 
+        if (gpuBackend is not { IsAvailable: true })
+        {
+            for (int index = 0; index < planned.Length; index++)
+                if (planned[index].AccelerationPreference == PluginChannelAccelerationPreference.Auto)
+                    planned[index] = planned[index] with
+                    {
+                        AccelerationPreference = PluginChannelAccelerationPreference.Cpu
+                    };
+            return planned;
+        }
+
         PluginChannelRequest[] context = batchContextRequests
             .Concat(requests)
             .Select(request =>

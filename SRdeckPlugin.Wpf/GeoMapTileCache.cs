@@ -15,6 +15,8 @@ public sealed record GeoMapCachedTile(
 }
 
 public sealed record GeoMapTileCacheStatistics(long TileCount, long ContentBytes);
+public sealed record GeoMapTileCacheEntry(string Provider, int Zoom, int X, int Y,
+    long ContentBytes, DateTimeOffset StoredUtc, DateTimeOffset ExpiresUtc);
 
 public sealed class GeoMapTileCache : IDisposable
 {
@@ -230,6 +232,71 @@ public sealed class GeoMapTileCache : IDisposable
         {
             gate.Release();
         }
+    }
+
+    public async ValueTask<IReadOnlyList<GeoMapTileCacheEntry>> ListTilesAsync(
+        string provider, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        ValidateProvider(provider);
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var tiles = new List<GeoMapTileCacheEntry>();
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT zoom_level, tile_column, tile_row, length(tile_data), stored_utc, expires_utc
+                FROM tile_cache WHERE provider = $provider
+                ORDER BY zoom_level, tile_column, tile_row
+                """;
+            command.Parameters.AddWithValue("$provider", provider);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                tiles.Add(new(provider, reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2),
+                    reader.GetInt64(3), DateTimeOffset.FromUnixTimeSeconds(reader.GetInt64(4)),
+                    DateTimeOffset.FromUnixTimeSeconds(reader.GetInt64(5))));
+            return tiles;
+        }
+        finally { gate.Release(); }
+    }
+
+    public async ValueTask<int> DeleteTilesAsync(
+        IEnumerable<GeoMapTileCacheEntry> tiles, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        ArgumentNullException.ThrowIfNull(tiles);
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                DELETE FROM tile_cache WHERE provider = $provider AND zoom_level = $zoom
+                    AND tile_column = $x AND tile_row = $y
+                """;
+            var provider = command.Parameters.Add("$provider", SqliteType.Text);
+            var zoom = command.Parameters.Add("$zoom", SqliteType.Integer);
+            var x = command.Parameters.Add("$x", SqliteType.Integer);
+            var y = command.Parameters.Add("$y", SqliteType.Integer);
+            int deleted = 0;
+            foreach (GeoMapTileCacheEntry tile in tiles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateProvider(tile.Provider);
+                if (!GeoMapTileContent.IsValidCoordinate(tile.Zoom, tile.X, tile.Y))
+                    throw new ArgumentOutOfRangeException(nameof(tiles));
+                provider.Value = tile.Provider;
+                zoom.Value = tile.Zoom;
+                x.Value = tile.X;
+                y.Value = tile.Y;
+                deleted += await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return deleted;
+        }
+        finally { gate.Release(); }
     }
 
     private async Task EvictToQuotaAsync(SqliteTransaction transaction, CancellationToken cancellationToken)

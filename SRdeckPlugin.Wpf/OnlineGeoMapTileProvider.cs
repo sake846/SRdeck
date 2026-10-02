@@ -29,14 +29,16 @@ public sealed class OnlineGeoMapTileProvider
     }
 
     public async ValueTask<OnlineGeoMapTileResult> GetTileAsync(
-        int zoom, int x, int y, bool allowNetwork, CancellationToken cancellationToken)
+        int zoom, int x, int y, bool allowNetwork, CancellationToken cancellationToken,
+        bool forceRefresh = false)
     {
         if (!GeoMapTileContent.IsValidCoordinate(zoom, x, y)) return new(null, false, false);
         DateTimeOffset now = utcNow();
         GeoMapCachedTile? cached = await TryGetCachedTileAsync(zoom, x, y, now, cancellationToken)
             .ConfigureAwait(false);
-        if (cached?.IsFresh(now) == true) return new(cached.ToTile(), true, false);
-        if (!allowNetwork) return new(null, false, false);
+        if (cached?.IsFresh(now) == true && (!forceRefresh || !allowNetwork))
+            return new(cached.ToTile(), true, false);
+        if (!allowNetwork) return new(cached?.ToTile(), cached is not null, false);
 
         try
         {
@@ -61,14 +63,15 @@ public sealed class OnlineGeoMapTileProvider
                     .ConfigureAwait(false);
                 return new(cached.ToTile(), true, false);
             }
-            if (response.StatusCode != HttpStatusCode.OK) return new(null, false, true);
+            if (response.StatusCode != HttpStatusCode.OK)
+                return new(cached?.ToTile(), cached is not null, true);
             if (response.Content.Headers.ContentLength is long length &&
                 length is <= 0 or > GeoMapTileContent.MaximumTileBytes)
-                return new(null, false, false);
+                return new(cached?.ToTile(), cached is not null, true);
 
             byte[] content = await ReadBoundedAsync(response.Content, cancellationToken).ConfigureAwait(false);
             string contentType = GeoMapTileContent.DetectContentType(content);
-            if (contentType.Length == 0) return new(null, false, false);
+            if (contentType.Length == 0) return new(cached?.ToTile(), cached is not null, true);
             var tile = new GeoMapTile(content, contentType);
             await TryStoreTileAsync(zoom, x, y, tile,
                 response.Headers.ETag?.ToString(), response.Content.Headers.LastModified,
@@ -78,7 +81,7 @@ public sealed class OnlineGeoMapTileProvider
         }
         catch (Exception exception) when (exception is HttpRequestException or IOException or TaskCanceledException)
         {
-            return new(null, false, true);
+            return new(cached?.ToTile(), cached is not null, true);
         }
     }
 

@@ -61,6 +61,8 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSample
     private readonly object _sync = new();
     private readonly object _gainSync = new();
     private Task? _readTask;
+    private Task? _shutdownTask;
+    private int _readThreadId;
     private bool _isStreaming;
     private bool _isStopping;
     private bool _isDisposed;
@@ -89,160 +91,154 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSample
 
     public bool Open()
     {
-        if (_device != IntPtr.Zero) return true;
-        try
+        lock (_sync)
         {
-            uint count = RtlSdrApi.rtlsdr_get_device_count();
-            if (count == 0)
+            if (_isDisposed) return false;
+            if (_isStopping || _shutdownTask is { IsCompleted: false })
             {
-                ReportError("RTL-SDR(rtllsdr)デバイスが見つかりません。WinUSBドライバと接続、または使用中アプリ(HDSDR等)を確認してください。");
+                ReportError("RTL-SDRの停止処理が完了していません。完了後に再試行してください。");
                 return false;
             }
+            if (_device != IntPtr.Zero) return true;
 
-            var openResult = RtlSdrApi.rtlsdr_open(ref _device, 0);
-            if (openResult != 0 || _device == IntPtr.Zero)
+            try
             {
-                ReportError($"RTL-SDR open失敗 (rtlsdr_open={openResult})。他アプリがデバイスを占有していないか確認してください。");
+                uint count = RtlSdrApi.rtlsdr_get_device_count();
+                if (count == 0)
+                {
+                    ReportError("RTL-SDR(rtllsdr)デバイスが見つかりません。WinUSBドライバと接続、または使用中アプリ(HDSDR等)を確認してください。");
+                    return false;
+                }
+
+                var openResult = RtlSdrApi.rtlsdr_open(ref _device, 0);
+                if (openResult != 0 || _device == IntPtr.Zero)
+                {
+                    ReportError($"RTL-SDR open失敗 (rtlsdr_open={openResult})。他アプリがデバイスを占有していないか確認してください。");
+                    return false;
+                }
+
+                if (RtlSdrApi.rtlsdr_set_sample_rate(_device, (uint)DeviceSampleRateHz) != 0)
+                {
+                    ReportError("rtlsdr_set_sample_rate failed");
+                    CloseDeviceLocked();
+                    return false;
+                }
+                FsHz = DeviceSampleRateHz;
+
+                // Keep VHF/FM operation stable regardless of prior app state.
+                TrySetDirectSamplingOff();
+                TrySetOffsetTuningOn();
+
+                FreqChange();
+                ApplyPpmCorrection();
+                LoadSupportedTunerGains();
+                ApplyGainSettings();
+
+                NotifyDeviceInfo();
+                return true;
+            }
+            catch (DllNotFoundException)
+            {
+                CloseDeviceLocked();
+                ReportError("rtlsdr.dll または依存DLLが見つかりません。SRdeck.exe と同じフォルダに rtlsdr.dll/libusb-1.0.dll を配置してください。");
                 return false;
             }
-
-            if (RtlSdrApi.rtlsdr_set_sample_rate(_device, (uint)DeviceSampleRateHz) != 0)
+            catch (EntryPointNotFoundException ex)
             {
-                ReportError("rtlsdr_set_sample_rate failed");
-                CloseDevice();
+                CloseDeviceLocked();
+                ReportError($"rtlsdr.dll の関数が不足しています: {ex.Message}");
                 return false;
             }
-            FsHz = DeviceSampleRateHz;
-
-            // Keep VHF/FM operation stable regardless of prior app state.
-            TrySetDirectSamplingOff();
-            TrySetOffsetTuningOn();
-
-            FreqChange();
-            ApplyPpmCorrection();
-            LoadSupportedTunerGains();
-            ApplyGainSettings();
-
-            NotifyDeviceInfo();
-            return true;
-        }
-        catch (DllNotFoundException)
-        {
-            CloseDevice();
-            ReportError("rtlsdr.dll または依存DLLが見つかりません。SRdeck.exe と同じフォルダに rtlsdr.dll/libusb-1.0.dll を配置してください。");
-            return false;
-        }
-        catch (EntryPointNotFoundException ex)
-        {
-            CloseDevice();
-            ReportError($"rtlsdr.dll の関数が不足しています: {ex.Message}");
-            return false;
-        }
-        catch (Exception ex)
-        {
-            CloseDevice();
-            ReportError($"RTL-SDR開始時に例外が発生しました: {ex.Message}");
-            return false;
+            catch (Exception ex)
+            {
+                CloseDeviceLocked();
+                ReportError($"RTL-SDR開始時に例外が発生しました: {ex.Message}");
+                return false;
+            }
         }
     }
 
     public bool Start()
     {
-        if (_isStreaming) return true;
-        if (!Open()) return false;
-        if (RtlSdrApi.rtlsdr_reset_buffer(_device) != 0)
+        lock (_sync)
         {
-            ReportError("rtlsdr_reset_buffer failed");
-            return false;
-        }
-
-        // Detection opens the device before the session starts. Re-apply the
-        // current center frequency here as the hardware may still be tuned to
-        // the frequency used during detection. A later UI retune also calls
-        // FreqChange(), which is why this was previously corrected by swiping.
-        FreqChange();
-
-        _isStopping = false;
-        _sampleDispatcher.Start();
-        _isStreaming = true;
-        _readTask = Task.Run(() =>
-        {
-            int result = RtlSdrApi.rtlsdr_read_async(
-                _device,
-                _readCallback,
-                IntPtr.Zero,
-                AsyncTransferBufferCount,
-                DefaultBufferLen);
-            if (!_isStopping && result != 0)
+            if (_isDisposed) return false;
+            if (_isStopping || _shutdownTask is { IsCompleted: false })
             {
-                DeviceRemoved?.Invoke();
+                ReportError("RTL-SDRの停止処理が完了していません。完了後に再試行してください。");
+                return false;
             }
-        });
-        return true;
+            if (_isStreaming) return true;
+            if (!Open()) return false;
+            if (RtlSdrApi.rtlsdr_reset_buffer(_device) != 0)
+            {
+                ReportError("rtlsdr_reset_buffer failed");
+                return false;
+            }
+
+            // Detection opens the device before the session starts. Re-apply the
+            // current center frequency here as the hardware may still be tuned to
+            // the frequency used during detection. A later UI retune also calls
+            // FreqChange(), which is why this was previously corrected by swiping.
+            FreqChange();
+
+            _isStopping = false;
+            _sampleDispatcher.Start();
+            _isStreaming = true;
+            IntPtr sessionDevice = _device;
+            _readTask = Task.Run(() =>
+            {
+                Volatile.Write(ref _readThreadId, Environment.CurrentManagedThreadId);
+                try
+                {
+                    int result = RtlSdrApi.rtlsdr_read_async(
+                        sessionDevice,
+                        _readCallback,
+                        IntPtr.Zero,
+                        AsyncTransferBufferCount,
+                        DefaultBufferLen);
+                    if (!Volatile.Read(ref _isStopping) && result != 0)
+                    {
+                        DeviceRemoved?.Invoke();
+                    }
+                }
+                finally
+                {
+                    Volatile.Write(ref _readThreadId, 0);
+                    _sampleDispatcher.Stop();
+                }
+            });
+            return true;
+        }
     }
 
     public void Stop()
     {
-        Task? readTask;
-        lock (_sync)
-        {
-            if (_isStopping) return;
-            _isStopping = true;
-            readTask = _readTask;
-        }
+        Task? shutdown;
+        lock (_sync) shutdown = BeginStopLocked();
+        if (shutdown == null || Environment.CurrentManagedThreadId == Volatile.Read(ref _readThreadId)) return;
 
-        if (_device != IntPtr.Zero && _isStreaming)
-        {
-            try
-            {
-                ShutdownDiagnosticLog.Write("RtlSdrController.Stop", "Calling rtlsdr_cancel_async...");
-                RtlSdrApi.rtlsdr_cancel_async(_device);
-            }
-            catch
-            {
-                // ignore
-            }
-        }
-
-        if (readTask != null)
-        {
-            try
-            {
-                ShutdownDiagnosticLog.Write("RtlSdrController.Stop", "Waiting up to 3s for readTask...");
-                var sw = Stopwatch.StartNew();
-                if (!readTask.Wait(TimeSpan.FromSeconds(3)))
-                {
-                    ShutdownDiagnosticLog.Write("WARNING: RtlSdrController readTask wait timed out after 3s!");
-                    Debug.Print("[RtlSdrController] rtlsdr_read_async task wait timed out.");
-                }
-                else
-                {
-                    ShutdownDiagnosticLog.Write("RtlSdrController readTask completed", "took " + sw.ElapsedMilliseconds + "ms");
-                }
-            }
-            catch
-            {
-                // ignore
-            }
-        }
-
-        _readTask = null;
         _sampleDispatcher.Stop();
-        _isStreaming = false;
-        _isStopping = false;
+        if (!shutdown.Wait(TimeSpan.FromSeconds(3)))
+        {
+            ShutdownDiagnosticLog.Write("WARNING: RtlSdrController readTask wait timed out after 3s!");
+            Debug.Print("[RtlSdrController] rtlsdr_read_async task wait timed out; native handle retained.");
+        }
     }
 
     public void Dispose()
     {
-        if (_isDisposed) return;
+        lock (_sync)
+        {
+            if (_isDisposed) return;
+            _isDisposed = true;
+        }
         Stop();
-        CloseDevice();
         _sampleDispatcher.Dispose();
-        _isDisposed = true;
         GC.SuppressFinalize(this);
     }
 
-    private void CloseDevice()
+    private void CloseDeviceLocked()
     {
         if (_device == IntPtr.Zero) return;
         if (_readTask != null && !_readTask.IsCompleted)
@@ -263,13 +259,68 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSample
         _appliedPpm = null;
     }
 
+    private Task? BeginStopLocked()
+    {
+        if (_device == IntPtr.Zero) return null;
+        if (_shutdownTask is { IsCompleted: false }) return _shutdownTask;
+
+        _isStopping = true;
+        IntPtr sessionDevice = _device;
+        Task? reader = _readTask;
+        _shutdownTask = NativeStreamShutdown.BeginAsync(
+            async () =>
+            {
+                // Cancellation can race the native read loop's initialization.
+                // Reassert it until the captured reader has actually returned.
+                while (reader != null && !reader.IsCompleted)
+                {
+                    RtlSdrApi.rtlsdr_cancel_async(sessionDevice);
+                    await Task.WhenAny(reader, Task.Delay(100)).ConfigureAwait(false);
+                }
+            },
+            reader,
+            () =>
+            {
+                lock (_sync)
+                {
+                    if (_device != sessionDevice) return;
+                    ShutdownDiagnosticLog.Write("RtlSdrController.CloseDevice", "Calling rtlsdr_close...");
+                    RtlSdrApi.rtlsdr_close(sessionDevice);
+                    _device = IntPtr.Zero;
+                    _readTask = null;
+                    _isStreaming = false;
+                    _isStopping = false;
+                    _shutdownTask = null;
+                    _appliedPpm = null;
+                }
+            },
+            exception =>
+            {
+                ReportError($"RTL-SDR停止処理に失敗しました。ハンドルは保持しています: {exception.Message}");
+            });
+        return _shutdownTask;
+    }
+
     public void GainChange()
     {
-        ApplyGainSettings();
-        GainHardwareChanged?.Invoke(0.0, RfGainDb);
+        lock (_sync)
+        {
+            if (_isStopping || _isDisposed) return;
+            ApplyGainSettings();
+            GainHardwareChanged?.Invoke(0.0, RfGainDb);
+        }
     }
 
     public void FreqChange()
+    {
+        lock (_sync)
+        {
+            if (_isStopping || _isDisposed) return;
+            FreqChangeCore();
+        }
+    }
+
+    private void FreqChangeCore()
     {
         if (_device == IntPtr.Zero) return;
         if (CenterFreqHz <= 0) return;
@@ -288,27 +339,33 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSample
 
     protected virtual void ApplyPpmCorrection()
     {
-        if (_device == IntPtr.Zero) return;
-        int ppm = CalculatePpmCorrection(BiasPpm, PpmAdjustment);
-        if (_appliedPpm == ppm) return;
-        int result = RtlSdrApi.rtlsdr_set_freq_correction(_device, ppm);
-        // librtlsdr returns -2 when this exact correction is already active.
-        if (result is 0 or -2)
+        lock (_sync)
         {
-            _appliedPpm = ppm;
-        }
-        else
-        {
-            Debug.WriteLine($"rtlsdr_set_freq_correction failed: {result}");
+            if (_isStopping || _isDisposed || _device == IntPtr.Zero) return;
+            int ppm = CalculatePpmCorrection(BiasPpm, PpmAdjustment);
+            if (_appliedPpm == ppm) return;
+            int result = RtlSdrApi.rtlsdr_set_freq_correction(_device, ppm);
+            // librtlsdr returns -2 when this exact correction is already active.
+            if (result is 0 or -2)
+            {
+                _appliedPpm = ppm;
+            }
+            else
+            {
+                Debug.WriteLine($"rtlsdr_set_freq_correction failed: {result}");
+            }
         }
     }
 
     public bool ApplySampleRate(int sampleRateHz)
     {
-        if (_device == IntPtr.Zero || sampleRateHz <= 0) return false;
-        if (RtlSdrApi.rtlsdr_set_sample_rate(_device, (uint)sampleRateHz) != 0) return false;
-        FsHz = sampleRateHz;
-        return true;
+        lock (_sync)
+        {
+            if (_isStopping || _isDisposed || _device == IntPtr.Zero || sampleRateHz <= 0) return false;
+            if (RtlSdrApi.rtlsdr_set_sample_rate(_device, (uint)sampleRateHz) != 0) return false;
+            FsHz = sampleRateHz;
+            return true;
+        }
     }
 
     internal static int CalculatePpmCorrection(float biasPpm, float adjustmentPpm) =>
@@ -397,7 +454,7 @@ public class RtlSdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSample
 
     private void OnReadAsync(IntPtr buffer, uint length, IntPtr context)
     {
-        if (_isStopping || length > int.MaxValue) return;
+        if (Volatile.Read(ref _isStopping) || length > int.MaxValue) return;
         _sampleDispatcher.TryEnqueue(buffer, (int)length);
     }
 

@@ -4,7 +4,9 @@ namespace SRdeck.Models.SDR;
 internal enum ManualAgcDeviceKind
 {
     Generic,
-    RtlSdr
+    RtlSdr,
+    HackRf,
+    Rx888
 }
 
 internal readonly record struct ManualAgcInput(
@@ -34,7 +36,7 @@ internal static class ManualAgcPolicy
         bool isOver = IsOver(input);
         bool isLow = IsLow(input);
 
-        if (input.DeviceKind is ManualAgcDeviceKind.RtlSdr)
+        if (input.DeviceKind is ManualAgcDeviceKind.RtlSdr or ManualAgcDeviceKind.HackRf or ManualAgcDeviceKind.Rx888)
         {
             if (isOver && input.CurrentGain > input.MinGain)
             {

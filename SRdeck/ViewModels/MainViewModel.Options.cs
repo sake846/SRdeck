@@ -46,6 +46,9 @@ public partial class MainViewModel : ObservableObject
 #if ENABLE_RTLSDR
         new() { Label = "RTL-SDR", Value = SdrDeviceType.RtlSdr },
 #endif
+#if ENABLE_HACKRF
+        new() { Label = "HackRF One", Value = SdrDeviceType.HackRf },
+#endif
 #if ENABLE_RX888
         new() { Label = "RX-888 MK2", Value = SdrDeviceType.Rx888Mk2 }
 #endif
@@ -77,15 +80,6 @@ public partial class MainViewModel : ObservableObject
         new() { Label = "指定なし", Value = null },
         new() { Label = "On", Value = 1 },
         new() { Label = "Off", Value = 0 }
-    };
-
-    public List<SettingsComboBoxOption<FrequencyDisplayMode?>> FrequencyDisplayModeOptions { get; } = new()
-    {
-        new() { Label = "指定なし", Value = null },
-        new() { Label = "バンド・局名両方", Value = FrequencyDisplayMode.Both },
-        new() { Label = "バンドのみ", Value = FrequencyDisplayMode.BandOnly },
-        new() { Label = "局名のみ", Value = FrequencyDisplayMode.StationOnly },
-        new() { Label = "表示なし", Value = FrequencyDisplayMode.None }
     };
 
     public List<SettingsComboBoxOption<bool?>> IsGpuFftEnabledOptions { get; } = new()
@@ -290,10 +284,6 @@ public partial class MainViewModel : ObservableObject
     private void SyncWpfComboBoxLabels(string language)
     {
         string notSpecified = language == "en" ? "Not Specified" : "指定なし";
-        string both = language == "en" ? "Both" : "バンド・局名両方";
-        string bandOnly = language == "en" ? "Band Only" : "バンドのみ";
-        string stationOnly = language == "en" ? "Station Only" : "局名のみ";
-        string none = language == "en" ? "None" : "表示なし";
         string color = language == "en" ? "Color" : "カラー";
         string green = language == "en" ? "Green" : "グリーン";
         string amber = language == "en" ? "Amber" : "アンバー";
@@ -330,18 +320,6 @@ public partial class MainViewModel : ObservableObject
                 if (option.Value == null) option.Label = notSpecified;
                 else if (option.Value == 1) option.Label = on;
                 else if (option.Value == 0) option.Label = off;
-            }
-        }
-
-        if (FrequencyDisplayModeOptions != null)
-        {
-            foreach (var option in FrequencyDisplayModeOptions)
-            {
-                if (option.Value == null) option.Label = notSpecified;
-                else if (option.Value == FrequencyDisplayMode.Both) option.Label = both;
-                else if (option.Value == FrequencyDisplayMode.BandOnly) option.Label = bandOnly;
-                else if (option.Value == FrequencyDisplayMode.StationOnly) option.Label = stationOnly;
-                else if (option.Value == FrequencyDisplayMode.None) option.Label = none;
             }
         }
 

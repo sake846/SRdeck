@@ -1,6 +1,6 @@
 # SRdeck Wiki
 
-SRdeckは、Windows x64上でSDRplayまたはRTL-SDRからIQサンプルを取り込み、スペクトラム表示、ウォーターフォール表示、音声復調、デジタル信号解析を行うSDR受信ホストです。無線方式ごとの処理はプラグインとして分離されており、同じ受信・表示基盤上で航空、船舶、弱信号通信、920 MHz帯などを切り替えて観測できます。
+SRdeckは、Windows x64上でSDRplay、RTL-SDR、またはRX-888 MK2からIQサンプルを取り込み、スペクトラム表示、ウォーターフォール表示、音声復調、デジタル信号解析を行うSDR受信ホストです。無線方式ごとの処理はプラグインとして分離されており、同じ受信・表示基盤上で航空、船舶、弱信号通信、920 MHz帯などを切り替えて観測できます。
 
 このWikiは、配布ZIPを使う利用者と、独自プラグインを作る開発者の両方を対象にしています。画面名や設定値は、特に断りがない限り現在の`main`ブランチと同じ版の公式パッケージを前提とします。
 
@@ -9,7 +9,7 @@ SRdeckは、Windows x64上でSDRplayまたはRTL-SDRからIQサンプルを取�
 | 区分 | 主な内容 | 推奨リンク |
 |---|---|---|
 | 🔰 **はじめての方** | 動作環境の確認、ZIPの展開、受信までのチュートリアル | [インストール](Installation) → [最初の受信](Getting-Started) |
-| 🎛️ **基本操作・設定** | 画面レイアウト、SDRplay/RTL-SDR設定、ウォーターフォール調整 | [画面構成と操作](UI-Overview) / [SDR入力設定](SDR-Source-Settings) |
+| 🎛️ **基本操作・設定** | 画面レイアウト、SDRplay／RTL-SDR／RX-888 MK2設定、ウォーターフォール調整 | [画面構成と操作](UI-Overview) / [SDR入力設定](SDR-Source-Settings) |
 | 🔌 **プラグイン利用** | ACARS、ADS-B、AIS、アナログ復調、CW、国際VHF、HF-FAX、FT8、HFDL、VDL Mode 2、Wi-SUNの方式別ガイド | [公式プラグイン一覧](Plugins-Overview) / [プラグイン管理](Plugin-Management) |
 | ❓ **お困りの場合** | デバイスが認識されない、受信できない、エラーが出る等の解決策 | [FAQ](FAQ) / [トラブルシューティング](Troubleshooting) |
 | 💻 **開発者向け** | 新規プラグイン作成、Contracts/SDK仕様、WPF UI設計、テスト | [開発概要](Developer-Overview) / [最初のプラグイン](Creating-First-Plugin) |
@@ -21,7 +21,7 @@ SRdeckは、Windows x64上でSDRplayまたはRTL-SDRからIQサンプルを取�
 | 初めて受信する | [インストール](Installation) | [最初の受信](Getting-Started) |
 | SDRが認識されない | [SDR入力設定](SDR-Source-Settings) | [トラブルシューティング](Troubleshooting) |
 | 画面の見方を知る | [画面構成と操作](UI-Overview) | [スペクトラムとウォーターフォール](Spectrum-and-Waterfall) |
-| 地図やオフライン地図を使う | [地図とオフライン地図](Map-and-Offline-Data) | [トラブルシューティング](Troubleshooting#地図が表示されない) |
+| 地図とオフライン時のキャッシュを使う | [地図とキャッシュ](Map-and-Cache) | [トラブルシューティング](Troubleshooting#地図が表示されない) |
 | 受信方式を選ぶ | [公式プラグイン一覧](Plugins-Overview) | 各プラグインの個別ページ |
 | 音声やIQを保存する | [音声出力とIQキャプチャ](Audio-and-Recording) | 使用するプラグインの個別ページ |
 | プラグインを追加する | [プラグイン管理](Plugin-Management) | [FAQ](FAQ) |
@@ -30,7 +30,7 @@ SRdeckは、Windows x64上でSDRplayまたはRTL-SDRからIQサンプルを取�
 ## SRdeckの処理の流れ
 
 ```text
-SDRplay / RTL-SDR
+SDRplay / RTL-SDR / RX-888 MK2
         |
         v
   広帯域IQストリーム
@@ -48,7 +48,7 @@ SDRplay / RTL-SDR
 
 ## 主な機能
 
-- SDRplay API 3.xおよびRTL-SDRからのリアルタイム受信
+- SDRplay API 3.x、RTL-SDR、RX-888 MK2からのリアルタイム受信
 - CPUまたはGPU FFTによるスペクトラムとウォーターフォール表示
 - クリック、ドラッグ、ホイール、キーボードによる同調と履歴操作
 - プラグインごとの復調、フレーム検証、一覧、地図、診断
@@ -70,11 +70,11 @@ GitHub Releasesでは、同じホストを基にした次の2種類を配布し�
 
 ## 現在の範囲と制限
 
-- ユーザー向けSDR入力はSDRplayとRTL-SDRです。
-- HackRF、Airspy、RX-888、一般的なRaw IQファイルは現行の公開UIから選択できません。
+- ユーザー向けSDR入力はSDRplay、RTL-SDR、RX-888 MK2です。
+- HackRF、Airspy、一般的なRaw IQファイルは現行の公開UIから選択できません。
 - メインUIは`MODE`で主プラグインを1つ選ぶ構成です。複数プラグインをタブで自由に並べる画面ではありません。
 - ホスト共通の長時間IQ録音、IQファイル再生、シーク、ループは公開されていません。
-- 地図表示にはWebView2が必要です。未表示地域のオンライン地図にはネットワーク接続が必要ですが、有効な閲覧済みキャッシュまたは設定済みMBTilesはオフラインでも利用できます。設定と配布元例は[地図とオフライン地図](Map-and-Offline-Data)を参照してください。
+- 地図表示にはWebView2が必要です。未表示地域のタイルをオンラインで取得するにはネットワーク接続が必要ですが、閲覧済みタイルはオフラインでもキャッシュから利用できます。[地図とキャッシュ](Map-and-Cache)を参照してください。
 - 受信内容の利用、保存、第三者への提供は、地域の法令、通信の秘密、サービス規約に従ってください。
 
 ## 関連リンク

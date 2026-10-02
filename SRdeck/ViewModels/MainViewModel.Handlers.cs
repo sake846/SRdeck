@@ -113,8 +113,6 @@ public partial class MainViewModel : ObservableObject
             if (radioControl.IsBandPlanVisible != IsBandPlanVisible || radioControl.IsStationNameVisible != IsStationNameVisible)
             {
                 radioControl.IsBandPlanVisible = IsBandPlanVisible; radioControl.IsStationNameVisible = IsStationNameVisible;
-                FrequencyDisplayMode mode = (radioControl.IsBandPlanVisible, radioControl.IsStationNameVisible) switch { (true, true) => FrequencyDisplayMode.Both, (true, false) => FrequencyDisplayMode.BandOnly, (false, true) => FrequencyDisplayMode.StationOnly, _ => FrequencyDisplayMode.None };
-                _engine.InitialAppSettings.Display.FrequencyDisplayMode = mode; _settingsService.SaveSettings(_engine.InitialAppSettings);
                 isParamUpdated = true;
             }
             if (SyncAutoStep(ref radioControl)) isParamUpdated = true;

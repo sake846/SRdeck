@@ -43,7 +43,7 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRtlDevice}" Value="True">
+                                <DataTrigger Binding="{Binding IsDirectGainDevice}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
 
@@ -71,7 +71,15 @@
                 </StackPanel>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+            <Button Content="{Binding Diagnostics.LoadCaptureButtonText}"
+                    Command="{Binding Diagnostics.ToggleLoadCaptureCommand}"
+                    ToolTip="{Binding Diagnostics.LoadCaptureStatus}"
+                    Margin="12,0,0,0"
+                    Padding="5,2"
+                    FontSize="10"
+                    VerticalAlignment="Center" />
+
+            <StackPanel Orientation="Horizontal" Margin="6,0,0,0">
                 <TextBlock Text="PRC" Foreground="White" FontSize="10" FontFamily="{Binding Source={x:Static SystemFonts.CaptionFontFamily}}" VerticalAlignment="Center" Margin="0,0,5,0" />
                 <Border Width="102" Height="16" BorderBrush="#FF888888" BorderThickness="1" Background="Transparent" VerticalAlignment="Center">
                     <Grid Width="100" Height="14" HorizontalAlignment="Left" UseLayoutRounding="True" SnapsToDevicePixels="True">

@@ -15,6 +15,8 @@ public partial class MainViewModel : ObservableObject
         {
             _engine.InitialAppSettings = _settingsService.LoadSettings();
             IsRtlDevice = IsRtlSdrConfigured(_engine.InitialAppSettings.SdrDeviceType);
+            IsHackRfDevice = IsHackRfConfigured(_engine.InitialAppSettings.SdrDeviceType);
+            IsRx888Device = IsRx888Configured(_engine.InitialAppSettings.SdrDeviceType);
             var hardwareDeviceType = GetEffectiveHardwareSettingsDeviceType();
             var hardwareSettings = _settingsService.LoadHardwareSettings(hardwareDeviceType);
             _engine.RfCalibrationOffset = hardwareSettings.RfCalibrationOffset;
@@ -46,6 +48,8 @@ public partial class MainViewModel : ObservableObject
         return _engine.SdrDevice?.Capabilities.Kind switch
         {
             SdrDeviceKind.RtlSdr => SdrDeviceType.RtlSdr,
+            SdrDeviceKind.HackRf => SdrDeviceType.HackRf,
+            SdrDeviceKind.Rx888 => SdrDeviceType.Rx888Mk2,
 
             _ => SdrDeviceType.SdrPlay
         };

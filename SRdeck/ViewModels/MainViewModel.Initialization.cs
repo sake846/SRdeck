@@ -24,8 +24,12 @@ public partial class MainViewModel : ObservableObject
         _dialogService = dialogService;
         _settingsService = settingsService;
         _lastStateService = lastStateService;
-        SettingsPersistence = new(_settingsService, _lastStateService, _dialogService);
+        SettingsPersistence = new(_settingsService, _lastStateService, _dialogService, _frequencyCatalog);
         _lastState = _lastStateService.LoadLastState();
+        _sdrPlayRfGainDb = _lastState.SdrPlayRfGainDb;
+        _rtlSdrRfGainDb = _lastState.RtlSdrRfGainDb;
+        _hackRfRfGainDb = _lastState.HackRfRfGainDb;
+        _rx888RfGainDb = _lastState.Rx888RfGainDb;
         ApplicationSettings = new(_engine, _settingsService, _lastStateService, () => _lastState);
         ApplicationSettings.PowerSettingsChanged += SyncSleepPrevention;
         ApplicationSettings.LanguageResourceChanged += value =>
@@ -78,10 +82,13 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(SdrControlViewModel.StartButtonText)) { OnPropertyChanged(nameof(IsSdrActive)); SyncButtonStates(); }
             if (e.PropertyName == nameof(SdrControlViewModel.IsStarted) || e.PropertyName == nameof(SdrControlViewModel.IsStopped)) { 
                 OnPropertyChanged(nameof(IsStarted)); OnPropertyChanged(nameof(IsStopped)); OnPropertyChanged(nameof(IsSampleRateSelectionEnabled)); OnPropertyChanged(nameof(IsAnySourceActive));
-                if (SdrControl.IsStarted) IsHelpVisible = false;
-                if (SdrControl.IsStarted && !_engine.IsPlaying) ApplyStartupMainSpanSelection();
                 SyncSleepPrevention();
-                _ = SyncPluginStreamingAsync(SdrControl.IsStarted);
+                if (e.PropertyName == nameof(SdrControlViewModel.IsStarted))
+                {
+                    if (SdrControl.IsStarted) IsHelpVisible = false;
+                    if (SdrControl.IsStarted && !_engine.IsPlaying) ApplyStartupMainSpanSelection();
+                    _ = SyncPluginStreamingAsync(SdrControl.IsStarted);
+                }
             }
         };
 
@@ -95,9 +102,13 @@ public partial class MainViewModel : ObservableObject
         FrequencyDisplayOptions.Add(new FrequencyDisplayOption { Mode = FrequencyDisplayMode.BandOnly, Label = "バンド表示" });
         FrequencyDisplayOptions.Add(new FrequencyDisplayOption { Mode = FrequencyDisplayMode.StationOnly, Label = "局名表示" });
         FrequencyDisplayOptions.Add(new FrequencyDisplayOption { Mode = FrequencyDisplayMode.None, Label = "表示しない" });
+        SdrControl.FrequencyDisplayOptions = FrequencyDisplayOptions;
+        SdrControl.OpenStationCatalogCommand = OpenStationCatalogCommand;
+        SdrControl.OpenBandPlanCatalogCommand = OpenBandPlanCatalogCommand;
+        SdrControl.FrequencyDisplayOptionChanged = value => SelectedFrequencyDisplayOption = value;
         ChangeGainAction = deltaStr => {
             if (int.TryParse(deltaStr, out int delta)) {
-                int effectiveDelta = IsRtlDevice ? delta * 5 : delta;
+                int effectiveDelta = (IsRtlDevice || IsHackRfDevice) ? delta * 5 : delta;
                 int newGain = RfGainDb + effectiveDelta;
                 newGain = Math.Clamp(newGain, 0, _engine.MaxGainReduction);
 
@@ -109,6 +120,7 @@ public partial class MainViewModel : ObservableObject
     public void Initialize()
     {
         ReadSettings();
+        ReloadFrequencyCatalogs();
 
         InitializeModeButtonSettings();
 
@@ -173,7 +185,10 @@ public partial class MainViewModel : ObservableObject
             DeviceSn = !string.IsNullOrEmpty(m.SerialNumber) ? $" S/N: {m.SerialNumber}" : string.Empty;
             SyncDeviceIndicatorMode(m.ModelName);
             SyncSdrPlayDeviceSettingsAvailability();
-            SyncMainSpanOptionsToFs(_engine.SdrDevice?.FsHz > 0 ? _engine.SdrDevice.FsHz : _engine.Control.FsHz, IsRtlDevice || IsRtlSdrDeviceController());
+            SyncMainSpanOptionsToFs(
+                _engine.SdrDevice?.FsHz > 0 ? _engine.SdrDevice.FsHz : _engine.Control.FsHz,
+                IsRtlDevice || IsRtlSdrDeviceController(),
+                IsRx888Device || IsRx888DeviceController());
             WindowTitle = $"SRdeck  [ {m.ModelName} , S/N: {m.SerialNumber} ]"; 
             if (GetCurrentDeviceRfGain() <= 0)
             {
@@ -209,7 +224,7 @@ public partial class MainViewModel : ObservableObject
         if ((int)_lastState.DemodMode == legacyBuiltInPluginMode)
             _lastState.DemodMode = DemodulationMode.None;
 
-        var displayMode = _lastState.FrequencyDisplayMode; if (_engine.InitialAppSettings.Display.FrequencyDisplayMode.HasValue) displayMode = _engine.InitialAppSettings.Display.FrequencyDisplayMode.Value;
+        var displayMode = GetActiveFrequencyDisplayMode();
         bool isBandPlanVisible = (displayMode == FrequencyDisplayMode.Both || displayMode == FrequencyDisplayMode.BandOnly);
         bool isStationNameVisible = (displayMode == FrequencyDisplayMode.Both || displayMode == FrequencyDisplayMode.StationOnly);
         bool isGpuFftEnabled = false; int fftResolutionMode = 0; int fftBatchMode = 0;
@@ -220,19 +235,30 @@ public partial class MainViewModel : ObservableObject
  
         bool isRtlSdrDevice = IsRtlSdrConfigured(_engine.InitialAppSettings.SdrDeviceType)
             || IsRtlSdrDeviceController();
+        bool isHackRfDevice = IsHackRfConfigured(_engine.InitialAppSettings.SdrDeviceType)
+            || IsHackRfDeviceController();
+        bool isRx888Device = IsRx888Configured(_engine.InitialAppSettings.SdrDeviceType)
+            || IsRx888DeviceController();
  
  
         var deviceFft = GetDeviceFftState();
         isGpuFftEnabled = deviceFft.isGpuEnabled;
         fftResolutionMode = deviceFft.fftResolutionMode;
         fftBatchMode = deviceFft.fftBatchMode;
-        SyncDeviceIndicatorMode(isRtlSdrDevice ? "RTL-SDR" : "SDRplay");
-        int initialFsHz = NormalizeSampleRateForDevice(_engine.InitialAppSettings.SdrPlaySampleRateHz, isRtlSdrDevice);
+        SyncDeviceIndicatorMode(isRtlSdrDevice
+            ? "RTL-SDR"
+            : isHackRfDevice ? "HackRF One" : isRx888Device ? "RX-888 MK2" : "SDRplay");
+        SdrDeviceKind initialKind = isRtlSdrDevice
+            ? SdrDeviceKind.RtlSdr
+            : isHackRfDevice
+                ? SdrDeviceKind.HackRf
+                : isRx888Device ? SdrDeviceKind.Rx888 : SdrDeviceKind.SdrPlay;
+        int initialFsHz = NormalizeSampleRateForDevice(_engine.InitialAppSettings.SdrPlaySampleRateHz, initialKind);
         if (_engine.SdrDevice != null)
         {
             _engine.SdrDevice.FsHz = initialFsHz;
         }
-        Display.SyncMainSpanOptionsForDevice(isRtlSdrDevice, initialFsHz);
+        Display.SyncMainSpanOptionsForDevice(isRtlSdrDevice, initialFsHz, isRx888Device);
         RestoreStartupMainSpanSelection(initialFsHz);
  
         var radioControl = new RadioControl {
@@ -259,7 +285,7 @@ public partial class MainViewModel : ObservableObject
 
         radioControl = _engine.Control; SyncAutoStep(ref radioControl); _engine.Control = radioControl;
         IsGpuFftEnabled = isGpuFftEnabled; FftResolutionMode = fftResolutionMode; FftBatchMode = fftBatchMode;
-        IsBandPlanVisible = isBandPlanVisible; IsStationNameVisible = isStationNameVisible; DemodWaveDisplayMode = radioControl.DemodWaveDisplayMode;
+        ApplyFrequencyDisplayMode(displayMode); DemodWaveDisplayMode = radioControl.DemodWaveDisplayMode;
         if (Display != null) { Display.IsBandPlanVisible = isBandPlanVisible; Display.ZoomMode = radioControl.ZoomSpectrumMode; }
 
         if (_engine.InitialAppSettings != null && _engine.InitialAppSettings.Power != null)
@@ -276,7 +302,6 @@ public partial class MainViewModel : ObservableObject
                 SelectedSdrDeviceType = SdrDeviceTypeOptions.Find(o => o.Value == _engine.InitialAppSettings.SdrDeviceType) ?? SdrDeviceTypeOptions[0];
                 SelectedGridTopDb = GridTopDbOptions.Find(o => o.Value == _engine.InitialAppSettings.Display.GridTopDb) ?? GridTopDbOptions[0];
                 SelectedDebugDraw = DebugDrawOptions.Find(o => o.Value == _engine.InitialAppSettings.Display.DebugDraw) ?? DebugDrawOptions[0];
-                SelectedFrequencyDisplayMode = FrequencyDisplayModeOptions.Find(o => o.Value == _engine.InitialAppSettings.Display.FrequencyDisplayMode) ?? FrequencyDisplayModeOptions[0];
                 SelectedIsGpuFftEnabled = IsGpuFftEnabledOptions.Find(o => o.Value == _engine.InitialAppSettings.Display.IsGpuFftEnabled) ?? IsGpuFftEnabledOptions[0];
                 SelectedFftResolutionMode = FftResolutionModeOptions.Find(o => o.Value == _engine.InitialAppSettings.Display.FftResolutionMode) ?? FftResolutionModeOptions[1]; // 8K (Index 1)
             }
@@ -326,18 +351,26 @@ public partial class MainViewModel : ObservableObject
         int fsHz = _engine.SdrDevice?.FsHz > 0 ? _engine.SdrDevice.FsHz : previousFsHz;
         if (fsHz <= 0) return;
 
-        SyncMainSpanOptionsToFs(fsHz, IsRtlDevice || IsRtlSdrDeviceController(), selectFullSpan: previousFsHz > 0 && previousFsHz != fsHz);
+        SyncMainSpanOptionsToFs(
+            fsHz,
+            IsRtlDevice || IsRtlSdrDeviceController(),
+            IsRx888Device || IsRx888DeviceController(),
+            selectFullSpan: previousFsHz > 0 && previousFsHz != fsHz);
         if (previousMainSpanHz > 0 && previousMainSpanHz != lastAppliedDisplayWidthHz)
             Display.ApplyPreferredMainSpanHz(previousMainSpanHz);
         else
             ApplyActiveWaterfallDisplayRequest(bandwidthChanged: true);
     }
 
-    private void SyncMainSpanOptionsToFs(int fsHz, bool isRtlDevice, bool selectFullSpan = false)
+    private void SyncMainSpanOptionsToFs(
+        int fsHz,
+        bool isRtlDevice,
+        bool isRx888Device = false,
+        bool selectFullSpan = false)
     {
         if (fsHz <= 0) return;
 
-        Display.SyncMainSpanOptionsForDevice(isRtlDevice, fsHz);
+        Display.SyncMainSpanOptionsForDevice(isRtlDevice, fsHz, isRx888Device);
         Display.SelectedMainSpanHz = Display.BaseMainSpanHz;
 
         var p = _engine.Control;

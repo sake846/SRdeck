@@ -20,6 +20,16 @@ public static class StableRecencyOrder
         ArgumentNullException.ThrowIfNull(timestampSelector);
 
         TimeSpan effectiveTolerance = ValidateTolerance(tolerance);
+        bool needsReorder = false;
+        for (int index = 1; index < target.Count; index++)
+        {
+            if (timestampSelector(target[index]) - timestampSelector(target[index - 1]) <=
+                effectiveTolerance) continue;
+            needsReorder = true;
+            break;
+        }
+        if (!needsReorder) return;
+
         List<T> ordered = target.ToList();
         PromoteClearlyNewerItems(ordered, timestampSelector, effectiveTolerance);
 

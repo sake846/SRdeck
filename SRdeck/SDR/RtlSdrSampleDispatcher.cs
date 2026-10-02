@@ -6,6 +6,11 @@ using SRdeck.Models;
 
 namespace SRdeck.SDR;
 
+internal delegate void IqByteConverter(
+    ReadOnlySpan<byte> raw,
+    Span<short> samplesI,
+    Span<short> samplesQ);
+
 /// <summary>
 /// Keeps managed IQ conversion and downstream processing out of librtlsdr's
 /// libusb event callback. librtlsdr does not resubmit a completed transfer
@@ -25,6 +30,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
     private readonly ArrayPool<byte> _bytePool;
     private readonly ArrayPool<short> _shortPool;
     private readonly int _expectedBlockLength;
+    private readonly IqByteConverter _convertIq;
     private readonly object _gate = new();
     private Channel<RawSampleBlock>? _queue;
     private CancellationTokenSource? _cancellation;
@@ -46,11 +52,13 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
         int expectedBlockLength = 0,
         ArrayPool<byte>? bytePool = null,
         ArrayPool<short>? shortPool = null,
-        Action<SdrSampleBlock>? sampleBlockReceived = null)
+        Action<SdrSampleBlock>? sampleBlockReceived = null,
+        IqByteConverter? iqConverter = null)
     {
         _samplesReceived = samplesReceived ?? throw new ArgumentNullException(nameof(samplesReceived));
         _sampleBlockReceived = sampleBlockReceived;
         _expectedBlockLength = Math.Max(0, expectedBlockLength);
+        _convertIq = iqConverter ?? ConvertUnsignedIq;
         _bytePool = bytePool ?? ArrayPool<byte>.Shared;
         _shortPool = shortPool ?? ArrayPool<short>.Shared;
     }
@@ -231,7 +239,7 @@ internal sealed class RtlSdrSampleDispatcher : IDisposable
         {
             try
             {
-                ConvertUnsignedIq(
+                _convertIq(
                     block.Bytes.AsSpan(0, block.Length),
                     samplesI.AsSpan(0, sampleCount),
                     samplesQ.AsSpan(0, sampleCount));

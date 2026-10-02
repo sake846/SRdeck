@@ -204,9 +204,13 @@ public sealed partial class DisplayViewModel : ObservableObject
         SyncMainSpanOptionsForDevice(false, 8000000);
     }
 
-    public void SyncMainSpanOptionsForDevice(bool isRtlDevice, int sampleRateHz)
+    public void SyncMainSpanOptionsForDevice(
+        bool isRtlDevice,
+        int sampleRateHz,
+        bool isRx888Device = false)
     {
-        _fixedMainSpanHz = SdrSampleRatePolicy.GetMainSpanHz(sampleRateHz, isRtlDevice);
+        _fixedMainSpanHz = SdrSampleRatePolicy.GetMainSpanHz(
+            sampleRateHz, isRtlDevice, isRx888Device);
 
         MainSpanOptions.Clear();
         MainSpanOptions.Add(new MainSpanOption
@@ -240,7 +244,7 @@ public sealed partial class DisplayViewModel : ObservableObject
         return $"{spanHz} Hz";
     }
 
-    private bool _isBandPlanVisible = true;
+    private bool _isBandPlanVisible;
     public bool IsBandPlanVisible
     {
         get => _isBandPlanVisible;

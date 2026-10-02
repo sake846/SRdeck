@@ -24,6 +24,12 @@ namespace SRdeck.Views
                 AddTab("Tab_RtlSdr", new SettingsTabs.RtlSdrSettingsTab());
             }
 #endif
+#if ENABLE_HACKRF
+            else if (connectedDeviceKind == SdrDeviceKind.HackRf)
+            {
+                AddTab("Tab_HackRf", new SettingsTabs.HackRfSettingsTab());
+            }
+#endif
 
             AddTab("Tab_Startup", new SettingsTabs.StartupSettingsTab());
             AddTab("Tab_Map", new SettingsTabs.MapSettingsTab());
@@ -40,11 +46,7 @@ namespace SRdeck.Views
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            
-            // ダークモードタイトルの有効化 (DWMWA_USE_IMMERSIVE_DARK_MODE = 20)
-            int useImmersiveDarkMode = 1;
-            DwmSetWindowAttribute(handle, 20, ref useImmersiveDarkMode, sizeof(int));
+            WindowTheme.ApplyDarkTitleBar(this);
         }
         
         private void Window_ContentRendered(object sender, System.EventArgs e)
@@ -65,8 +67,5 @@ namespace SRdeck.Views
             }
             base.OnKeyDown(e);
         }
-
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
     }
 }

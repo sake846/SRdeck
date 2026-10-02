@@ -52,6 +52,7 @@ internal sealed class JsonSettingsFile<T> where T : class, new()
             try
             {
                 // Serialize before touching either the current file or its backup.
+                value = _normalize(value);
                 byte[] contents = JsonSerializer.SerializeToUtf8Bytes(value, _writeOptions);
                 if (File.Exists(_path)) _ = ReadOrRecover(createIfMissing: false);
                 WriteAtomic(_path, contents, backupExisting: true);
@@ -72,6 +73,7 @@ internal sealed class JsonSettingsFile<T> where T : class, new()
                 // Reading and replacing share a lock, including across service instances.
                 T value = ReadOrRecover(createIfMissing: false);
                 update(value);
+                value = _normalize(value);
                 WriteAtomic(_path, JsonSerializer.SerializeToUtf8Bytes(value, _writeOptions), backupExisting: true);
             }
             catch (Exception ex) when (IsPersistenceException(ex))

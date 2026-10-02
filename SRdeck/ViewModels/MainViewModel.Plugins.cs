@@ -50,6 +50,7 @@ public partial class MainViewModel : ObservableObject
 
     public void SyncPluginSelectionFromManager()
     {
+        ApplyFrequencyDisplayMode(GetActiveFrequencyDisplayMode());
         _isSynchronizingPluginSelection = true;
         try
         {
@@ -70,6 +71,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(PluginWorkspaceViewModel.Plugins))
         {
+            ApplyFrequencyDisplayMode(GetActiveFrequencyDisplayMode());
             ReassertPluginSelection();
             ApplyActiveWaterfallDisplayRequest();
         }

@@ -1,0 +1,63 @@
+<Window x:Class="SRdeck.Views.StationEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource Title_StationEdit}" Height="225" Width="320"
+        WindowStartupLocation="CenterOwner" WindowStyle="ToolWindow" ResizeMode="NoResize"
+        Style="{StaticResource ReceiverDialogWindowStyle}" FontFamily="{StaticResource MainFontFamily}">
+    <Grid Margin="15">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35" />
+            <RowDefinition Height="35" />
+            <RowDefinition Height="35" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="28" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{DynamicResource Label_FreqMhz}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <TextBox x:Name="FrequencyTextBox" Grid.Row="0" Grid.Column="1" Height="24"
+                 Style="{StaticResource ReceiverDialogTextBoxStyle}" FontFamily="{StaticResource DisplayFontFamily}"
+                 Foreground="{StaticResource BrandAmberBrush}" FontWeight="Bold" />
+
+        <TextBlock Grid.Row="1" Text="{DynamicResource Header_Mode}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <ComboBox x:Name="ModeComboBox" Grid.Row="1" Grid.Column="1" Height="24"
+                  Style="{StaticResource SettingsComboBoxStyle}"
+                  ItemContainerStyle="{StaticResource SettingsComboBoxItemStyle}" />
+
+        <TextBlock Grid.Row="2" Text="{DynamicResource Header_StationName}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <TextBox x:Name="NameTextBox" Grid.Row="2" Grid.Column="1" Height="24"
+                 Style="{StaticResource ReceiverDialogTextBoxStyle}" />
+
+        <Grid Grid.Row="4" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Content="{DynamicResource Btn_Save}" Style="{StaticResource FlatButtonStyle}" Click="Save_OnClick" />
+            <Button Grid.Column="2" Content="{DynamicResource Btn_Cancel}" Style="{StaticResource FlatButtonStyle}" Click="Cancel_OnClick" />
+        </Grid>
+
+        <Grid x:Name="ErrorOverlay" Grid.RowSpan="5" Grid.ColumnSpan="2" Background="#CC151515"
+              Visibility="Collapsed" Panel.ZIndex="1000" Margin="-15">
+            <Border Background="#FF1E1E1E" BorderBrush="#FFFF5555" BorderThickness="1" CornerRadius="4"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="15" Margin="10">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Header_Error}" Foreground="#FFFF5555" FontSize="13"
+                               FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ErrorTextBlock" Foreground="White" FontSize="11" HorizontalAlignment="Center"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <Button Content="{DynamicResource Btn_Cancel}" Click="CloseError_OnClick"
+                            Style="{StaticResource FlatButtonStyle}" Width="80" Height="26" Margin="0,12,0,0"
+                            HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

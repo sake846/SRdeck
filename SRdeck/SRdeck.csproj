@@ -26,8 +26,12 @@
 
   <PropertyGroup>
     <!-- GPL/LGPL等のライセンス分離用: 個別ドライバーを含める場合は true、除外する場合は false を指定します -->
-    <EnableRtlSdr>true</EnableRtlSdr>
+    <EnableRtlSdr Condition="'$(EnableRtlSdr)' == ''">true</EnableRtlSdr>
+    <EnableHackRf Condition="'$(EnableHackRf)' == ''">true</EnableHackRf>
+    <EnableRx888 Condition="'$(EnableRx888)' == ''">true</EnableRx888>
     <DefineConstants Condition="'$(EnableRtlSdr)' == 'true'">$(DefineConstants);ENABLE_RTLSDR</DefineConstants>
+    <DefineConstants Condition="'$(EnableHackRf)' == 'true'">$(DefineConstants);ENABLE_HACKRF</DefineConstants>
+    <DefineConstants Condition="'$(EnableRx888)' == 'true'">$(DefineConstants);ENABLE_RX888</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -61,6 +65,18 @@
     <Compile Remove="SDR\RtlSdrController.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(EnableHackRf)' != 'true'">
+    <Compile Remove="SDR\HackRfApi.cs" />
+    <Compile Remove="SDR\HackRfController.cs" />
+    <Compile Remove="Models\HackRfGainPolicy.cs" />
+    <Compile Remove="Views\SettingsTabs\HackRfSettingsTab.xaml.cs" />
+    <Page Remove="Views\SettingsTabs\HackRfSettingsTab.xaml" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableRx888)' != 'true'">
+    <Compile Remove="SDR\Rx888*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\SRdeckCore.SignalProcessing\SRdeckCore.SignalProcessing.csproj" />
     <ProjectReference Include="..\SRdeckPlugin.Contracts\SRdeckPlugin.Contracts.csproj" />
@@ -89,12 +105,20 @@
     <Exec Command="&quot;$(NativeCMakeExe)&quot; --build &quot;$(MSBuildProjectDirectory)\native\sr_gpu\build&quot; --config $(Configuration)" />
   </Target>
 
+  <Target Name="BuildNativeRx888Dll" BeforeTargets="Build"
+          Condition="'$(OS)' == 'Windows_NT' and '$(EnableRx888)' == 'true'">
+    <Exec Command="&quot;$(NativeCMakeExe)&quot; -S &quot;$(MSBuildProjectDirectory)\native\sr_rx888&quot; -B &quot;$(MSBuildProjectDirectory)\native\sr_rx888\build&quot; -A x64" />
+    <Exec Command="&quot;$(NativeCMakeExe)&quot; --build &quot;$(MSBuildProjectDirectory)\native\sr_rx888\build&quot; --config $(Configuration)" />
+  </Target>
+
   <Target Name="CopyNativeFftDlls" AfterTargets="Build;Publish">
     <PropertyGroup>
       <NativeGpuFftDll>$(MSBuildProjectDirectory)\native\sr_gpu\build\$(Configuration)\sr_gpu.dll</NativeGpuFftDll>
       <NativeGpuFftDll Condition="!Exists('$(NativeGpuFftDll)')">$(MSBuildProjectDirectory)\native\sr_gpu\build\sr_gpu.dll</NativeGpuFftDll>
       <NativeCpuFftDll>$(MSBuildProjectDirectory)\native\sr_fft\build\$(Configuration)\sr_fft.dll</NativeCpuFftDll>
       <NativeCpuFftDll Condition="!Exists('$(NativeCpuFftDll)')">$(MSBuildProjectDirectory)\native\sr_fft\build\sr_fft.dll</NativeCpuFftDll>
+      <NativeRx888Dll>$(MSBuildProjectDirectory)\native\sr_rx888\build\$(Configuration)\sr_rx888.dll</NativeRx888Dll>
+      <NativeRx888Dll Condition="!Exists('$(NativeRx888Dll)')">$(MSBuildProjectDirectory)\native\sr_rx888\build\sr_rx888.dll</NativeRx888Dll>
     </PropertyGroup>
     <Copy SourceFiles="$(NativeGpuFftDll)"
           DestinationFolder="$(OutDir)"
@@ -104,6 +128,10 @@
           DestinationFolder="$(OutDir)"
           SkipUnchangedFiles="true"
           Condition="Exists('$(NativeCpuFftDll)')" />
+    <Copy SourceFiles="$(NativeRx888Dll)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="'$(EnableRx888)' == 'true' and Exists('$(NativeRx888Dll)')" />
     <Copy SourceFiles="$(NativeGpuFftDll)"
           DestinationFolder="$(PublishDir)"
           SkipUnchangedFiles="true"
@@ -112,6 +140,10 @@
           DestinationFolder="$(PublishDir)"
           SkipUnchangedFiles="true"
           Condition="'$(PublishDir)' != '' and '$(PublishDir)' != '$(OutDir)' and Exists('$(NativeCpuFftDll)')" />
+    <Copy SourceFiles="$(NativeRx888Dll)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="'$(EnableRx888)' == 'true' and '$(PublishDir)' != '' and '$(PublishDir)' != '$(OutDir)' and Exists('$(NativeRx888Dll)')" />
   </Target>
 
 </Project>

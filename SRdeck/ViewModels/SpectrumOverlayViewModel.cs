@@ -53,17 +53,34 @@ namespace SRdeck.ViewModels
         public ObservableCollection<BandPlanRendererItem> BandPlanRegions { get; } = new ObservableCollection<BandPlanRendererItem>();
         public ObservableCollection<ReceiverBandRendererItem> ReceiverBands { get; } = new ObservableCollection<ReceiverBandRendererItem>();
 
+        private IReadOnlyList<StationItem> _stations = [];
+        private IReadOnlyList<BandPlanItem> _bandPlans = [];
+        private bool _stationLabelsDirty = true;
+        private bool _bandPlanRegionsDirty = true;
+        private int _lastStationCenterFrequencyHz;
+        private int _lastStationTunedFrequencyHz;
+        private int _lastStationWidth;
+        private int _lastStationDisplayBandwidthHz;
+        private bool _lastStationBandPlanVisible;
+        private int _lastBandPlanCenterFrequencyHz;
+        private int _lastBandPlanWidth;
+        private int _lastBandPlanDisplayBandwidthHz;
+
         public SpectrumOverlayViewModel()
         {
             for (int i = 0; i < 9; i++) SpectrumYLabels.Add(new SpectrumYLabel());
         }
 
-        public void LoadBandPlans()
+        public void LoadBandPlans(IEnumerable<BandPlanItem> bandPlans)
         {
+            _bandPlans = bandPlans.OrderBy(item => item.StartHz).ToArray();
+            _bandPlanRegionsDirty = true;
         }
 
-        public void LoadStationNames()
+        public void LoadStationNames(IEnumerable<StationItem> stations)
         {
+            _stations = stations.OrderBy(item => item.FrequencyHz).ToArray();
+            _stationLabelsDirty = true;
         }
 
     }

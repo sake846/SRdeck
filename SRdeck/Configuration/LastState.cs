@@ -4,7 +4,7 @@ namespace SRdeck.Configuration;
 
 public class LastState
 {
-    public FrequencyDisplayMode FrequencyDisplayMode { get; set; } = FrequencyDisplayMode.Both;
+    public Dictionary<string, FrequencyDisplayMode> PluginFrequencyDisplayModes { get; set; } = new();
     public int FftBatchMode { get; set; } = 0;
     public DemodWaveMode DemodWaveDisplayMode { get; set; } = DemodWaveMode.Wave;
 
@@ -17,6 +17,7 @@ public class LastState
     public int SdrPlayRfGainDb { get; set; } = 20;
     public int SdrPlaySensitivity { get; set; } = 50;
     public int RtlSdrRfGainDb { get; set; } = 100;
+    public int HackRfRfGainDb { get; set; } = 50;
     public int Rx888RfGainDb { get; set; } = 100;
     public int Rx888SampleRateHz { get; set; } = 32000000;
 

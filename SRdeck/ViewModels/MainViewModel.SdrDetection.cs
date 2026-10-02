@@ -102,8 +102,11 @@ public partial class MainViewModel : ObservableObject
                 await Task.Run(() => previousDevice.Dispose());
             }
 
+            SdrDeviceType configuredDeviceType = _engine.InitialAppSettings.SdrDeviceType;
             ISdrDevice? detectedDevice = await Task.Run(() =>
-                SdrDeviceFactory.TryOpenPreferred(out ISdrDevice? device) ? device : null);
+                SdrDeviceFactory.TryOpenPreferred(configuredDeviceType, out ISdrDevice? device)
+                    ? device
+                    : null);
 
             if (detectedDevice == null)
             {
@@ -112,29 +115,33 @@ public partial class MainViewModel : ObservableObject
                 if (showErrors)
                 {
                     WeakReferenceMessenger.Default.Send(new SdrErrorMessage(
-                        "SDRplayまたはRTL-SDRデバイスを検出できませんでした。接続とドライバーを確認してください。"));
+                        configuredDeviceType == SdrDeviceType.HackRf
+                            ? "HackRF One を検出できませんでした。接続、WinUSB ドライバー、hackrf.dll を確認してください。"
+                            : "選択された SDR デバイスを検出できませんでした。接続、ドライバー、実行時 DLL を確認してください。"));
                 }
                 return;
             }
 
             _engine.SdrDevice = detectedDevice;
 
-            bool isRtl = detectedDevice.Capabilities.Kind == SdrDeviceKind.RtlSdr;
-            int sampleRateHz = NormalizeSampleRateForDevice(SdrPlaySampleRateHz, isRtl);
-            if (isRtl && detectedDevice is RtlSdrController rtlController)
+            SdrDeviceKind deviceKind = detectedDevice.Capabilities.Kind;
+            bool isRtl = deviceKind == SdrDeviceKind.RtlSdr;
+            bool isHackRf = deviceKind == SdrDeviceKind.HackRf;
+            bool isRx888 = deviceKind == SdrDeviceKind.Rx888;
+            int sampleRateHz = NormalizeSampleRateForDevice(SdrPlaySampleRateHz, deviceKind);
+            if ((isRtl || isHackRf || isRx888) && !detectedDevice.ApplySampleRate(sampleRateHz))
             {
-                if (!rtlController.ApplySampleRate(sampleRateHz))
-                {
-                    detectedDevice.Dispose();
-                    _engine.SdrDevice = null;
-                    IsSdrDetected = false;
-                    WeakReferenceMessenger.Default.Send(new SdrErrorMessage(
-                        $"RTL-SDRのサンプルレート設定に失敗しました ({sampleRateHz / 1_000_000.0:F1} Msps)。"));
-                    return;
-                }
+                detectedDevice.Dispose();
+                _engine.SdrDevice = null;
+                IsSdrDetected = false;
+                WeakReferenceMessenger.Default.Send(new SdrErrorMessage(
+                    $"SDR のサンプルレート設定に失敗しました ({sampleRateHz / 1_000_000.0:F1} Msps)。"));
+                return;
             }
             detectedDevice.FsHz = sampleRateHz;
             IsRtlDevice = isRtl;
+            IsHackRfDevice = isHackRf;
+            IsRx888Device = isRx888;
             if (detectedDevice is SdrController sdrPlay)
             {
                 DeviceName = sdrPlay.ModelName;
@@ -145,12 +152,21 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                DeviceName = detectedDevice is RtlSdrController rtlSdr
-                    ? rtlSdr.ModelName
-                    : (isRtl ? "RTL-SDR" : "SDRplay");
+                DeviceName = detectedDevice switch
+                {
+                    RtlSdrController rtlSdr => rtlSdr.ModelName,
+#if ENABLE_HACKRF
+                    HackRfController hackRf => hackRf.ModelName,
+#endif
+                    _ => isRx888 ? "RX-888 MK2" : isRtl ? "RTL-SDR" : (isHackRf ? "HackRF One" : "SDRplay")
+                };
             }
 
-            var hardwareType = isRtl ? SdrDeviceType.RtlSdr : SdrDeviceType.SdrPlay;
+            var hardwareType = isRtl
+                ? SdrDeviceType.RtlSdr
+                : isHackRf
+                    ? SdrDeviceType.HackRf
+                    : isRx888 ? SdrDeviceType.Rx888Mk2 : SdrDeviceType.SdrPlay;
             var hardwareSettings = _settingsService.LoadHardwareSettings(hardwareType);
             _engine.RfCalibrationOffset = hardwareSettings.RfCalibrationOffset;
             _engine.SystemGainOffset = hardwareSettings.SystemGainOffset;
@@ -174,7 +190,8 @@ public partial class MainViewModel : ObservableObject
             _engine.EnsureIqBufferCapacity();
             SyncDeviceIndicatorMode(DeviceName);
             SyncSdrPlayDeviceSettingsAvailability();
-            SyncMainSpanOptionsToFs(sampleRateHz, isRtl, selectFullSpan: true);
+            SyncMainSpanOptionsToFs(
+                sampleRateHz, isRtl, isRx888, selectFullSpan: true);
             WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(_engine.Control));
             IsSdrDetected = true;
         }
@@ -200,8 +217,14 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleAgc() => IsAgcEnabled = !IsAgcEnabled;
 
-    internal static int NormalizeSampleRateForDevice(int value, bool isRtlDevice) =>
-        SdrSampleRatePolicy.Normalize(value, isRtlDevice);
+    internal static int NormalizeSampleRateForDevice(
+        int value,
+        bool isRtlDevice,
+        bool isRx888Device = false) =>
+        SdrSampleRatePolicy.Normalize(value, isRtlDevice, isRx888Device);
+
+    internal static int NormalizeSampleRateForDevice(int value, SdrDeviceKind kind) =>
+        SdrSampleRatePolicy.Normalize(value, kind);
 
     private void SetAgcStateFromSettings(bool isEnabled, AgcReleaseMode releaseMode)
     {

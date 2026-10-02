@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using SRdeck.ViewModels;
 using SRdeck.Models;
 using SRdeck.Services;
@@ -13,6 +14,10 @@ public partial class MainWindow : Window
     private bool _isClosing = false;
     private readonly MainViewModel _viewModel;
     private readonly List<IRenderableView> _renderables = new List<IRenderableView>();
+    private readonly DispatcherTimer _diagnosticsTimer = new(DispatcherPriority.Background)
+    {
+        Interval = TimeSpan.FromMilliseconds(500)
+    };
     private bool _isCompactMode = false;
     private long _wpfFpsWindowStartTicks = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _wpfFrameCount = 0;
@@ -38,6 +43,8 @@ public partial class MainWindow : Window
         };
         InitializeComponent();
         base.DataContext = _viewModel;
+        _diagnosticsTimer.Tick += OnDiagnosticsTimerTick;
+        _diagnosticsTimer.Start();
     }
 
     private void OnRendering(object? sender, EventArgs e)
@@ -105,6 +112,14 @@ public partial class MainWindow : Window
 
         SyncWindowLayoutMode(engine);
 
+    }
+
+    private void OnDiagnosticsTimerTick(object? sender, EventArgs e)
+    {
+        if (_isClosing) return;
+        _viewModel.Diagnostics.SyncDiagnostics(
+            _viewModel.GetEngineForSetup().Control,
+            _viewModel.SelectedLnaState.ToString());
     }
 
     private void SyncWindowLayoutMode(IRadioRenderContext engine)
@@ -246,6 +261,7 @@ public partial class MainWindow : Window
         
         e.Cancel = true;
         _isClosing = true;
+        _diagnosticsTimer.Stop();
 
         ShutdownDiagnosticLog.Start("Window_Closing");
 

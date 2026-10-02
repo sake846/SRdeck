@@ -6,16 +6,10 @@ namespace SRdeckPlugin.Wpf;
 public enum GeoMapSourceMode
 {
     Auto,
-    Online,
-    Offline
+    Offline // Cache only; kept as a persisted mode for existing settings.
 }
 
-public sealed record GeoMapSourceOptions(
-    GeoMapSourceMode Mode = GeoMapSourceMode.Auto,
-    string? MbTilesPath = null,
-    // Kept in the persisted schema for compatibility with older settings files.
-    // Auto mode now selects the source from the current connectivity state.
-    bool AllowOnlineFallback = true);
+public sealed record GeoMapSourceOptions(GeoMapSourceMode Mode = GeoMapSourceMode.Auto);
 
 public static class GeoMapSourceStore
 {
@@ -64,18 +58,12 @@ public static class GeoMapSourceStore
         catch (UnauthorizedAccessException) { return false; }
     }
 
-    public static bool IsValid(GeoMapSourceOptions options) =>
-        Enum.IsDefined(options.Mode) &&
-        (string.IsNullOrWhiteSpace(options.MbTilesPath) || Path.IsPathFullyQualified(options.MbTilesPath));
+    public static bool IsValid(GeoMapSourceOptions options) => Enum.IsDefined(options.Mode);
 
-    public static bool HasUsableOfflineMap(GeoMapSourceOptions options) =>
-        !string.IsNullOrWhiteSpace(options.MbTilesPath) && File.Exists(options.MbTilesPath);
-
-    public static bool ShouldUseOfflineMap(GeoMapSourceOptions options, bool isOnline)
+    public static bool ShouldUseCacheOnly(GeoMapSourceOptions options, bool isOnline)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return options.Mode == GeoMapSourceMode.Offline ||
-            options.Mode == GeoMapSourceMode.Auto && !isOnline;
+        return options.Mode == GeoMapSourceMode.Offline || !isOnline;
     }
 
     private static GeoMapSourceOptions Load(string path)
@@ -85,7 +73,8 @@ public static class GeoMapSourceStore
             if (!File.Exists(path)) return new();
             GeoMapSourceOptions? options = JsonSerializer.Deserialize<GeoMapSourceOptions>(
                 File.ReadAllText(path), JsonOptions);
-            return options is not null && IsValid(options) ? options : new();
+            if (options is null || !IsValid(options)) return new();
+            return options;
         }
         catch (IOException) { return new(); }
         catch (UnauthorizedAccessException) { return new(); }

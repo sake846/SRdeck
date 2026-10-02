@@ -9,7 +9,33 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _rfGainDb = 50;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveBitDepthText))]
+    [NotifyPropertyChangedFor(nameof(IsDirectGainDevice))]
     private bool _isRtlDevice;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveBitDepthText))]
+    [NotifyPropertyChangedFor(nameof(IsDirectGainDevice))]
+    private bool _isHackRfDevice;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveBitDepthText))]
+    [NotifyPropertyChangedFor(nameof(IsDirectGainDevice))]
+    private bool _isRx888Device;
+
+    public bool IsDirectGainDevice => IsRtlDevice || IsHackRfDevice || IsRx888Device;
+    public int DirectRfGainDb
+    {
+        get => GetCurrentDeviceRfGain();
+        set
+        {
+            if (IsHackRfDevice) HackRfRfGainDb = value;
+            else if (IsRx888Device)
+            {
+                RfGainDb = value;
+                ApplyGainToEngine(value);
+            }
+            else RtlSdrRfGainDb = value;
+        }
+    }
 
     [ObservableProperty] private string _gainPrimaryLabel = "GR";
     [ObservableProperty] private string _gainPrimaryUnit = "dB";
@@ -27,6 +53,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnRfGainDbChanged(int value)
     {
         SyncCurrentDeviceRfGain(value);
+        OnPropertyChanged(nameof(DirectRfGainDb));
         SyncGainIndicatorText();
         RefreshSdrPlayGainPresentation();
     }
@@ -37,7 +64,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (_isUpdatingSensitivityFromAgc) return;
 
-        if (IsRtlDevice || _engine?.SdrDevice is not SRdeck.SDR.SdrController)
+        if (IsDirectGainDevice || _engine?.SdrDevice is not SRdeck.SDR.SdrController)
         {
             RefreshSdrPlayGainPresentation();
             return;
@@ -63,7 +90,7 @@ public partial class MainViewModel : ObservableObject
             if (_sdrPlayRfGainDb == clamped) return;
             _sdrPlayRfGainDb = clamped;
             OnPropertyChanged();
-            if (!IsRtlDevice)
+            if (!IsDirectGainDevice)
             {
                 RfGainDb = clamped;
                 ApplyGainToEngine(clamped);
@@ -82,6 +109,23 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(RtlSdrGainSummary));
             if (IsRtlDevice)
+            {
+                RfGainDb = clamped;
+                ApplyGainToEngine(clamped);
+            }
+        }
+    }
+
+    public int HackRfRfGainDb
+    {
+        get => _hackRfRfGainDb;
+        set
+        {
+            int clamped = Math.Clamp(value, 0, 100);
+            if (_hackRfRfGainDb == clamped) return;
+            _hackRfRfGainDb = clamped;
+            OnPropertyChanged();
+            if (IsHackRfDevice)
             {
                 RfGainDb = clamped;
                 ApplyGainToEngine(clamped);
@@ -124,13 +168,20 @@ public partial class MainViewModel : ObservableObject
     {
         IsRtlDevice = _engine?.SdrDevice?.Capabilities.IsRtlSdr == true ||
                       modelName.Contains("RTL", StringComparison.OrdinalIgnoreCase);
+        IsHackRfDevice = _engine?.SdrDevice?.Capabilities.IsHackRf == true ||
+                         modelName.Contains("HackRF", StringComparison.OrdinalIgnoreCase);
+        IsRx888Device = _engine?.SdrDevice?.Capabilities.IsRx888 == true ||
+                        modelName.Contains("RX-888", StringComparison.OrdinalIgnoreCase);
 
-        GainPrimaryLabel = IsRtlDevice ? "GAIN" : "GR";
-        GainPrimaryUnit = IsRtlDevice ? "" : "dB";
-        GainSecondaryLabel = IsRtlDevice ? "AGC" : "LNA";
+        GainPrimaryLabel = IsDirectGainDevice ? "GAIN" : "GR";
+        GainPrimaryUnit = IsHackRfDevice ? "%" : (IsRtlDevice ? "" : "dB");
+        if (IsRx888Device) GainPrimaryUnit = "";
+        GainSecondaryLabel = IsDirectGainDevice ? (IsHackRfDevice ? "RX" : "AGC") : "LNA";
         RfGainDb = GetCurrentDeviceRfGain();
         OnPropertyChanged(nameof(SdrPlayRfGainDb));
         OnPropertyChanged(nameof(RtlSdrRfGainDb));
+        OnPropertyChanged(nameof(HackRfRfGainDb));
+        OnPropertyChanged(nameof(DirectRfGainDb));
         OnPropertyChanged(nameof(RtlSdrGainSummary));
 
         SyncGainIndicatorText();
@@ -153,9 +204,25 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSampleRateSelectionEnabled));
     }
 
+    partial void OnIsHackRfDeviceChanged(bool value)
+    {
+        ApplyFftResolutionLimit();
+        UpdateSampleRateOptions();
+        OnPropertyChanged(nameof(IsSampleRateSelectionEnabled));
+    }
+
+    partial void OnIsRx888DeviceChanged(bool value)
+    {
+        ApplyFftResolutionLimit();
+        UpdateSampleRateOptions();
+        OnPropertyChanged(nameof(IsSampleRateSelectionEnabled));
+    }
+
     private int GetCurrentDeviceRfGain()
     {
         if (IsRtlDevice) return _rtlSdrRfGainDb;
+        if (IsHackRfDevice || IsHackRfDeviceController()) return _hackRfRfGainDb;
+        if (IsRx888Device) return _rx888RfGainDb;
 
         return _sdrPlayRfGainDb;
     }
@@ -168,7 +235,15 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(RtlSdrRfGainDb));
             OnPropertyChanged(nameof(RtlSdrGainSummary));
         }
-
+        else if (IsHackRfDevice || IsHackRfDeviceController())
+        {
+            _hackRfRfGainDb = value;
+            OnPropertyChanged(nameof(HackRfRfGainDb));
+        }
+        else if (IsRx888Device)
+        {
+            _rx888RfGainDb = value;
+        }
         else
         {
             _sdrPlayRfGainDb = value;
@@ -187,9 +262,9 @@ public partial class MainViewModel : ObservableObject
 
     public void SyncGainIndicatorText()
     {
-        GainSecondaryValue = IsRtlDevice
+        GainSecondaryValue = IsRtlDevice || IsRx888Device
             ? (_engine?.RfAgcEnabled == 1 ? "AUTO" : "MAN")
-            : SelectedLnaState.ToString();
+            : IsHackRfDevice ? "MAN" : SelectedLnaState.ToString();
     }
 
     private int GetSdrPlayMaxLnaState()
@@ -227,7 +302,7 @@ public partial class MainViewModel : ObservableObject
 
     private void SyncSdrPlaySensitivityFromCurrentState()
     {
-        if (!IsAgcEnabled || IsRtlDevice || _engine?.SdrDevice is not SRdeck.SDR.SdrController)
+        if (!IsAgcEnabled || IsDirectGainDevice || _engine?.SdrDevice is not SRdeck.SDR.SdrController)
             return;
 
         int calculatedSensitivity = SdrPlayGainPolicy.ToSensitivity(
@@ -248,7 +323,7 @@ public partial class MainViewModel : ObservableObject
 
     private void RefreshSdrPlayGainPresentation()
     {
-        if (IsRtlDevice) return;
+        if (IsDirectGainDevice) return;
 
         if (IsAgcEnabled && !_isUpdatingSensitivityFromAgc)
         {
@@ -341,7 +416,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (int.TryParse(param, out int delta))
         {
-            int effectiveDelta = IsRtlDevice ? delta * 5 : delta;
+            int effectiveDelta = IsDirectGainDevice ? delta * 5 : delta;
             int newVal = _engine.CurrentGainDb + effectiveDelta;
             newVal = Math.Clamp(newVal, _engine.MinGainReduction, _engine.MaxGainReduction);
             _engine.CurrentGainDb = newVal;
@@ -363,6 +438,15 @@ public partial class MainViewModel : ObservableObject
     {
         if (!int.TryParse(param, out int delta)) return;
         RtlSdrRfGainDb = Math.Clamp(RtlSdrRfGainDb + delta, 0, _engine.MaxGainReduction);
+    }
+#endif
+
+#if ENABLE_HACKRF
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ChangeHackRfGain(string param)
+    {
+        if (!int.TryParse(param, out int delta)) return;
+        HackRfRfGainDb = Math.Clamp(HackRfRfGainDb + delta, 0, 100);
     }
 #endif
 

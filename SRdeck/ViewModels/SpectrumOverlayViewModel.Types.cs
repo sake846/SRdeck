@@ -18,7 +18,7 @@ namespace SRdeck.ViewModels
         [ObservableProperty] private double _y;
         [ObservableProperty] private double _lineX;
         [ObservableProperty] private string _color = "";
-        [ObservableProperty] private float _frequencyHz;
+        [ObservableProperty] private long _frequencyHz;
     }
 
     public class ReceiverBandRendererItem

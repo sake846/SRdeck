@@ -52,7 +52,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isReceiver1Visible = true;
     [ObservableProperty] private bool _isDelayActive;
     [ObservableProperty] private bool _isBandPlanVisible;
-    [ObservableProperty] private bool _isStationNameVisible = true;
+    [ObservableProperty] private bool _isStationNameVisible;
 
     public bool IsStarted => SdrControl?.IsStarted ?? false;
     public bool IsStopped => SdrControl?.IsStopped ?? true;
@@ -63,7 +63,6 @@ public partial class MainViewModel : ObservableObject
     // --- Display Options ---
     public ObservableCollection<FrequencyDisplayOption> FrequencyDisplayOptions { get; } = new();
     [ObservableProperty] private FrequencyDisplayOption? _selectedFrequencyDisplayOption;
-
     [ObservableProperty] private DemodWaveMode _demodWaveDisplayMode;
     [ObservableProperty] private DemodWaveMode _demodWaveDisplayMode2;
 
@@ -124,7 +123,10 @@ public partial class MainViewModel : ObservableObject
 
     private void PersistFrequencyDisplayModeState()
     {
-        _lastState.FrequencyDisplayMode = (IsBandPlanVisible, IsStationNameVisible) switch
+        string? pluginId = _pluginManager.ActivePluginId;
+        if (pluginId is null) return;
+        _lastState.PluginFrequencyDisplayModes ??= new();
+        _lastState.PluginFrequencyDisplayModes[pluginId] = (IsBandPlanVisible, IsStationNameVisible) switch
         {
             (true, true) => FrequencyDisplayMode.Both,
             (true, false) => FrequencyDisplayMode.BandOnly,
@@ -134,27 +136,34 @@ public partial class MainViewModel : ObservableObject
         _lastStateService.SaveLastState(_lastState);
     }
 
+    private FrequencyDisplayMode GetActiveFrequencyDisplayMode() =>
+        _pluginManager.ActivePluginId is { } pluginId &&
+        _lastState.PluginFrequencyDisplayModes?.TryGetValue(pluginId, out var mode) == true
+            ? mode : FrequencyDisplayMode.None;
+
     private bool _isUpdatingDisplayOption;
     partial void OnSelectedFrequencyDisplayOptionChanged(FrequencyDisplayOption? value)
     {
+        if (SdrControl.SelectedFrequencyDisplayOption != value)
+            SdrControl.SelectedFrequencyDisplayOption = value;
         if (value == null || _engine == null || _isUpdatingDisplayOption) return;
+        ApplyFrequencyDisplayMode(value.Mode);
+        PersistFrequencyDisplayModeState();
+    }
+
+    private void ApplyFrequencyDisplayMode(FrequencyDisplayMode mode)
+    {
         _isUpdatingDisplayOption = true;
         try
         {
             RadioControl p = _engine.Control;
-            switch (value.Mode)
-            {
-                case FrequencyDisplayMode.Both: p.IsBandPlanVisible = true; p.IsStationNameVisible = true; break;
-                case FrequencyDisplayMode.BandOnly: p.IsBandPlanVisible = true; p.IsStationNameVisible = false; break;
-                case FrequencyDisplayMode.StationOnly: p.IsBandPlanVisible = false; p.IsStationNameVisible = true; break;
-                case FrequencyDisplayMode.None: p.IsBandPlanVisible = false; p.IsStationNameVisible = false; break;
-            }
+            p.IsBandPlanVisible = mode is FrequencyDisplayMode.Both or FrequencyDisplayMode.BandOnly;
+            p.IsStationNameVisible = mode is FrequencyDisplayMode.Both or FrequencyDisplayMode.StationOnly;
             IsBandPlanVisible = p.IsBandPlanVisible;
             IsStationNameVisible = p.IsStationNameVisible;
             if (Display != null) Display.IsBandPlanVisible = p.IsBandPlanVisible;
             _engine.Control = p;
-            _lastState.FrequencyDisplayMode = value.Mode;
-            _lastStateService.SaveLastState(_lastState);
+            SyncSelectedFrequencyDisplayOption();
             WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(p));
         }
         finally { _isUpdatingDisplayOption = false; }

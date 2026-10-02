@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
-using System.Windows.Media;
 using Microsoft.Xaml.Behaviors;
 using SRdeck.Models;
 
@@ -162,32 +161,5 @@ namespace SRdeck.Behaviors
             return IntPtr.Zero;
         }
 
-        private bool IsMouseDirectlyOverAssociatedObject(Point screenPoint)
-        {
-            var window = Window.GetWindow(AssociatedObject);
-            if (window == null)
-            {
-                return true;
-            }
-
-            Point windowPoint = window.PointFromScreen(screenPoint);
-            HitTestResult? result = VisualTreeHelper.HitTest(window, windowPoint);
-            if (result?.VisualHit is not DependencyObject hit)
-            {
-                return true;
-            }
-
-            while (hit != null)
-            {
-                if (ReferenceEquals(hit, AssociatedObject))
-                {
-                    return true;
-                }
-
-                hit = VisualTreeHelper.GetParent(hit);
-            }
-
-            return false;
-        }
     }
 }

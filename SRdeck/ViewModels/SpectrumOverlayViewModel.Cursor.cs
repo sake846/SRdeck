@@ -5,7 +5,7 @@ namespace SRdeck.ViewModels
 {
     public partial class SpectrumOverlayViewModel
     {
-        public void SyncCursorLayout(RadioControl radioControl, double spectrumWidth, double spectrumHeight, bool isReceiver1Visible = true, bool isReceiver2Visible = false, double displayBw = 7000000.0)
+        public void SyncCursorLayout(RadioControl radioControl, double spectrumWidth, double spectrumHeight, bool isReceiver1Visible = true, bool isReceiver2Visible = false, double displayBw = 7000000.0, int receiveBandCenterOffsetHz = 0)
         {
             if (radioControl.CursorFreqHz >= 0 && spectrumWidth > 0 && radioControl.SpanHz > 0)
             {
@@ -13,8 +13,8 @@ namespace SRdeck.ViewModels
                 SpCsVisible = Visibility.Visible;
                 int zoomSpan = radioControl.SpanHz;
 
-                double rawLeft = ((radioControl.CursorFreqOffsetHz + halfDisplayBw - zoomSpan / 2.0) / displayBw) * spectrumWidth;
-                double rawRight = ((radioControl.CursorFreqOffsetHz + halfDisplayBw + zoomSpan / 2.0) / displayBw) * spectrumWidth;
+                double rawLeft = ((radioControl.CursorFreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw - zoomSpan / 2.0) / displayBw) * spectrumWidth;
+                double rawRight = ((radioControl.CursorFreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw + zoomSpan / 2.0) / displayBw) * spectrumWidth;
                 double finalLeft = Math.Max(0, Math.Round(rawLeft));
                 double finalRight = Math.Min(spectrumWidth, Math.Round(rawRight));
                 SpRawCsLeft = rawLeft;
@@ -61,6 +61,8 @@ namespace SRdeck.ViewModels
 
         private void SyncStationLabelColors(RadioControl radioControl)
         {
+            foreach (StationLabel label in StationLabels)
+                label.Color = GetStationLabelColor(label.FrequencyHz, radioControl);
         }
 
     }

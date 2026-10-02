@@ -79,13 +79,8 @@ namespace SRdeck.Views
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            int useImmersiveDarkMode = 1;
-            DwmSetWindowAttribute(handle, 20, ref useImmersiveDarkMode, sizeof(int));
+            WindowTheme.ApplyDarkTitleBar(this);
         }
-
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
         private void InputChar(string c)
         {

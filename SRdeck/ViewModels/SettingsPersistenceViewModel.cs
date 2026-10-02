@@ -12,6 +12,7 @@ public partial class SettingsPersistenceViewModel : ObservableObject, IDisposabl
 {
     private readonly ISettingsPersistenceNotifications? _settings;
     private readonly ISettingsPersistenceNotifications? _lastState;
+    private readonly ISettingsPersistenceNotifications? _frequencyCatalog;
     private readonly IDialogService _dialogs;
     private readonly HashSet<string> _shown = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
@@ -21,13 +22,19 @@ public partial class SettingsPersistenceViewModel : ObservableObject, IDisposabl
     private string _message = "";
     public bool HasIssue => !string.IsNullOrEmpty(Message);
 
-    public SettingsPersistenceViewModel(ISettingsService settings, ILastStateService lastState, IDialogService dialogs)
+    public SettingsPersistenceViewModel(
+        ISettingsService settings,
+        ILastStateService lastState,
+        IDialogService dialogs,
+        ISettingsPersistenceNotifications? frequencyCatalog = null)
     {
         _settings = settings as ISettingsPersistenceNotifications;
         _lastState = lastState as ISettingsPersistenceNotifications;
         _dialogs = dialogs;
+        _frequencyCatalog = frequencyCatalog;
         if (_settings is not null) _settings.PersistenceIssue += OnIssue;
         if (_lastState is not null) _lastState.PersistenceIssue += OnIssue;
+        if (_frequencyCatalog is not null) _frequencyCatalog.PersistenceIssue += OnIssue;
     }
 
     private void OnIssue(SettingsPersistenceIssue issue)
@@ -63,5 +70,6 @@ public partial class SettingsPersistenceViewModel : ObservableObject, IDisposabl
         _disposed = true;
         if (_settings is not null) _settings.PersistenceIssue -= OnIssue;
         if (_lastState is not null) _lastState.PersistenceIssue -= OnIssue;
+        if (_frequencyCatalog is not null) _frequencyCatalog.PersistenceIssue -= OnIssue;
     }
 }

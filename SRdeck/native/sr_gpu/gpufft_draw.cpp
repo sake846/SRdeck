@@ -322,25 +322,24 @@ __declspec(dllexport) int gpudraw_upload_bgra_surface(void* handle, const unsign
     return 0;
 }
 
-__declspec(dllexport) int gpudraw_scroll_upload_top_row(void* handle, const unsigned int* rowPixels, int width)
+__declspec(dllexport) int gpudraw_scroll_upload_top_rows(void* handle, const unsigned int* rowPixels, int width, int rows)
 {
     auto* c = reinterpret_cast<GpuWpfSurfaceContext*>(handle);
     if (c == nullptr || c->sharedTexture == nullptr || c->scrollScratchTexture == nullptr || c->context == nullptr || rowPixels == nullptr) return -170;
-    if (width != c->width || c->height <= 0) return -171;
+    if (width != c->width || rows <= 0 || rows > c->height) return -171;
     std::lock_guard<std::mutex> guard(g_wpfDrawDevice.mutex);
 
-    if (c->height > 1)
+    if (c->height > rows)
     {
-        c->context->CopyResource(c->scrollScratchTexture.Get(), c->sharedTexture.Get());
-
         D3D11_BOX srcBox = {};
         srcBox.left = 0;
         srcBox.top = 0;
         srcBox.front = 0;
         srcBox.right = static_cast<UINT>(c->width);
-        srcBox.bottom = static_cast<UINT>(c->height - 1);
+        srcBox.bottom = static_cast<UINT>(c->height - rows);
         srcBox.back = 1;
-        c->context->CopySubresourceRegion(c->sharedTexture.Get(), 0, 0, 1, 0, c->scrollScratchTexture.Get(), 0, &srcBox);
+        c->context->CopySubresourceRegion(c->scrollScratchTexture.Get(), 0, 0, 0, 0, c->sharedTexture.Get(), 0, &srcBox);
+        c->context->CopySubresourceRegion(c->sharedTexture.Get(), 0, 0, static_cast<UINT>(rows), 0, c->scrollScratchTexture.Get(), 0, &srcBox);
     }
 
     D3D11_BOX rowBox = {};
@@ -348,11 +347,17 @@ __declspec(dllexport) int gpudraw_scroll_upload_top_row(void* handle, const unsi
     rowBox.top = 0;
     rowBox.front = 0;
     rowBox.right = static_cast<UINT>(c->width);
-    rowBox.bottom = 1;
+    rowBox.bottom = static_cast<UINT>(rows);
     rowBox.back = 1;
     c->context->UpdateSubresource(c->sharedTexture.Get(), 0, &rowBox, rowPixels, static_cast<UINT>(c->width * 4), 0);
     c->context->Flush();
     return 0;
+}
+
+// Keep the original native entry point for existing callers.
+__declspec(dllexport) int gpudraw_scroll_upload_top_row(void* handle, const unsigned int* rowPixels, int width)
+{
+    return gpudraw_scroll_upload_top_rows(handle, rowPixels, width, 1);
 }
 
 __declspec(dllexport) int gpudraw_scroll_upload_row_region(void* handle, const unsigned int* rowPixels, int width, int top, int height, int flushAfter)

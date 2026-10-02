@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject
         double spectrumWidth = SpActualWidth > 0 ? SpActualWidth : SpectrumWidth;
         double waterfallWidth = WfActualWidth > 0 ? WfActualWidth : WaterfallWidth;
         int mainSpan = Display.CurrentMainSpanHz;
+        int receiveBandCenterOffsetHz = GetReceiveBandCenterOffsetHz();
         double waterfallHistorySeconds = CurrentWaterfallHistorySeconds;
 
         float? configGridTopDb = SelectedGridTopDb?.Value;
@@ -32,7 +33,7 @@ public partial class MainViewModel : ObservableObject
             waterfallAnnotations = annotationProvider.WaterfallAnnotations;
             waterfallReferenceTime = annotationProvider.WaterfallReferenceTime;
         }
-        SpectrumOverlay.SyncOverlayLayout(radioControl, radioState, Display.SpectrumBiasAdj, Display.WaterfallBiasAdj, IsAnySourceActive, spectrumWidth, SpectrumHeight, IsReceiver1Visible, false, configGridTopDb, mainSpan, receiverBands);
+        SpectrumOverlay.SyncOverlayLayout(radioControl, radioState, Display.SpectrumBiasAdj, Display.WaterfallBiasAdj, IsAnySourceActive, spectrumWidth, SpectrumHeight, IsReceiver1Visible, false, configGridTopDb, mainSpan, receiverBands, receiveBandCenterOffsetHz);
         WaterfallOverlay.SyncOverlayLayout(
             radioControl,
             waterfallWidth,
@@ -49,10 +50,11 @@ public partial class MainViewModel : ObservableObject
             waterfallAnnotations,
             waterfallReferenceTime,
             waterfallHistorySeconds,
-            WaterfallDisplayTimeMode);
+            WaterfallDisplayTimeMode,
+            receiveBandCenterOffsetHz);
 
         if (waterfallWidth > 100)
-            SyncZoomWindowLayouts(radioControl, waterfallWidth, waterfallHistorySeconds);
+            SyncZoomWindowLayouts(radioControl, waterfallWidth, waterfallHistorySeconds, receiveBandCenterOffsetHz);
     }
 
     private void SyncCursorOverlayVisuals(RadioControl radioControl)
@@ -60,25 +62,32 @@ public partial class MainViewModel : ObservableObject
         double spectrumWidth = SpActualWidth > 0 ? SpActualWidth : SpectrumWidth;
         double waterfallWidth = WfActualWidth > 0 ? WfActualWidth : WaterfallWidth;
         int mainSpan = Display.CurrentMainSpanHz;
+        int receiveBandCenterOffsetHz = GetReceiveBandCenterOffsetHz();
 
-        SpectrumOverlay.SyncCursorLayout(radioControl, spectrumWidth, SpectrumHeight, IsReceiver1Visible, false, mainSpan);
-        WaterfallOverlay.SyncCursorLayout(radioControl, waterfallWidth, WaterfallHeight, IsReceiver1Visible, false, mainSpan, CurrentWaterfallHistorySeconds);
+        SpectrumOverlay.SyncCursorLayout(radioControl, spectrumWidth, SpectrumHeight, IsReceiver1Visible, false, mainSpan, receiveBandCenterOffsetHz);
+        WaterfallOverlay.SyncCursorLayout(radioControl, waterfallWidth, WaterfallHeight, IsReceiver1Visible, false, mainSpan, CurrentWaterfallHistorySeconds, receiveBandCenterOffsetHz);
     }
 
-    private void SyncZoomWindowLayouts(RadioControl radioControl, double waterfallWidth, double waterfallHistorySeconds)
+    private int GetReceiveBandCenterOffsetHz() =>
+        _pluginManager.TryGetActiveCapability<IPluginFrequencySelection>(out IPluginFrequencySelection? selection)
+            ? selection?.ReceiveBandCenterOffsetHz ?? 0
+            : 0;
+
+    private void SyncZoomWindowLayouts(RadioControl radioControl, double waterfallWidth, double waterfallHistorySeconds, int receiveBandCenterOffsetHz)
     {
         double zoomWindowWidth1 = ZoomOverlay.IsEmbedded ? ZoomWindowWidth : 418;
         double zoomWindowHeight1 = ZoomOverlay.IsEmbedded ? ZoomWindowHeight : 198;
 
-        var (x1, y1, v1) = ZoomOverlay.GetDesiredLayout(radioControl, zoomWindowWidth1, zoomWindowHeight1, waterfallWidth, WaterfallHeight, 1, IsReceiver1Visible, waterfallHistorySeconds);
+        var displayControl = radioControl with { FreqOffsetHz = radioControl.FreqOffsetHz + receiveBandCenterOffsetHz };
+        var (x1, y1, v1) = ZoomOverlay.GetDesiredLayout(displayControl, zoomWindowWidth1, zoomWindowHeight1, waterfallWidth, WaterfallHeight, 1, IsReceiver1Visible, waterfallHistorySeconds);
 
         if (v1)
         {
             double bw = Display.CurrentMainSpanHz;
             double halfBw = bw / 2.0;
 
-            double boxWidth1 = Math.Max(0, Math.Round(((radioControl.FreqOffsetHz + halfBw + radioControl.SpanHz / 2.0) / bw) * waterfallWidth) - Math.Round(((radioControl.FreqOffsetHz + halfBw - radioControl.SpanHz / 2.0) / bw) * waterfallWidth) + 3.0);
-            double boxRectX1 = Math.Round(((radioControl.FreqOffsetHz + halfBw - radioControl.SpanHz / 2.0) / bw) * waterfallWidth) - 2.0;
+            double boxWidth1 = Math.Max(0, Math.Round(((displayControl.FreqOffsetHz + halfBw + radioControl.SpanHz / 2.0) / bw) * waterfallWidth) - Math.Round(((displayControl.FreqOffsetHz + halfBw - radioControl.SpanHz / 2.0) / bw) * waterfallWidth) + 3.0);
+            double boxRectX1 = Math.Round(((displayControl.FreqOffsetHz + halfBw - radioControl.SpanHz / 2.0) / bw) * waterfallWidth) - 2.0;
             double boxRectY1 = Math.Round(RenderUtils.SecToY(radioControl.HistorySec, WaterfallHeight, waterfallHistorySeconds)) - WaterfallHeight - 1.0;
             double boxHeight = Math.Round(RenderUtils.SecToY(10, WaterfallHeight, waterfallHistorySeconds)) + 2.0;
             Rect boxRect1 = v1 ? new Rect(boxRectX1, boxRectY1, boxWidth1, boxHeight) : Rect.Empty;

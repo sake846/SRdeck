@@ -55,7 +55,7 @@ namespace SRdeck.ViewModels
         public ObservableCollection<WaterfallYLabel> WaterfallYLabels { get; } = new ObservableCollection<WaterfallYLabel>();
         public ObservableCollection<WaterfallAnnotationVisual> Annotations { get; } = new();
 
-        public void SyncOverlayLayout(RadioControl radioControl, double waterfallWidth, double waterfallHeight, double zoomWidth, bool isStarted, bool isReceiver1Visible = true, bool isReceiver2Visible = false, double displayBw = 7000000.0, int roundingHz = 500000, bool gridAnchorEnabled = false, double gridAnchorFrequencyHz = 0.0, double gridAnchorRatio = 0.5, IReadOnlyList<WaterfallAnnotationItem>? annotations = null, DateTimeOffset? annotationReferenceTime = null, double totalHistorySeconds = WaterfallTimeModel.TotalHistorySeconds, WaterfallTimeMode timeMode = WaterfallTimeMode.ThreeMinutes)
+        public void SyncOverlayLayout(RadioControl radioControl, double waterfallWidth, double waterfallHeight, double zoomWidth, bool isStarted, bool isReceiver1Visible = true, bool isReceiver2Visible = false, double displayBw = 7000000.0, int roundingHz = 500000, bool gridAnchorEnabled = false, double gridAnchorFrequencyHz = 0.0, double gridAnchorRatio = 0.5, IReadOnlyList<WaterfallAnnotationItem>? annotations = null, DateTimeOffset? annotationReferenceTime = null, double totalHistorySeconds = WaterfallTimeModel.TotalHistorySeconds, WaterfallTimeMode timeMode = WaterfallTimeMode.ThreeMinutes, int receiveBandCenterOffsetHz = 0)
         {
             double halfDisplayBw = displayBw / 2.0;
             double spectrumWidth = waterfallWidth; 
@@ -67,8 +67,8 @@ namespace SRdeck.ViewModels
                 
                 if (isZoomActive) {
                     WfRpH = Math.Round(RenderUtils.SecToY(10, height, totalHistorySeconds)) + 1.0 + 1;
-                    double rawLeftX = ((radioControl.FreqOffsetHz + halfDisplayBw - radioControl.SpanHz / 2.0) / displayBw) * spectrumWidth;
-                    double rawRightX = ((radioControl.FreqOffsetHz + halfDisplayBw + radioControl.SpanHz / 2.0) / displayBw) * spectrumWidth;
+                    double rawLeftX = ((radioControl.FreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw - radioControl.SpanHz / 2.0) / displayBw) * spectrumWidth;
+                    double rawRightX = ((radioControl.FreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw + radioControl.SpanHz / 2.0) / displayBw) * spectrumWidth;
                     double finalLeftX = Math.Max(0, Math.Round(rawLeftX));
                     double finalRightX = Math.Min(spectrumWidth, Math.Round(rawRightX));
                     WfRawZoomLeft = rawLeftX;
@@ -83,7 +83,7 @@ namespace SRdeck.ViewModels
 
             WfRpH2 = 0; WfZoomLeft2 = -1000; WfZoomWidth2 = 0;
 
-            UpdateCursorLayoutInternal(radioControl, waterfallWidth, waterfallHeight, displayBw, totalHistorySeconds);
+            UpdateCursorLayoutInternal(radioControl, waterfallWidth, waterfallHeight, displayBw, totalHistorySeconds, receiveBandCenterOffsetHz);
 
             ZwBandVisible = isZoomActive ? Visibility.Visible : Visibility.Hidden;
             ZwBandVisible2 = Visibility.Hidden;
@@ -271,12 +271,12 @@ namespace SRdeck.ViewModels
                 Annotations.RemoveAt(Annotations.Count - 1);
         }
 
-        public void SyncCursorLayout(RadioControl radioControl, double waterfallWidth, double waterfallHeight, bool isReceiver1Visible = true, bool isReceiver2Visible = false, double displayBw = 7000000.0, double totalHistorySeconds = WaterfallTimeModel.TotalHistorySeconds)
+        public void SyncCursorLayout(RadioControl radioControl, double waterfallWidth, double waterfallHeight, bool isReceiver1Visible = true, bool isReceiver2Visible = false, double displayBw = 7000000.0, double totalHistorySeconds = WaterfallTimeModel.TotalHistorySeconds, int receiveBandCenterOffsetHz = 0)
         {
-            UpdateCursorLayoutInternal(radioControl, waterfallWidth, waterfallHeight, displayBw, totalHistorySeconds);
+            UpdateCursorLayoutInternal(radioControl, waterfallWidth, waterfallHeight, displayBw, totalHistorySeconds, receiveBandCenterOffsetHz);
         }
 
-        private void UpdateCursorLayoutInternal(RadioControl radioControl, double waterfallWidth, double waterfallHeight, double displayBw, double totalHistorySeconds)
+        private void UpdateCursorLayoutInternal(RadioControl radioControl, double waterfallWidth, double waterfallHeight, double displayBw, double totalHistorySeconds, int receiveBandCenterOffsetHz)
         {
             double spectrumWidth = waterfallWidth;
             if (radioControl.CursorFreqHz >= 0 && spectrumWidth > 0 && radioControl.SpanHz > 0) {
@@ -284,8 +284,8 @@ namespace SRdeck.ViewModels
                 SpCsVisible = Visibility.Visible;
                 int zoomSpan = radioControl.SpanHz;
 
-                double rawLeftX = ((radioControl.CursorFreqOffsetHz + halfDisplayBw - zoomSpan / 2.0) / displayBw) * spectrumWidth;
-                double rawRightX = ((radioControl.CursorFreqOffsetHz + halfDisplayBw + zoomSpan / 2.0) / displayBw) * spectrumWidth;
+                double rawLeftX = ((radioControl.CursorFreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw - zoomSpan / 2.0) / displayBw) * spectrumWidth;
+                double rawRightX = ((radioControl.CursorFreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw + zoomSpan / 2.0) / displayBw) * spectrumWidth;
                 double leftX = Math.Max(0, Math.Round(rawLeftX));
                 double rightX = Math.Min(spectrumWidth, Math.Round(rawRightX));
                 SpCsLineX = leftX;

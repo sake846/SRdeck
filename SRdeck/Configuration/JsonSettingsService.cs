@@ -39,15 +39,21 @@ public class JsonSettingsService : ISettingsService, ISettingsPersistenceNotific
     public HardwareSettings LoadHardwareSettings(SdrDeviceType deviceType)
     {
         HardwareSettingsStore store = _hardware.Load();
-        return deviceType == SdrDeviceType.RtlSdr
-            ? store.RtlSdr ?? new HardwareSettings()
-            : store.SdrPlay ?? new HardwareSettings();
+        return deviceType switch
+        {
+            SdrDeviceType.RtlSdr => store.RtlSdr ?? new HardwareSettings(),
+            SdrDeviceType.HackRf => store.HackRf ?? new HardwareSettings(),
+            SdrDeviceType.Rx888Mk2 => store.Rx888 ?? new HardwareSettings(),
+            _ => store.SdrPlay ?? new HardwareSettings()
+        };
     }
 
     public void SaveHardwareSettings(HardwareSettings settings, SdrDeviceType deviceType) =>
         _hardware.Update(store =>
         {
             if (deviceType == SdrDeviceType.RtlSdr) store.RtlSdr = settings;
+            else if (deviceType == SdrDeviceType.HackRf) store.HackRf = settings;
+            else if (deviceType == SdrDeviceType.Rx888Mk2) store.Rx888 = settings;
             else store.SdrPlay = settings;
         });
 
@@ -67,5 +73,7 @@ public class JsonSettingsService : ISettingsService, ISettingsPersistenceNotific
     {
         public HardwareSettings SdrPlay { get; set; } = new();
         public HardwareSettings RtlSdr { get; set; } = new();
+        public HardwareSettings HackRf { get; set; } = new();
+        public HardwareSettings Rx888 { get; set; } = new();
     }
 }

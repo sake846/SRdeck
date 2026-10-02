@@ -16,13 +16,7 @@ public static partial class PluginJsonLinesHistory
         if (maximumEntries <= 0) return [];
         lock (StateFor(path))
         {
-            var entries = new Queue<T>(Math.Min(maximumEntries, 1024));
-            foreach (T value in ReadValid<T>(path, options))
-            {
-                if (entries.Count == maximumEntries) entries.Dequeue();
-                entries.Enqueue(value);
-            }
-            return entries.ToArray();
+            return ReadValid<T>(path, options).TakeLast(maximumEntries).ToArray();
         }
     }
 

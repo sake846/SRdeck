@@ -192,9 +192,14 @@ internal sealed class PluginDiagnosticsCollector(
             backends.Length == 0 ? "不明" : string.Join(" + ", backends));
         Volatile.Write(ref _channelDetail, string.Join(" / ", blocks
             .Where(block => block is not null)
-            .Select(block =>
-                $"{block!.Metadata.Configuration.RequestId}: " +
-                block.Metadata.Configuration.ProcessingBackend)));
+            .Select(block => block!.Metadata.Configuration)
+            .Distinct()
+            .Select(configuration =>
+                $"{configuration.RequestId}: {configuration.ProcessingBackend}, " +
+                $"{configuration.InputSampleRateHz}->{configuration.OutputSampleRateHz} Hz, " +
+                $"BW {configuration.BandwidthHz} Hz, " +
+                $"decimation {configuration.CoarseDecimationFactor}x{configuration.FineDecimationFactor}, " +
+                $"FIR {configuration.FirTaps}")));
     }
 
     private IReadOnlyList<PluginProcessingStageSnapshot> BuildProcessingStages()

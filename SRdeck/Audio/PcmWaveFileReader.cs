@@ -67,18 +67,6 @@ internal sealed class PcmWaveFileReader : IDisposable
         _stream.Dispose();
     }
 
-    public static TimeSpan GetDuration(string filePath)
-    {
-        using var reader = new PcmWaveFileReader(filePath);
-        return reader.TotalTime;
-    }
-
-    public static int GetSampleRate(string filePath)
-    {
-        using var reader = new PcmWaveFileReader(filePath);
-        return reader.WaveFormat.SampleRate;
-    }
-
     private static (PcmWaveFormat format, long dataOffset, long dataLength) ReadHeader(BinaryReader reader)
     {
         if (new string(reader.ReadChars(4)) != "RIFF") throw new InvalidDataException("Invalid RIFF header.");

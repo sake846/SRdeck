@@ -69,6 +69,20 @@ public interface IPluginTuningService
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Optional capability for plugins whose primary receive frequency can be
+/// selected from a host-owned station or band-plan catalog.
+/// </summary>
+public interface IPluginFrequencySelection
+{
+    long SelectedFrequencyHz { get; }
+    /// <summary>Offset from the selected frequency to the center of its displayed receive band.</summary>
+    int ReceiveBandCenterOffsetHz => 0;
+    ValueTask<PluginTuningResult> SelectFrequencyAsync(
+        long frequencyHz,
+        CancellationToken cancellationToken = default);
+}
+
 public enum PcmSampleFormat
 {
     Signed16LittleEndian

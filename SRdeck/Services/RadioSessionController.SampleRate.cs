@@ -5,6 +5,7 @@ namespace SRdeck.Services;
 
 public interface ISdrSampleRateController
 {
+    bool IsPlaybackInput { get; }
     bool TryPrepareSampleRate(
         RadioControl control,
         long minimumSampleRateHz,
@@ -17,6 +18,8 @@ public interface ISdrSampleRateController
 
 public sealed partial class RadioSessionController
 {
+    public bool IsPlaybackInput => _engine.IsPlaying;
+
     public bool TryPrepareSampleRate(
         RadioControl control,
         long minimumSampleRateHz,

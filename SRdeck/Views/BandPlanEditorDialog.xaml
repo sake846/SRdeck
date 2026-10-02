@@ -1,0 +1,94 @@
+<Window x:Class="SRdeck.Views.BandPlanEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource Title_BandPlanEdit}" Height="360" Width="360"
+        WindowStartupLocation="CenterOwner" WindowStyle="ToolWindow" ResizeMode="NoResize"
+        Style="{StaticResource ReceiverDialogWindowStyle}" FontFamily="{StaticResource MainFontFamily}">
+    <Grid Margin="15">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="20" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="28" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{DynamicResource Label_StartFreqHz}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <TextBox x:Name="StartFrequencyTextBox" Grid.Row="0" Grid.Column="1" Height="24"
+                 Style="{StaticResource ReceiverDialogTextBoxStyle}" FontFamily="{StaticResource DisplayFontFamily}"
+                 Foreground="{StaticResource BrandAmberBrush}" FontWeight="Bold" />
+
+        <TextBlock Grid.Row="1" Text="{DynamicResource Label_EndFreqHz}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <TextBox x:Name="EndFrequencyTextBox" Grid.Row="1" Grid.Column="1" Height="24"
+                 Style="{StaticResource ReceiverDialogTextBoxStyle}" FontFamily="{StaticResource DisplayFontFamily}"
+                 Foreground="{StaticResource BrandAmberBrush}" FontWeight="Bold" />
+
+        <TextBlock Grid.Row="2" Text="{DynamicResource Label_BandNameEdit}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <TextBox x:Name="LabelTextBox" Grid.Row="2" Grid.Column="1" Height="24"
+                 Style="{StaticResource ReceiverDialogTextBoxStyle}" />
+
+        <TextBlock Grid.Row="3" Text="{DynamicResource Label_ColorNum}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <Grid Grid.Row="3" Grid.Column="1" Height="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="32" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="ColorNumberTextBox" Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                     TextChanged="ColorNumberTextBox_OnTextChanged" FontFamily="{StaticResource DisplayFontFamily}" />
+            <Border x:Name="ColorPreviewBorder" Grid.Column="1" Margin="5,0,0,0" BorderBrush="#FF444444"
+                    BorderThickness="1" CornerRadius="2" Background="Transparent"
+                    ToolTip="{DynamicResource Tooltip_ColorPreview}" />
+        </Grid>
+        <TextBlock Grid.Row="4" Grid.Column="1" Text="{DynamicResource Desc_ColorNum}"
+                   Foreground="#FF7A7A7A" FontSize="10" VerticalAlignment="Top" />
+
+        <TextBlock Grid.Row="5" Text="{DynamicResource Label_StepHz}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <TextBox x:Name="StepTextBox" Grid.Row="5" Grid.Column="1" Height="24"
+                 Style="{StaticResource ReceiverDialogTextBoxStyle}" FontFamily="{StaticResource DisplayFontFamily}" />
+
+        <TextBlock Grid.Row="6" Text="{DynamicResource Header_Mode}" VerticalAlignment="Center"
+                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+        <ComboBox x:Name="ModeComboBox" Grid.Row="6" Grid.Column="1" Height="24"
+                  Style="{StaticResource SettingsComboBoxStyle}"
+                  ItemContainerStyle="{StaticResource SettingsComboBoxItemStyle}" />
+
+        <Grid Grid.Row="8" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Content="{DynamicResource Btn_Save}" Style="{StaticResource FlatButtonStyle}" Click="Save_OnClick" />
+            <Button Grid.Column="2" Content="{DynamicResource Btn_Cancel}" Style="{StaticResource FlatButtonStyle}" Click="Cancel_OnClick" />
+        </Grid>
+
+        <Grid x:Name="ErrorOverlay" Grid.RowSpan="9" Grid.ColumnSpan="2" Background="#CC151515"
+              Visibility="Collapsed" Panel.ZIndex="1000" Margin="-15">
+            <Border Background="#FF1E1E1E" BorderBrush="#FFFF5555" BorderThickness="1" CornerRadius="4"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="15" Margin="10">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Header_Error}" Foreground="#FFFF5555" FontSize="13"
+                               FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ErrorTextBlock" Foreground="White" FontSize="11" HorizontalAlignment="Center"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <Button Content="{DynamicResource Btn_Cancel}" Click="CloseError_OnClick"
+                            Style="{StaticResource FlatButtonStyle}" Width="80" Height="26" Margin="0,12,0,0"
+                            HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

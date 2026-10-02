@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
-using System.Net;
 using System.Net.NetworkInformation;
 using System.Text.Json;
 using System.Windows;
@@ -20,6 +19,10 @@ public sealed record GeoMapMarker(string Id, double Latitude, double Longitude, 
     string Details, string Color = "#88cc00", double? HeadingDegrees = null,
     IReadOnlyList<GeoMapPoint>? Trail = null, string Symbol = "dot",
     bool ShowFlightStateLegend = false, bool IsSelected = false);
+public sealed record GeoMapViewport(double West, double South, double East, double North, double Zoom);
+public sealed record GeoMapCoverageTile(int Zoom, int X, int Y, bool Expired);
+public sealed record GeoMapTileCoordinate(int Zoom, int X, int Y);
+public sealed record GeoMapLocation(double Latitude, double Longitude);
 
 public partial class GeoMapView : UserControl
 {
@@ -57,10 +60,25 @@ public partial class GeoMapView : UserControl
     private bool mapReady;
     private bool initializing;
     private bool coreEventsAttached;
-    private MbTilesTileProvider? offlineTiles;
     private GeoMapSourceOptions sourceOptions = new();
     private bool autoOffline = !NetworkInterface.GetIsNetworkAvailable();
     private readonly DispatcherTimer updateTimer;
+    private bool inspectorAllowNetwork;
+    private (int Zoom, int X, int Y)? pendingInspectorTile;
+    private GeoMapState? pendingInspectorView;
+    private int? pendingInspectorZoom;
+
+    public bool CacheInspectorMode { get; set; }
+    public bool IsMapReady => mapReady;
+    public bool InspectorAllowNetwork
+    {
+        get => inspectorAllowNetwork;
+        set { if (inspectorAllowNetwork == value) return; inspectorAllowNetwork = value; ReloadMap(); }
+    }
+    public event EventHandler<GeoMapViewport>? ViewportChanged;
+    public event EventHandler<GeoMapTileCoordinate>? CacheTileSelected;
+    public event EventHandler<GeoMapLocation>? InspectorLocationSelected;
+    public event EventHandler? TilesLoaded;
 
     public GeoMapView()
     {
@@ -137,8 +155,34 @@ public partial class GeoMapView : UserControl
             {
                 ApplyNetworkAvailability(onlineProperty.GetBoolean());
             }
-            else if (messageType == "onlineTileError" && sourceOptions.Mode == GeoMapSourceMode.Auto &&
-                     !autoOffline && offlineTiles is not null)
+            else if (messageType == "viewport" && CacheInspectorMode)
+            {
+                ViewportChanged?.Invoke(this, new GeoMapViewport(
+                    doc.RootElement.GetProperty("west").GetDouble(),
+                    doc.RootElement.GetProperty("south").GetDouble(),
+                    doc.RootElement.GetProperty("east").GetDouble(),
+                    doc.RootElement.GetProperty("north").GetDouble(),
+                    doc.RootElement.GetProperty("zoom").GetDouble()));
+            }
+            else if (messageType == "tilesLoaded" && CacheInspectorMode)
+                TilesLoaded?.Invoke(this, EventArgs.Empty);
+            else if (messageType == "cacheTileSelected" && CacheInspectorMode)
+            {
+                int zoom = doc.RootElement.GetProperty("zoom").GetInt32();
+                int x = doc.RootElement.GetProperty("x").GetInt32();
+                int y = doc.RootElement.GetProperty("y").GetInt32();
+                if (GeoMapTileContent.IsValidCoordinate(zoom, x, y))
+                    CacheTileSelected?.Invoke(this, new GeoMapTileCoordinate(zoom, x, y));
+            }
+            else if (messageType == "inspectorLocation" && CacheInspectorMode)
+            {
+                double latitude = doc.RootElement.GetProperty("lat").GetDouble();
+                double longitude = doc.RootElement.GetProperty("lng").GetDouble();
+                if (double.IsFinite(latitude) && double.IsFinite(longitude))
+                    InspectorLocationSelected?.Invoke(this, new GeoMapLocation(latitude, longitude));
+            }
+            else if (messageType == "onlineTileError" && !CacheInspectorMode && sourceOptions.Mode == GeoMapSourceMode.Auto &&
+                     !autoOffline)
             {
                 autoOffline = true;
                 ReloadMap();
@@ -153,8 +197,6 @@ public partial class GeoMapView : UserControl
         AttachCollection(null);
         GeoMapSourceStore.Changed -= OnMapSourceStoreChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
-        offlineTiles?.Dispose();
-        offlineTiles = null;
     }
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     { var view = (GeoMapView)d; view.AttachCollection(e.NewValue as INotifyCollectionChanged); view.ScheduleUpdate(); }
@@ -175,25 +217,18 @@ public partial class GeoMapView : UserControl
 
     private string BuildMapHtml()
     {
-        RefreshOfflineProvider();
         GeoMapState state = GeoMapStateStore.GetState(MapId);
         string latStr = state.Latitude.ToString(CultureInfo.InvariantCulture);
         string lngStr = state.Longitude.ToString(CultureInfo.InvariantCulture);
         string zoomStr = state.Zoom.ToString(CultureInfo.InvariantCulture);
-        bool useOffline = GeoMapSourceStore.ShouldUseOfflineMap(sourceOptions, !autoOffline);
+        bool cacheOnly = CacheInspectorMode ? !InspectorAllowNetwork :
+            GeoMapSourceStore.ShouldUseCacheOnly(sourceOptions, !autoOffline);
         string tileUrl = "https://srdeck-map-tiles.local/{z}/{x}/{y}";
-        bool mbTilesOnly = useOffline && sourceOptions.Mode == GeoMapSourceMode.Offline && offlineTiles is not null;
-        int minimumZoom = mbTilesOnly ? offlineTiles!.Metadata.MinimumZoom :
-            Math.Min(1, offlineTiles?.Metadata.MinimumZoom ?? 1);
-        int maximumZoom = mbTilesOnly ? offlineTiles!.Metadata.MaximumZoom :
-            Math.Max(19, offlineTiles?.Metadata.MaximumZoom ?? 19);
+        const int minimumZoom = 1;
+        const int maximumZoom = 19;
         const string onlineAttribution = "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener noreferrer\">OpenStreetMap</a> contributors (ODbL 1.0)";
-        string offlineAttribution = WebUtility.HtmlEncode(offlineTiles?.Metadata.Attribution ?? "Offline map");
-        string attribution = !useOffline ? onlineAttribution : mbTilesOnly ? offlineAttribution :
-            offlineTiles is null ? onlineAttribution : $"{onlineAttribution} | {offlineAttribution}";
-        string tileFailure = useOffline
-            ? offlineTiles is null ? "この地域または縮尺に有効なオンラインキャッシュがありません。" :
-                "この地域または縮尺はオンラインキャッシュ／オフライン地図に収録されていません。"
+        string tileFailure = cacheOnly
+            ? "この地域または縮尺の地図タイルはキャッシュされていません。"
             : "地図タイルを読み込めません。ネットワーク接続を確認してください。";
 
         return MapHtml
@@ -203,9 +238,10 @@ public partial class GeoMapView : UserControl
             .Replace("__TILE_URL__", tileUrl, StringComparison.Ordinal)
             .Replace("__MIN_ZOOM__", minimumZoom.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
             .Replace("__MAX_ZOOM__", maximumZoom.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("__ATTRIBUTION__", JsonSerializer.Serialize(attribution), StringComparison.Ordinal)
+            .Replace("__ATTRIBUTION__", JsonSerializer.Serialize(onlineAttribution), StringComparison.Ordinal)
             .Replace("__TILE_FAILURE__", JsonSerializer.Serialize(tileFailure), StringComparison.Ordinal)
-            .Replace("__IS_OFFLINE__", useOffline.ToString().ToLowerInvariant(), StringComparison.Ordinal)
+            .Replace("__IS_OFFLINE__", cacheOnly.ToString().ToLowerInvariant(), StringComparison.Ordinal)
+            .Replace("__INSPECTOR__", CacheInspectorMode.ToString().ToLowerInvariant(), StringComparison.Ordinal)
             .Replace("<label><input id=\"toggle-trails\" type=\"checkbox\">航跡</label>", ShowTrailToggle ? "<label><input id=\"toggle-trails\" type=\"checkbox\">航跡</label>" : string.Empty, StringComparison.Ordinal)
             .Replace("__LEGEND_HTML__", LegendHtml, StringComparison.Ordinal)
             .Replace("__HAS_CONFIGURED_LEGEND__", (!string.IsNullOrWhiteSpace(LegendHtml)).ToString().ToLowerInvariant(), StringComparison.Ordinal)
@@ -264,6 +300,23 @@ public partial class GeoMapView : UserControl
         mapReady = true; StatusOverlay.Visibility = Visibility.Collapsed;
         await InvalidateMapSizeAsync();
         await UpdateMarkersAsync();
+        if (pendingInspectorTile is { } tile)
+        {
+            pendingInspectorTile = null;
+            await NavigateToTileAsync(tile.Zoom, tile.X, tile.Y);
+        }
+        else if (pendingInspectorView is { } view)
+        {
+            pendingInspectorView = null;
+            await NavigateInspectorToAsync(view.Latitude, view.Longitude, (int)view.Zoom);
+        }
+        else if (pendingInspectorZoom is int zoom)
+        {
+            pendingInspectorZoom = null;
+            await SetInspectorZoomAsync(zoom);
+        }
+        if (CacheInspectorMode)
+            await MapWebView.ExecuteScriptAsync("window.reportViewport && window.reportViewport();");
     }
 
     private void OnMapSizeChanged(object sender, SizeChangedEventArgs e)
@@ -297,11 +350,79 @@ public partial class GeoMapView : UserControl
         catch (InvalidOperationException) { }
     }
 
+    public async Task NavigateToTileAsync(int zoom, int x, int y)
+    {
+        if (!CacheInspectorMode) return;
+        pendingInspectorZoom = null;
+        pendingInspectorView = null;
+        if (!mapReady || MapWebView.CoreWebView2 is null)
+        {
+            pendingInspectorTile = (zoom, x, y);
+            return;
+        }
+        await MapWebView.ExecuteScriptAsync($"window.inspectTile({zoom},{x},{y});");
+    }
+
+    public async Task NavigateInspectorToAsync(double latitude, double longitude, int zoom)
+    {
+        if (!CacheInspectorMode || !double.IsFinite(latitude) || !double.IsFinite(longitude) ||
+            zoom is < 1 or > 19) return;
+        latitude = Math.Clamp(latitude, -85, 85);
+        longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
+        pendingInspectorTile = null;
+        pendingInspectorZoom = null;
+        if (!mapReady || MapWebView.CoreWebView2 is null)
+        {
+            pendingInspectorView = new(latitude, longitude, zoom);
+            return;
+        }
+        await MapWebView.ExecuteScriptAsync(
+            $"window.setInspectorView({JsonSerializer.Serialize(latitude)},{JsonSerializer.Serialize(longitude)},{zoom});");
+    }
+
+    public async Task SetInspectorZoomAsync(int zoom)
+    {
+        if (!CacheInspectorMode || zoom is < 1 or > 19) return;
+        pendingInspectorTile = null;
+        pendingInspectorView = null;
+        if (!mapReady || MapWebView.CoreWebView2 is null)
+        {
+            pendingInspectorZoom = zoom;
+            return;
+        }
+        await MapWebView.ExecuteScriptAsync($"window.setInspectorZoom({zoom});");
+    }
+
+    public async Task ShowCacheCoverageAsync(IReadOnlyList<GeoMapCoverageTile> tiles)
+    {
+        if (!mapReady || MapWebView.CoreWebView2 is null) return;
+        await MapWebView.ExecuteScriptAsync(
+            $"window.showCacheCoverage({JsonSerializer.Serialize(tiles)});");
+    }
+
+    public async Task HighlightCacheTilesAsync(IReadOnlyList<GeoMapTileCoordinate> tiles)
+    {
+        if (!mapReady || MapWebView.CoreWebView2 is null) return;
+        await MapWebView.ExecuteScriptAsync($"window.highlightCacheTiles({JsonSerializer.Serialize(tiles)});");
+    }
+
+    public async Task ShowInspectorViewportAsync(GeoMapViewport view)
+    {
+        if (!mapReady || MapWebView.CoreWebView2 is null) return;
+        await MapWebView.ExecuteScriptAsync(
+            $"window.showInspectorViewport({JsonSerializer.Serialize(view)});");
+    }
+
+    public async Task RefreshVisibleTilesAsync()
+    {
+        if (!mapReady || MapWebView.CoreWebView2 is null || !InspectorAllowNetwork) return;
+        await MapWebView.ExecuteScriptAsync("window.refreshMapTiles();");
+    }
+
     private void LoadSourceOptions()
     {
         sourceOptions = GeoMapSourceStore.GetOptions();
-        if (sourceOptions.Mode == GeoMapSourceMode.Auto)
-            autoOffline = !NetworkInterface.GetIsNetworkAvailable();
+        autoOffline = !NetworkInterface.GetIsNetworkAvailable();
     }
 
     private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
@@ -316,23 +437,12 @@ public partial class GeoMapView : UserControl
 
     private void ApplyNetworkAvailability(bool isOnline)
     {
-        if (sourceOptions.Mode != GeoMapSourceMode.Auto) return;
+        if (CacheInspectorMode) return;
+        if (sourceOptions.Mode == GeoMapSourceMode.Offline) return;
         bool nextAutoOffline = !isOnline;
         if (autoOffline == nextAutoOffline) return;
         autoOffline = nextAutoOffline;
         ReloadMap();
-    }
-
-    private void RefreshOfflineProvider()
-    {
-        offlineTiles?.Dispose();
-        offlineTiles = null;
-        if (!GeoMapSourceStore.HasUsableOfflineMap(sourceOptions)) return;
-        try
-        {
-            offlineTiles = new MbTilesTileProvider(sourceOptions.MbTilesPath!);
-        }
-        catch (Exception exception) when (exception is IOException or Microsoft.Data.Sqlite.SqliteException) { }
     }
 
     private void OnMapSourceStoreChanged(object? sender, EventArgs e)
@@ -370,29 +480,22 @@ public partial class GeoMapView : UserControl
             return;
         }
 
-        bool useOffline = GeoMapSourceStore.ShouldUseOfflineMap(sourceOptions, !autoOffline);
-        if (!MbTilesTileProvider.TryParseTileUri(e.Request.Uri, out int zoom, out int x, out int y)) return;
+        bool cacheOnly = CacheInspectorMode ? !InspectorAllowNetwork :
+            GeoMapSourceStore.ShouldUseCacheOnly(sourceOptions, !autoOffline);
+        bool forceRefresh = CacheInspectorMode && e.Request.Uri.EndsWith("?refresh=1", StringComparison.Ordinal);
+        string tileUri = forceRefresh ? e.Request.Uri[..^"?refresh=1".Length] : e.Request.Uri;
+        if (!GeoMapTileUri.TryParse(tileUri, out int zoom, out int x, out int y)) return;
 
         CoreWebView2Deferral deferral = e.GetDeferral();
         try
         {
-            GeoMapTile? tile;
-            if (useOffline && sourceOptions.Mode == GeoMapSourceMode.Offline && offlineTiles is not null)
+            OnlineGeoMapTileResult result = await OnlineTiles.Value.GetTileAsync(
+                zoom, x, y, allowNetwork: !cacheOnly, CancellationToken.None, forceRefresh);
+            GeoMapTile? tile = result.Tile;
+            if (result.NetworkFailed && !CacheInspectorMode && sourceOptions.Mode == GeoMapSourceMode.Auto && !autoOffline)
             {
-                tile = await offlineTiles.GetTileAsync(zoom, x, y, CancellationToken.None);
-            }
-            else
-            {
-                OnlineGeoMapTileResult result = await OnlineTiles.Value.GetTileAsync(
-                    zoom, x, y, allowNetwork: !useOffline, CancellationToken.None);
-                tile = result.Tile;
-                if (result.NetworkFailed && sourceOptions.Mode == GeoMapSourceMode.Auto && !autoOffline)
-                {
-                    autoOffline = true;
-                    _ = Dispatcher.BeginInvoke(ReloadMap, DispatcherPriority.Background);
-                }
-                if (tile is null && useOffline && offlineTiles is not null)
-                    tile = await offlineTiles.GetTileAsync(zoom, x, y, CancellationToken.None);
+                autoOffline = true;
+                _ = Dispatcher.BeginInvoke(ReloadMap, DispatcherPriority.Background);
             }
             if (tile is null)
             {
@@ -441,33 +544,107 @@ public partial class GeoMapView : UserControl
 <body><div id="map"></div><div id="map-status">地図を読み込んでいます…</div><script>window.setMapStatus=function(message){const status=document.getElementById('map-status');if(!status)return;status.textContent=message;status.classList.toggle('hidden',!message)};window.invalidateMapSize=function(){};window.addEventListener('error',()=>window.setMapStatus('地図スクリプトでエラーが発生しました。'));window.addEventListener('unhandledrejection',()=>window.setMapStatus('地図スクリプトでエラーが発生しました。'));setTimeout(()=>{if(window.L===undefined)window.setMapStatus('地図ライブラリを読み込めませんでした。')},8000);</script><script src="https://srdeck-map-assets.local/leaflet.js"></script><script>
  function postNetworkStatus(online){if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(JSON.stringify({type:'networkStatus',online}))}
  window.addEventListener('online',()=>postNetworkStatus(true));window.addEventListener('offline',()=>postNetworkStatus(false));
- const isOffline=__IS_OFFLINE__;const map=L.map('map',{zoomControl:true}).setView([__INIT_LAT__,__INIT_LNG__],__INIT_ZOOM__);
+ const isOffline=__IS_OFFLINE__,isInspector=__INSPECTOR__;const map=L.map('map',{zoomControl:true}).setView([__INIT_LAT__,__INIT_LNG__],__INIT_ZOOM__);
  let tileErrors=0;let hasGoodView=false;let revertingToGoodView=false;let returnTimer=null;
  let lastGoodView={lat:__INIT_LAT__,lng:__INIT_LNG__,zoom:__INIT_ZOOM__};
  const tiles=L.tileLayer('__TILE_URL__',{minZoom:__MIN_ZOOM__,maxZoom:__MAX_ZOOM__,attribution:__ATTRIBUTION__})
   .on('loading',()=>{tileErrors=0})
   .on('tileerror',()=>{
    tileErrors++;
-   if(isOffline&&hasGoodView&&!revertingToGoodView){
+   if(isOffline&&!isInspector&&hasGoodView&&!revertingToGoodView){
     revertingToGoodView=true;window.setMapStatus('この地域または縮尺に有効なキャッシュがないため、直前に表示できた地図へ戻ります…');
     if(returnTimer!==null)clearTimeout(returnTimer);
     returnTimer=setTimeout(()=>{
      map.setView([lastGoodView.lat,lastGoodView.lng],lastGoodView.zoom,{animate:false});
      setTimeout(()=>{tileErrors=0;revertingToGoodView=false;window.setMapStatus('')},250);
     },1200);
-   }else if(!revertingToGoodView){window.setMapStatus(__TILE_FAILURE__)}
+   }else if(!revertingToGoodView&&!isInspector){window.setMapStatus(__TILE_FAILURE__)}
    if(!isOffline&&window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(JSON.stringify({type:'onlineTileError'}));
   })
   .on('load',()=>{
+   if(isInspector){window.setMapStatus('');if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(JSON.stringify({type:'tilesLoaded'}));tiles.setUrl('__TILE_URL__',true)}
    if(tileErrors!==0||revertingToGoodView)return;
    commitGoodView();
   }).addTo(map);
+ if(isInspector){
+  const coverage=L.layerGroup().addTo(map),selection=L.layerGroup().addTo(map),detailExtent=L.layerGroup().addTo(map);
+  function bounds(z,x,y){const n=2**z,lat=v=>Math.atan(Math.sinh(Math.PI*(1-2*v/n)))*180/Math.PI;return [[lat(y+1),x/n*360-180],[lat(y),(x+1)/n*360-180]]}
+  function postInspectorLocation(latlng){if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(JSON.stringify({type:'inspectorLocation',lat:latlng.lat,lng:latlng.lng}))}
+  map.on('click',e=>postInspectorLocation(e.latlng));
+  window.showCacheCoverage=items=>{
+   coverage.clearLayers();
+   (items||[]).forEach(t=>L.rectangle(bounds(t.Zoom,t.X,t.Y),{color:t.Expired?'#ffae42':'#88cc00',weight:1,fillOpacity:.25,interactive:true,bubblingMouseEvents:false})
+    .bindTooltip('Z'+t.Zoom+' · '+t.X+'/'+t.Y)
+    .on('click',()=>{if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(JSON.stringify({type:'cacheTileSelected',zoom:t.Zoom,x:t.X,y:t.Y}))})
+    .addTo(coverage));
+  };
+  window.highlightCacheTiles=items=>{
+   selection.clearLayers();
+   (items||[]).forEach(t=>{
+    const b=bounds(t.Zoom,t.X,t.Y);
+    if(t.Zoom>map.getZoom()+3)L.circleMarker([(b[0][0]+b[1][0])/2,(b[0][1]+b[1][1])/2],{radius:7,color:'#55c8d8',weight:3,fillOpacity:.6,interactive:false}).addTo(selection);
+    else L.rectangle(b,{color:'#55c8d8',weight:3,fillOpacity:.12,interactive:false}).addTo(selection);
+   });
+  };
+  window.showInspectorViewport=v=>{
+   detailExtent.clearLayers();
+   L.rectangle([[v.South,v.West],[v.North,v.East]],{color:'#ff66cc',weight:2,fillOpacity:0,interactive:false,dashArray:'5,4'}).addTo(detailExtent);
+   L.circleMarker([(v.South+v.North)/2,(v.West+v.East)/2],{radius:6,color:'#ff66cc',weight:2,fillColor:'#ff66cc',fillOpacity:.8,interactive:false}).addTo(detailExtent);
+  };
+  window.inspectTile=(z,x,y)=>{const b=bounds(z,x,y);window.highlightCacheTiles([{Zoom:z,X:x,Y:y}]);map.setView([(b[0][0]+b[1][0])/2,(b[0][1]+b[1][1])/2],z,{animate:false})};
+  window.setInspectorView=(lat,lng,z)=>map.setView([lat,lng],z,{animate:false});
+  window.setInspectorZoom=z=>map.setZoom(z,{animate:false});
+  window.refreshMapTiles=()=>{tiles.setUrl('__TILE_URL__?refresh=1',true);tiles.redraw()};
+  function postViewport(){const b=map.getBounds();postMapState();if(window.chrome&&window.chrome.webview)window.chrome.webview.postMessage(JSON.stringify({type:'viewport',west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth(),zoom:map.getZoom()}))}
+  window.reportViewport=postViewport;map.on('moveend',postViewport);
+ }
  window.invalidateMapSize=()=>map.invalidateSize({pan:false});let layer=L.layerGroup().addTo(map);let trailLines=[];let trailsVisible=true;let labelsVisible=true;const legend=L.control({position:'bottomright'});legend.onAdd=()=>{const d=L.DomUtil.create('div','map-legend');d.innerHTML='__LEGEND_HTML__';return d};const displayControl=L.control({position:'topright'});displayControl.onAdd=()=>{const d=L.DomUtil.create('div','display-control');d.innerHTML='<label><input id="toggle-trails" type="checkbox">航跡</label><label><input id="toggle-labels" type="checkbox">__MAP_LABEL__</label>';const trailToggle=d.querySelector('#toggle-trails');const labelToggle=d.querySelector('#toggle-labels');if(trailToggle)trailToggle.checked=trailsVisible;labelToggle.checked=labelsVisible;L.DomEvent.disableClickPropagation(d);L.DomEvent.disableScrollPropagation(d);if(trailToggle)trailToggle.addEventListener('change',e=>{trailsVisible=e.target.checked;trailLines.forEach(x=>x.setStyle({opacity:trailsVisible?x.options.visibleOpacity:0}))});labelToggle.addEventListener('change',e=>{labelsVisible=e.target.checked;map.getContainer().classList.toggle('hide-aircraft-labels',!labelsVisible)});return d};
  function postMapState(){const c=map.getCenter();const z=map.getZoom();if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage(JSON.stringify({type:'mapState',lat:c.lat,lng:c.lng,zoom:z}))}}
  function commitGoodView(){const center=map.getCenter();lastGoodView={lat:center.lat,lng:center.lng,zoom:map.getZoom()};hasGoodView=true;window.setMapStatus('');postMapState()}
  function invokeMarker(id){if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage(JSON.stringify({type:'markerInvoked',id:String(id)}))}}
 map.on('moveend zoomend',()=>{if(!tiles.isLoading()&&tileErrors===0&&!revertingToGoodView)commitGoodView()});
-window.updateMarkers=function(points){layer.clearLayers();trailLines=[];if(!points||points.length===0){if(legend._map)legend.remove();if(displayControl._map)displayControl.remove();return}const hasCallsignLabels=points.some(p=>p.Symbol==='aircraft'||p.Symbol==='station'||p.Symbol==='vessel');const showFlightStateLegend=points.some(p=>p.ShowFlightStateLegend)||__HAS_CONFIGURED_LEGEND__;if(showFlightStateLegend&&!legend._map)legend.addTo(map);else if(!showFlightStateLegend&&legend._map)legend.remove();if(hasCallsignLabels&&!displayControl._map)displayControl.addTo(map);else if(!hasCallsignLabels&&displayControl._map)displayControl.remove();points.forEach(p=>{const ll=[p.Latitude,p.Longitude];if(p.Trail&&p.Trail.length>1){trailRuns(p.Trail,p.Color).forEach(run=>{const outline=L.polyline(run.points,{color:'__PANEL_BASE__',weight:4,opacity:trailsVisible?0.82:0,visibleOpacity:0.82,lineJoin:'round',lineCap:'round',interactive:false}).addTo(layer);const line=L.polyline(run.points,{color:run.color,weight:2,opacity:trailsVisible?1:0,visibleOpacity:1,lineJoin:'round',lineCap:'round',interactive:false}).addTo(layer);trailLines.push(outline,line)})}const aircraft=p.Symbol==='aircraft';const vessel=p.Symbol==='vessel';const station=p.Symbol==='station';const permanent=aircraft||station||vessel;const heading=Number.isFinite(p.HeadingDegrees)?p.HeadingDegrees:0;const html=aircraft?aircraftSvg(p.Color,heading):vessel?vesselSvg(p.Color,heading):station?stationSvg(p.Color):'<div class="geo-marker" style="background:'+safeColor(p.Color)+'"></div>';const size=aircraft?[30,30]:vessel?[18,24]:station?[26,26]:[18,18];const anchor=aircraft?[15,15]:vessel?[9,12]:station?[13,13]:[9,9];const icon=L.divIcon({className:p.IsSelected?'selected-map-marker':'',html:html,iconSize:size,iconAnchor:anchor});L.marker(ll,{icon,zIndexOffset:p.IsSelected?1250:aircraft?500:vessel?400:station?250:0}).bindTooltip(esc(p.Label),{direction:'right',offset:aircraft?[12,0]:vessel?[9,0]:station?[10,0]:[7,0],permanent,className:(permanent?'aircraft-label':'')+(p.IsSelected?' selected-map-label':'')}).bindPopup('<b>'+esc(p.Label)+'</b><br>'+esc(p.Details)+'<br>'+p.Latitude.toFixed(5)+', '+p.Longitude.toFixed(5)).on('click',()=>invokeMarker(p.Id)).addTo(layer)});map.getContainer().classList.toggle('hide-aircraft-labels',!labelsVisible);};function trailRuns(trail,fallback){const runs=[];let color=safeColor(trail[0].Color||fallback);let points=[[trail[0].Latitude,trail[0].Longitude]];for(let i=1;i<trail.length;i++){const segmentColor=safeColor(trail[i-1].Color||fallback);if(segmentColor!==color){if(points.length>1)runs.push({color,points});points=[[trail[i-1].Latitude,trail[i-1].Longitude]];color=segmentColor}points.push([trail[i].Latitude,trail[i].Longitude])}if(points.length>1)runs.push({color,points});return runs}function stationSvg(color){color=safeColor(color);return '<div class="station-marker"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><path d="M13 4v18M9 22h8M10.5 10.5 13 4l2.5 6.5M8 8a7 7 0 0 0 0 9M18 8a7 7 0 0 1 0 9M5.5 5a11 11 0 0 0 0 15M20.5 5a11 11 0 0 1 0 15" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'}function vesselSvg(color,heading){color=safeColor(color);return '<div class="vessel-marker" style="transform:rotate('+heading+'deg)"><svg viewBox="0 0 16 24" width="16" height="24" aria-hidden="true"><path d="M8 0.5 15 21.5 8 17.5 1 21.5Z" fill="'+color+'" stroke="__PANEL_BASE__" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 5v9" fill="none" stroke="__PANEL_SURFACE__" stroke-width="1" stroke-linecap="round"/></svg></div>'}function aircraftSvg(color,heading){color=safeColor(color);return '<div class="aircraft-marker" style="transform:rotate('+heading+'deg)"><svg viewBox="0 0 30 30" width="30" height="30" aria-hidden="true"><path d="M15 1.8c1.3 0 2.2 1.5 2.2 3.2v6.1l9.6 6.2v2.8l-9.6-3.2v6.2l3.2 2.2v2.1L15 26l-5.4 1.4v-2.1l3.2-2.2v-6.2l-9.6 3.2v-2.8l9.6-6.2V5c0-1.7.9-3.2 2.2-3.2z" fill="'+color+'" stroke="__PANEL_BASE__" stroke-width="1.4" stroke-linejoin="round"/></svg></div>'}function safeColor(v){return /^#[0-9a-f]{6}$/i.test(v||'')?v:'__SERIES_4__'}function esc(v){const d=document.createElement('div');d.textContent=v||'';return d.innerHTML;}
+const markerEntries = new Map();
+window.updateMarkers=function(points){
+ points=points||[];
+ const active=new Set(points.map(p=>String(p.Id)));
+ for(const [id,entry] of markerEntries){
+  if(active.has(id))continue;
+  entry.layers.forEach(item=>layer.removeLayer(item));
+  markerEntries.delete(id);
+ }
+ const hasCallsignLabels=points.some(p=>p.Symbol==='aircraft'||p.Symbol==='station'||p.Symbol==='vessel');
+ const showFlightStateLegend=points.some(p=>p.ShowFlightStateLegend)||__HAS_CONFIGURED_LEGEND__;
+ if(showFlightStateLegend&&points.length&&!legend._map)legend.addTo(map);
+ else if((!showFlightStateLegend||!points.length)&&legend._map)legend.remove();
+ if(hasCallsignLabels&&!displayControl._map)displayControl.addTo(map);
+ else if(!hasCallsignLabels&&displayControl._map)displayControl.remove();
+ points.forEach(p=>{
+  const id=String(p.Id),signature=JSON.stringify(p),previous=markerEntries.get(id);
+  if(previous&&previous.signature===signature)return;
+  if(previous)previous.layers.forEach(item=>layer.removeLayer(item));
+  const layers=[],lines=[],ll=[p.Latitude,p.Longitude];
+  if(p.Trail&&p.Trail.length>1)trailRuns(p.Trail,p.Color).forEach(run=>{
+   const outline=L.polyline(run.points,{color:'__PANEL_BASE__',weight:4,opacity:trailsVisible?0.82:0,visibleOpacity:0.82,lineJoin:'round',lineCap:'round',interactive:false}).addTo(layer);
+   const line=L.polyline(run.points,{color:run.color,weight:2,opacity:trailsVisible?1:0,visibleOpacity:1,lineJoin:'round',lineCap:'round',interactive:false}).addTo(layer);
+   layers.push(outline,line);lines.push(outline,line);
+  });
+  const aircraft=p.Symbol==='aircraft',vessel=p.Symbol==='vessel',station=p.Symbol==='station';
+  const permanent=aircraft||station||vessel,heading=Number.isFinite(p.HeadingDegrees)?p.HeadingDegrees:0;
+  const html=aircraft?aircraftSvg(p.Color,heading):vessel?vesselSvg(p.Color,heading):station?stationSvg(p.Color):'<div class="geo-marker" style="background:'+safeColor(p.Color)+'"></div>';
+  const size=aircraft?[30,30]:vessel?[18,24]:station?[26,26]:[18,18];
+  const anchor=aircraft?[15,15]:vessel?[9,12]:station?[13,13]:[9,9];
+  const icon=L.divIcon({className:p.IsSelected?'selected-map-marker':'',html:html,iconSize:size,iconAnchor:anchor});
+  const marker=L.marker(ll,{icon,zIndexOffset:p.IsSelected?1250:aircraft?500:vessel?400:station?250:0})
+   .bindTooltip(esc(p.Label),{direction:'right',offset:aircraft?[12,0]:vessel?[9,0]:station?[10,0]:[7,0],permanent,className:(permanent?'aircraft-label':'')+(p.IsSelected?' selected-map-label':'')})
+   .bindPopup('<b>'+esc(p.Label)+'</b><br>'+esc(p.Details)+'<br>'+p.Latitude.toFixed(5)+', '+p.Longitude.toFixed(5))
+   .on('click',()=>invokeMarker(p.Id)).addTo(layer);
+  layers.push(marker);
+  markerEntries.set(id,{signature,layers,lines,marker});
+ });
+ trailLines=[...markerEntries.values()].flatMap(entry=>entry.lines);
+ map.getContainer().classList.toggle('hide-aircraft-labels',!labelsVisible);
+};
+function trailRuns(trail,fallback){const runs=[];let color=safeColor(trail[0].Color||fallback);let points=[[trail[0].Latitude,trail[0].Longitude]];for(let i=1;i<trail.length;i++){const segmentColor=safeColor(trail[i-1].Color||fallback);if(segmentColor!==color){if(points.length>1)runs.push({color,points});points=[[trail[i-1].Latitude,trail[i-1].Longitude]];color=segmentColor}points.push([trail[i].Latitude,trail[i].Longitude])}if(points.length>1)runs.push({color,points});return runs}function stationSvg(color){color=safeColor(color);return '<div class="station-marker"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><path d="M13 4v18M9 22h8M10.5 10.5 13 4l2.5 6.5M8 8a7 7 0 0 0 0 9M18 8a7 7 0 0 1 0 9M5.5 5a11 11 0 0 0 0 15M20.5 5a11 11 0 0 1 0 15" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'}function vesselSvg(color,heading){color=safeColor(color);return '<div class="vessel-marker" style="transform:rotate('+heading+'deg)"><svg viewBox="0 0 16 24" width="16" height="24" aria-hidden="true"><path d="M8 0.5 15 21.5 8 17.5 1 21.5Z" fill="'+color+'" stroke="__PANEL_BASE__" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 5v9" fill="none" stroke="__PANEL_SURFACE__" stroke-width="1" stroke-linecap="round"/></svg></div>'}function aircraftSvg(color,heading){color=safeColor(color);return '<div class="aircraft-marker" style="transform:rotate('+heading+'deg)"><svg viewBox="0 0 30 30" width="30" height="30" aria-hidden="true"><path d="M15 1.8c1.3 0 2.2 1.5 2.2 3.2v6.1l9.6 6.2v2.8l-9.6-3.2v6.2l3.2 2.2v2.1L15 26l-5.4 1.4v-2.1l3.2-2.2v-6.2l-9.6 3.2v-2.8l9.6-6.2V5c0-1.7.9-3.2 2.2-3.2z" fill="'+color+'" stroke="__PANEL_BASE__" stroke-width="1.4" stroke-linejoin="round"/></svg></div>'}function safeColor(v){return /^#[0-9a-f]{6}$/i.test(v||'')?v:'__SERIES_4__'}function esc(v){const d=document.createElement('div');d.textContent=v||'';return d.innerHTML;}
 const useCalloutLabels=__USE_CALLOUTS__;
 const calloutLeaderLayer=L.layerGroup().addTo(map);
 let calloutEntries=[];
@@ -497,8 +674,7 @@ window.updateMarkers=function(points){
  updateGeoMarkers(points);
  calloutLeaderLayer.clearLayers();calloutEntries=[];
  if(!useCalloutLabels||!points||points.length===0)return;
- const markers=[];layer.eachLayer(candidate=>{if(candidate instanceof L.Marker)markers.push(candidate)});
- calloutEntries=points.map((point,index)=>({point,marker:markers[index],content:'<span class="geo-callout-badge" style="background:'+safeColor(point.Color)+'"></span>'+esc(point.Label),direction:null,offset:null})).filter(entry=>entry.marker);
+ calloutEntries=points.map(point=>({point,marker:markerEntries.get(String(point.Id))?.marker,content:'<span class="geo-callout-badge" style="background:'+safeColor(point.Color)+'"></span>'+esc(point.Label),direction:null,offset:null})).filter(entry=>entry.marker);
  layoutGeoCallouts();requestAnimationFrame(layoutGeoCallouts);
 };
 map.on('zoomend moveend viewreset',layoutGeoCallouts);

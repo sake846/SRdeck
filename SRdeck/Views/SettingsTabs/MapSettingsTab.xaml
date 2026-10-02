@@ -18,50 +18,9 @@
                         <ComboBox x:Name="MapModeComboBox" Grid.Column="1" Height="26" SelectedValuePath="Tag"
                                   SelectionChanged="MapModeComboBox_SelectionChanged">
                             <ComboBoxItem Content="{DynamicResource Option_MapAuto}" Tag="Auto" />
-                            <ComboBoxItem Content="{DynamicResource Option_MapOnline}" Tag="Online" />
-                            <ComboBoxItem Content="{DynamicResource Option_MapOffline}" Tag="Offline" />
+                            <ComboBoxItem Content="{DynamicResource Option_MapCacheOnly}" Tag="Offline" />
                         </ComboBox>
                     </Grid>
-
-                    <TextBlock Text="{DynamicResource Label_MbTilesPath}" Margin="0,0,0,5" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="MbTilesPathTextBox" Height="26" IsReadOnly="True" VerticalContentAlignment="Center"
-                                 Background="#FF202020" Foreground="White" BorderBrush="#FF444444" Padding="5,0" />
-                        <Button Grid.Column="1" Content="{DynamicResource Btn_SelectMbTiles}" Style="{StaticResource FlatButtonStyle}"
-                                Width="90" Height="26" Margin="8,0,0,0" Click="SelectMbTilesButton_Click" />
-                    </Grid>
-
-                    <Border Background="#FF202020" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,12,0,0">
-                        <TextBlock x:Name="MapValidationText" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                    </Border>
-
-                    <Separator Margin="0,14,0,12" Background="#FF333333" />
-                    <TextBlock Text="{DynamicResource Header_MapDownload}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,4" />
-                    <TextBlock Text="{DynamicResource Desc_MapDownload}" Foreground="{StaticResource TextDimBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,10" />
-                    <TextBlock Text="{DynamicResource Label_MapDownloadUrl}" Margin="0,0,0,5" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="MapDownloadUrlTextBox" Height="26" VerticalContentAlignment="Center"
-                                 Background="#FF202020" Foreground="White" BorderBrush="#FF444444" Padding="5,0" />
-                        <Button x:Name="DownloadMapButton" Grid.Column="1" Content="{DynamicResource Btn_DownloadMap}"
-                                Style="{StaticResource FlatButtonStyle}" Width="100" Height="26" Margin="8,0,0,0"
-                                Click="DownloadMapButton_Click" />
-                        <Button x:Name="CancelMapDownloadButton" Grid.Column="2" Content="{DynamicResource Btn_CancelMapDownload}"
-                                Style="{StaticResource FlatButtonStyle}" Width="80" Height="26" Margin="8,0,0,0"
-                                Click="CancelMapDownloadButton_Click" IsEnabled="False" />
-                    </Grid>
-                    <ProgressBar x:Name="MapDownloadProgressBar" Height="5" Margin="0,10,0,0"
-                                 Minimum="0" Maximum="100" Visibility="Collapsed" />
-                    <TextBlock x:Name="MapDownloadStatusText" Foreground="{StaticResource TextSecondaryBrush}"
-                               FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0" />
 
                     <Separator Margin="0,14,0,12" Background="#FF333333" />
                     <TextBlock Text="{DynamicResource Header_MapCache}" Foreground="#FF88CC00" FontSize="12" FontWeight="Bold" Margin="0,0,0,4" />
@@ -72,8 +31,12 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="MapCacheStatusText" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Button Grid.Column="1" Content="{DynamicResource Btn_ClearMapCache}" Style="{StaticResource FlatButtonStyle}"
-                                Width="100" Height="26" Margin="8,0,0,0" Click="ClearMapCacheButton_Click" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Content="{DynamicResource Btn_MapCacheInspector}" Style="{StaticResource FlatButtonStyle}"
+                                    Padding="10,4" Height="26" Margin="8,0,0,0" Click="OpenMapCacheInspector_Click" />
+                            <Button Content="{DynamicResource Btn_ClearMapCache}" Style="{StaticResource FlatButtonStyle}"
+                                    Width="100" Height="26" Margin="8,0,0,0" Click="ClearMapCacheButton_Click" />
+                        </StackPanel>
                     </Grid>
                 </StackPanel>
             </Border>

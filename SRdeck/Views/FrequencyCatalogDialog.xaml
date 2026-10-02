@@ -1,0 +1,198 @@
+<Window x:Class="SRdeck.Views.FrequencyCatalogDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="周波数カタログ" Width="380" Height="340"
+        WindowStartupLocation="CenterOwner" WindowStyle="ToolWindow" ResizeMode="NoResize"
+        Style="{StaticResource ReceiverDialogWindowStyle}"
+        FontFamily="{StaticResource DisplayFontFamily}">
+    <Grid>
+        <Grid x:Name="StationPanel" Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="28" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Receiver 1" Foreground="{StaticResource LedBlueBrush}"
+                       FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+
+            <Grid Grid.Row="1" Margin="4,0,0,5" TextElement.Foreground="{StaticResource TextSecondaryBrush}"
+                  TextElement.FontSize="11" TextElement.FontFamily="{StaticResource MainFontFamily}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="85" />
+                    <ColumnDefinition Width="65" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="25" />
+                    <ColumnDefinition Width="25" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource Header_Freq}" Margin="0,0,5,0" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="1" Text="{DynamicResource Header_Mode}" HorizontalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{DynamicResource Header_StationName}" />
+            </Grid>
+
+            <ListBox x:Name="StationListBox" Grid.Row="2" Margin="0,0,0,10"
+                     Background="#FF151515" Foreground="{StaticResource TextSecondaryBrush}"
+                     FontFamily="{StaticResource DisplayFontFamily}" FontSize="12"
+                     BorderBrush="#FF333333" BorderThickness="1"
+                     ItemContainerStyle="{StaticResource ReceiverDialogListItemStyle}"
+                     SelectionChanged="StationListBox_OnSelectionChanged"
+                     HorizontalContentAlignment="Stretch">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Background="Transparent" Margin="4,1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="85" />
+                                <ColumnDefinition Width="65" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="25" />
+                                <ColumnDefinition Width="25" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding FrequencyLabel}" Foreground="{StaticResource BrandAmberBrush}"
+                                       FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,5,0"
+                                       HorizontalAlignment="Right" FontFamily="{StaticResource DisplayFontFamily}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Mode}" Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                            <TextBlock Grid.Column="2" Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontFamily="{StaticResource MainFontFamily}" />
+                            <Button Grid.Column="3" Content="{DynamicResource Btn_EditSymbol}" Style="{StaticResource FlatButtonStyle}"
+                                    Margin="2,0" Height="20" Click="EditStation_OnClick" ToolTip="{DynamicResource Tooltip_Edit}" />
+                            <Button Grid.Column="4" Content="{DynamicResource Btn_DeleteSymbol2}" Style="{StaticResource FlatButtonStyle}"
+                                    Margin="2,0" Height="20" Foreground="#FFFF5555" Click="DeleteStation_OnClick"
+                                    ToolTip="{DynamicResource Tooltip_Delete}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="1.5*" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="{DynamicResource Btn_AddManual}" Style="{StaticResource FlatButtonStyle}"
+                        Height="26" Click="AddStation_OnClick" />
+                <Button Grid.Column="2" Content="{DynamicResource Btn_AddCurrent}" Style="{StaticResource FlatButtonStyle}"
+                        Height="26" Click="AddCurrentStation_OnClick" />
+                <Button Grid.Column="4" Content="{DynamicResource Btn_Cancel}" Style="{StaticResource FlatButtonStyle}"
+                        Height="26" Click="Close_OnClick" />
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="BandPlanPanel" Margin="12" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#FF151515" BorderBrush="#FF333333"
+                    BorderThickness="1,1,1,0" CornerRadius="4,4,0,0" Padding="8,6">
+                <Grid TextElement.Foreground="{StaticResource TextSecondaryBrush}" TextElement.FontSize="11"
+                      TextElement.FontFamily="{StaticResource MainFontFamily}" TextElement.FontWeight="Bold">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="65" />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="54" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Header_StartFreqMhz}" Margin="0,0,10,0" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="1" Text="{DynamicResource Header_EndFreqMhz}" Margin="0,0,10,0" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="2" Text="{DynamicResource Header_Mode}" Margin="0,0,5,0" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{DynamicResource Header_Color}" Margin="0,0,5,0" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="4" Text="{DynamicResource Label_BandName}" />
+                    <TextBlock Grid.Column="5" Text="{DynamicResource Header_Action}" HorizontalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <ListBox x:Name="BandPlanListBox" Grid.Row="1" Margin="0,0,0,12"
+                     Background="#FF151515" Foreground="{StaticResource TextSecondaryBrush}"
+                     FontFamily="{StaticResource DisplayFontFamily}" FontSize="12"
+                     BorderBrush="#FF333333" BorderThickness="1"
+                     ItemContainerStyle="{StaticResource ReceiverDialogListItemStyle}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="BandPlanListBox_OnSelectionChanged"
+                     HorizontalContentAlignment="Stretch">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Background="Transparent" Margin="4,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="65" />
+                                <ColumnDefinition Width="30" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="26" />
+                                <ColumnDefinition Width="26" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding StartFrequencyLabel}" Foreground="{StaticResource BrandAmberBrush}"
+                                       FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       HorizontalAlignment="Right" FontFamily="{StaticResource DisplayFontFamily}" />
+                            <TextBlock Grid.Column="1" Text="{Binding EndFrequencyLabel}" Foreground="{StaticResource BrandAmberBrush}"
+                                       FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       HorizontalAlignment="Right" FontFamily="{StaticResource DisplayFontFamily}" />
+                            <TextBlock Grid.Column="2" Text="{Binding Mode}" Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                            <Border Grid.Column="3" Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center"
+                                    HorizontalAlignment="Center" Background="{Binding Color}" BorderBrush="#FF444444"
+                                    BorderThickness="1" ToolTip="{Binding Color}" />
+                            <TextBlock Grid.Column="4" Text="{Binding Label}" Foreground="{StaticResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontFamily="{StaticResource MainFontFamily}" />
+                            <Button Grid.Column="5" Content="{DynamicResource Btn_EditSymbol}" Style="{StaticResource FlatButtonStyle}"
+                                    Margin="2,0" Height="22" Click="EditBandPlan_OnClick" ToolTip="{DynamicResource Tooltip_Edit}" />
+                            <Button Grid.Column="6" Content="{DynamicResource Btn_DeleteSymbol}" Style="{StaticResource FlatButtonStyle}"
+                                    Margin="2,0" Height="22" Foreground="#FFFF5555" Click="DeleteBandPlan_OnClick"
+                                    ToolTip="{DynamicResource Tooltip_Delete}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="{DynamicResource Btn_Add}" Style="{StaticResource FlatButtonStyle}"
+                        Height="28" Click="AddBandPlan_OnClick" />
+                <Button Grid.Column="2" Content="{DynamicResource Btn_DirectSelect}" Style="{StaticResource FlatButtonStyle}"
+                        Height="28" Click="DirectSelect_OnClick" />
+                <Button Grid.Column="4" Content="{DynamicResource Btn_Cancel}" Style="{StaticResource FlatButtonStyle}"
+                        Height="28" Click="Close_OnClick" />
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="ConfirmOverlay" Background="#CC151515" Visibility="Collapsed" Panel.ZIndex="1000">
+            <Border Background="#FF1E1E1E" BorderBrush="#FFFF5555" BorderThickness="1" CornerRadius="4"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" Margin="10">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Header_ConfirmDelete}" Foreground="#FFFF5555" FontSize="13"
+                               FontWeight="Bold" HorizontalAlignment="Center" FontFamily="{StaticResource MainFontFamily}" />
+                    <TextBlock x:Name="ConfirmMessageTextBlock" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11"
+                               HorizontalAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap"
+                               FontFamily="{StaticResource MainFontFamily}" />
+                    <Grid Margin="0,15,0,0" Width="180">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="{DynamicResource Btn_Yes}" Click="ConfirmDelete_OnClick"
+                                Style="{StaticResource FlatButtonStyle}" Foreground="#FFFF5555" BorderBrush="#FFFF5555" Height="24" />
+                        <Button Grid.Column="2" Content="{DynamicResource Btn_No}" Click="CloseConfirm_OnClick"
+                                Style="{StaticResource FlatButtonStyle}" Height="24" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

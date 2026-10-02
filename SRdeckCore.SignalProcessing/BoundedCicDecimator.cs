@@ -1,4 +1,6 @@
-﻿namespace SRdeckCore.SignalProcessing;
+using System.Runtime.Intrinsics;
+
+namespace SRdeckCore.SignalProcessing;
 
 /// <summary>
 /// Streaming normalized CIC-equivalent decimator implemented as cascaded bounded
@@ -6,14 +8,11 @@
 /// </summary>
 public sealed class BoundedCicDecimator
 {
-    private double[] delayI = [];
-    private double[] delayQ = [];
-    private double[] sumI = [];
-    private double[] sumQ = [];
+    private Vector128<double>[] delay = [];
+    private Vector128<double>[] sum = [];
     private int factor;
     private int stages;
     private int position;
-    private int count;
     private double inverseGain;
 
     public int DecimationFactor => factor;
@@ -25,12 +24,9 @@ public sealed class BoundedCicDecimator
         if (stageCount <= 0) throw new ArgumentOutOfRangeException(nameof(stageCount));
         factor = Math.Max(1, decimationFactor);
         stages = stageCount;
-        delayI = new double[stages * factor];
-        delayQ = new double[stages * factor];
-        sumI = new double[stages];
-        sumQ = new double[stages];
+        delay = new Vector128<double>[stages * factor];
+        sum = new Vector128<double>[stages];
         position = 0;
-        count = 0;
         inverseGain = 1d / Math.Pow(factor, stages);
     }
 
@@ -38,41 +34,49 @@ public sealed class BoundedCicDecimator
     {
         if (stages == 0) throw new InvalidOperationException("The decimator is not configured.");
 
-        double i = inputI;
-        double q = inputQ;
+        // I/Q use the same operations in adjacent lanes, including on SSE2-only
+        // CPUs. Vector128 supplies the same arithmetic without hardware intrinsics.
+        var value = Vector128.Create((double)inputI, (double)inputQ);
         int delayIndex = position;
-        for (int stage = 0; stage < stages; stage++, delayIndex += factor)
+        if (stages == 5)
         {
-            double previousI = delayI[delayIndex];
-            double previousQ = delayQ[delayIndex];
-            delayI[delayIndex] = i;
-            delayQ[delayIndex] = q;
-            sumI[stage] += i - previousI;
-            sumQ[stage] += q - previousQ;
-            i = sumI[stage];
-            q = sumQ[stage];
+            // ponytail: Keep the fused mixer/CIC callers; introduce a block API only if full-chain measurements justify it.
+            ProcessStage(ref value, delayIndex, 0);
+            ProcessStage(ref value, delayIndex + factor, 1);
+            ProcessStage(ref value, delayIndex + factor * 2, 2);
+            ProcessStage(ref value, delayIndex + factor * 3, 3);
+            ProcessStage(ref value, delayIndex + factor * 4, 4);
+        }
+        else
+        {
+            for (int stage = 0; stage < stages; stage++, delayIndex += factor)
+                ProcessStage(ref value, delayIndex, stage);
         }
 
-        if (++position == factor) position = 0;
-        if (++count < factor)
+        if (++position < factor)
         {
             outputI = outputQ = 0;
             return false;
         }
 
-        count = 0;
-        outputI = (float)(i * inverseGain);
-        outputQ = (float)(q * inverseGain);
+        position = 0;
+        outputI = (float)(value.GetElement(0) * inverseGain);
+        outputQ = (float)(value.GetElement(1) * inverseGain);
         return true;
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private void ProcessStage(ref Vector128<double> value, int delayIndex, int stage)
+    {
+        var previous = delay[delayIndex];
+        delay[delayIndex] = value;
+        value = sum[stage] += value - previous;
     }
 
     public void Reset()
     {
-        Array.Clear(delayI);
-        Array.Clear(delayQ);
-        Array.Clear(sumI);
-        Array.Clear(sumQ);
+        Array.Clear(delay);
+        Array.Clear(sum);
         position = 0;
-        count = 0;
     }
 }

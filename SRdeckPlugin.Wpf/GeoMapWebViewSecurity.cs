@@ -63,7 +63,7 @@ public static class GeoMapWebViewSecurity
         if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
 
         return GeoMapAssetProvider.IsAssetUri(value) ||
-               MbTilesTileProvider.TryParseTileUri(value, out _, out _, out _);
+               GeoMapTileUri.TryParse(value, out _, out _, out _);
     }
 
     private static bool IsInternalDocument(string value)

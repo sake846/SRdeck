@@ -67,10 +67,15 @@ internal sealed class AgcManager : IAgcManager
         int configuredMinimumGain,
         int maximumGain)
     {
-        ManualAgcDeviceKind deviceKind = deviceCapabilities.IsRtlSdr
-            ? ManualAgcDeviceKind.RtlSdr
-            : ManualAgcDeviceKind.Generic;
-        int minimumGain = deviceCapabilities.IsRtlSdr ? 0 : configuredMinimumGain;
+        ManualAgcDeviceKind deviceKind = deviceCapabilities.Kind switch
+        {
+            SdrDeviceKind.RtlSdr => ManualAgcDeviceKind.RtlSdr,
+            SdrDeviceKind.HackRf => ManualAgcDeviceKind.HackRf,
+            SdrDeviceKind.Rx888 => ManualAgcDeviceKind.Rx888,
+            _ => ManualAgcDeviceKind.Generic
+        };
+        int minimumGain = deviceCapabilities.IsRtlSdr || deviceCapabilities.IsHackRf || deviceCapabilities.IsRx888
+            ? 0 : configuredMinimumGain;
         AgcReleaseMode releaseMode = ReleaseMode;
         var input = new ManualAgcInput(
             extrema.MaxI,
@@ -99,7 +104,7 @@ internal sealed class AgcManager : IAgcManager
             return;
         }
 
-        bool isRelease = deviceKind == ManualAgcDeviceKind.RtlSdr
+        bool isRelease = deviceKind is ManualAgcDeviceKind.RtlSdr or ManualAgcDeviceKind.HackRf or ManualAgcDeviceKind.Rx888
             ? nextGain > CurrentGainDb
             : nextGain < CurrentGainDb;
         if (isRelease)

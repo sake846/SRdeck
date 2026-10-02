@@ -317,8 +317,8 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                 }
                 if (published)
                 {
-                    _completed();
                     _diagnosticsStore.UpdateFft(result.Timing, _worker.GetMetrics());
+                    _completed();
                 }
             }
         }

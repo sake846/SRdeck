@@ -5,9 +5,11 @@ namespace SRdeck.Configuration;
 
 public enum SdrDeviceType
 {
-    SdrPlay,
-    RtlSdr,
-    Auto
+    SdrPlay = 0,
+    RtlSdr = 1,
+    Auto = 2,
+    HackRf = 3,
+    Rx888Mk2 = 4
 }
 
 public class AppSettings
@@ -58,7 +60,6 @@ public class DisplaySettings
 {
     public int? WaterfallColorMode { get; set; } = null;
     public int? DebugDraw { get; set; } = null;
-    public FrequencyDisplayMode? FrequencyDisplayMode { get; set; } = null;
     public bool IsGpuFftEnabled { get; set; } = true;
     public int FftResolutionMode { get; set; } = 1; // Default 8K
     public float? GridTopDb { get; set; } = null;

@@ -7,6 +7,8 @@ public partial class MainViewModel : ObservableObject
 {
     public async Task ClosingAsync()
     {
+        await Diagnostics.StopLoadCaptureAsync();
+
         using (SRdeck.Services.ShutdownDiagnosticLog.Scope("PluginManager.ShutdownAsync"))
         {
             await _pluginManager.ShutdownAsync();
@@ -26,13 +28,6 @@ public partial class MainViewModel : ObservableObject
             _lastState.WaterfallColorMode = radioControl.WaterfallColorMode;
             _lastState.DemodWaveDisplayMode = radioControl.DemodWaveDisplayMode;
 
-            _lastState.FrequencyDisplayMode = (IsBandPlanVisible, IsStationNameVisible) switch
-            {
-                (true, true) => FrequencyDisplayMode.Both,
-                (true, false) => FrequencyDisplayMode.BandOnly,
-                (false, true) => FrequencyDisplayMode.StationOnly,
-                _ => FrequencyDisplayMode.None
-            };
             _lastStateService.SaveLastState(_lastState);
             await SettingsPersistence.FlushNotificationsAsync();
             SettingsPersistence.Dispose();

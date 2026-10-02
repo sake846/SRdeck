@@ -74,12 +74,13 @@ internal sealed class PluginTuningService : IPluginTuningService
         int sampleRateHz = before.FsHz;
         if (sampleRateHz <= 0)
             return SetCurrent(Rejected("The host sample rate is not configured."), false);
+        ISdrSampleRateController? rateController = _sampleRateController?.Invoke();
+        bool isPlaybackInput = rateController?.IsPlaybackInput == true;
         long lowerEdgeHz = request.Targets.Min(target => target.FrequencyHz - target.BandwidthHz / 2L);
         long upperEdgeHz = request.Targets.Max(target => target.FrequencyHz + target.BandwidthHz / 2L);
         long requiredWidthHz = upperEdgeHz - lowerEdgeHz;
         bool isAdditionalPlugin = manager.ActivePluginId is string primaryPluginId && primaryPluginId != _pluginId;
         RadioControl preparedControl = before;
-        ISdrSampleRateController? rateController = null;
         // Only the decoder's minimum rate may trigger an automatic RATE change.
         // A wide selection of channels must fit that rate or be narrowed by the plugin.
         if (sampleRateHz < request.MinimumSampleRateHz)
@@ -88,7 +89,6 @@ internal sealed class PluginTuningService : IPluginTuningService
             // An additional plugin must not interrupt or reconfigure the primary input.
             if (isAdditionalPlugin)
                 return SetCurrent(Rejected(error + " Change the primary input RATE first.", sampleRateHz), false);
-            rateController = _sampleRateController?.Invoke();
             if (rateController is null ||
                 !rateController.TryPrepareSampleRate(before, request.MinimumSampleRateHz, out preparedControl, out error))
                 return SetCurrent(Rejected(error, sampleRateHz), false);
@@ -98,6 +98,13 @@ internal sealed class PluginTuningService : IPluginTuningService
             return SetCurrent(Rejected(
                 $"The requested {requiredWidthHz} Hz span does not fit in the {sampleRateHz} Hz sample rate. " +
                 "Select fewer channels or change RATE manually.", before.FsHz), false);
+        long fixedPlaybackHalfWidth = (long)(sampleRateHz * UsableNyquistRatio);
+        if (isPlaybackInput &&
+            (lowerEdgeHz < before.CenterFreqHz - fixedPlaybackHalfWidth ||
+             upperEdgeHz > before.CenterFreqHz + fixedPlaybackHalfWidth))
+            return SetCurrent(Rejected(
+                "The requested targets are outside the recorded IQ passband. " +
+                "Playback center frequency and RATE cannot be changed.", before.FsHz), false);
         bool sampleRateChanged = sampleRateHz != before.FsHz;
 
         if (isAdditionalPlugin)
@@ -122,7 +129,9 @@ internal sealed class PluginTuningService : IPluginTuningService
             return SetCurrent(sharedResult, true);
         }
 
-        long requestedCenterFrequencyHz = ResolveCenterFrequency(request, lowerEdgeHz, upperEdgeHz, sampleRateHz);
+        long requestedCenterFrequencyHz = isPlaybackInput
+            ? before.CenterFreqHz
+            : ResolveCenterFrequency(request, lowerEdgeHz, upperEdgeHz, sampleRateHz);
         if (requestedCenterFrequencyHz is <= 0 or > int.MaxValue)
             return SetCurrent(Rejected("The requested center frequency is outside the host range."), false);
 
@@ -142,7 +151,9 @@ internal sealed class PluginTuningService : IPluginTuningService
             requestedControl.MainSpanHz = requestedControl.BaseMainSpanHz;
         }
 
-        long centerFrequencyHz = request.PreservePreferredCenterFrequency
+        long centerFrequencyHz = isPlaybackInput
+            ? before.CenterFreqHz
+            : request.PreservePreferredCenterFrequency
             ? requestedCenterFrequencyHz
             : TuningCoordinator.RoundInputCenterFrequency(requestedControl);
         requestedControl.CenterFreqHz = (int)centerFrequencyHz;
@@ -156,7 +167,9 @@ internal sealed class PluginTuningService : IPluginTuningService
         {
             resetMainViewZoom = true;
             requestedControl.MainSpanHz = requestedControl.BaseMainSpanHz;
-            centerFrequencyHz = request.PreservePreferredCenterFrequency
+            centerFrequencyHz = isPlaybackInput
+                ? before.CenterFreqHz
+                : request.PreservePreferredCenterFrequency
                 ? requestedCenterFrequencyHz
                 : TuningCoordinator.RoundInputCenterFrequency(requestedControl);
             requestedControl.CenterFreqHz = (int)centerFrequencyHz;

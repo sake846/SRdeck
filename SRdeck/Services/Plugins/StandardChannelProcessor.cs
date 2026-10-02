@@ -84,6 +84,7 @@ public sealed class StandardChannelProcessor
         try
         {
             translator.Configure(request.CenterFrequencyHz - metadata.CenterFrequencyHz, metadata.SampleRateHz);
+            bool singleOutputPerInput = resampler.InterpolationFactor <= resampler.DecimationFactor;
             foreach (Complex32 sample in samples)
             {
                 translator.Mix(sample.I, sample.Q, out float mixedI, out float mixedQ);
@@ -95,7 +96,15 @@ public sealed class StandardChannelProcessor
                     continue;
                 if (configuration.FineDecimationFactor > 1)
                     fineCicCompensation.Process(coarseI, coarseQ, out coarseI, out coarseQ);
-                resampler.Process(coarseI, coarseQ, outputSink);
+                if (singleOutputPerInput)
+                {
+                    if (resampler.TryProcess(coarseI, coarseQ, out float outputI, out float outputQ))
+                        AppendOutput(outputI, outputQ);
+                }
+                else
+                {
+                    resampler.Process(coarseI, coarseQ, outputSink);
+                }
             }
 
             Complex32[] owner = outputBuffer;

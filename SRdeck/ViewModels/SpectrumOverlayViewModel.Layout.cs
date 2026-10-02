@@ -6,7 +6,7 @@ namespace SRdeck.ViewModels
 {
     public partial class SpectrumOverlayViewModel
     {
-        public void SyncOverlayLayout(RadioControl radioControl, RadioState radioState, int spectrumBiasAdj, int waterfallBiasAdj, bool isStarted, double spectrumWidth, double spectrumHeight, bool isReceiver1Visible = true, bool isReceiver2Visible = false, float? configGridTopDb = null, double displayBw = 7000000.0, IReadOnlyList<FrequencyOverlayItem>? receiverBands = null)
+        public void SyncOverlayLayout(RadioControl radioControl, RadioState radioState, int spectrumBiasAdj, int waterfallBiasAdj, bool isStarted, double spectrumWidth, double spectrumHeight, bool isReceiver1Visible = true, bool isReceiver2Visible = false, float? configGridTopDb = null, double displayBw = 7000000.0, IReadOnlyList<FrequencyOverlayItem>? receiverBands = null, int receiveBandCenterOffsetHz = 0)
         {
             double halfDisplayBw = displayBw / 2.0;
             float halfDisplayBwF = (float)halfDisplayBw;
@@ -30,7 +30,7 @@ namespace SRdeck.ViewModels
                     _ => 3000
                 };
             bool showMultipleBands = receiverBands is { Count: > 0 };
-            ReceiverBands.Clear();
+            int bandIndex = 0;
             // Plugin bands describe the receive plan, so keep them visible even
             // while the receiver itself is stopped.
             if (showMultipleBands && isReceiver1Visible && spectrumWidth > 0)
@@ -54,25 +54,30 @@ namespace SRdeck.ViewModels
                         double finalLeft = Math.Max(0, Math.Round(rawLeft));
                         double finalRight = Math.Min(spectrumWidth, Math.Round(rawRight));
                         double finalWidth = Math.Max(4.0, finalRight - finalLeft);
-                        ReceiverBands.Add(new ReceiverBandRendererItem
+                        double height = band.Lane < 0 ? spectrumHeight : 13;
+                        double top = band.Lane < 0 ? 0 : band.Lane * 13;
+                        var current = bandIndex < ReceiverBands.Count ? ReceiverBands[bandIndex] : null;
+                        if (current is null || current.Left != finalLeft || current.Width != finalWidth ||
+                            current.Height != height || current.Top != top || current.Label != band.Label ||
+                            current.Fill != band.Fill || current.Stroke != band.Stroke || current.LabelColor != band.LabelColor)
                         {
-                            Left = finalLeft,
-                            Width = finalWidth,
-                            Height = band.Lane < 0 ? spectrumHeight : 13,
-                            Label = band.Label,
-                            Fill = band.Fill,
-                            Stroke = band.Stroke,
-                            LabelColor = band.LabelColor,
-                            Top = band.Lane < 0 ? 0 : band.Lane * 13
-                        });
+                            var item = new ReceiverBandRendererItem
+                            {
+                                Left = finalLeft, Width = finalWidth, Height = height, Top = top,
+                                Label = band.Label, Fill = band.Fill, Stroke = band.Stroke, LabelColor = band.LabelColor
+                            };
+                            if (current is null) ReceiverBands.Add(item);
+                            else ReceiverBands[bandIndex] = item;
+                        }
+                        bandIndex++;
                     }
                 }
                 SpBandVisible = Visibility.Hidden;
             }
             else if (isReceiver1Visible && spectrumWidth > 0 && radioControl.SpanHz > 0)
             {
-                double rawLeft = ((radioControl.FreqOffsetHz + halfDisplayBw - bandwidthHz1 / 2.0) / displayBw) * spectrumWidth;
-                double rawRight = ((radioControl.FreqOffsetHz + halfDisplayBw + bandwidthHz1 / 2.0) / displayBw) * spectrumWidth;
+                double rawLeft = ((radioControl.FreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw - bandwidthHz1 / 2.0) / displayBw) * spectrumWidth;
+                double rawRight = ((radioControl.FreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw + bandwidthHz1 / 2.0) / displayBw) * spectrumWidth;
                 if (rawRight >= 0 && rawLeft <= spectrumWidth)
                 {
                     SpBandVisible = Visibility.Visible;
@@ -98,6 +103,8 @@ namespace SRdeck.ViewModels
                 SpBandVisible = Visibility.Hidden;
             }
 
+            while (ReceiverBands.Count > bandIndex) ReceiverBands.RemoveAt(ReceiverBands.Count - 1);
+
             SpBand2Visible = Visibility.Hidden;
 
             if (radioControl.CursorFreqHz >= 0 && spectrumWidth > 0 && radioControl.SpanHz > 0)
@@ -105,8 +112,8 @@ namespace SRdeck.ViewModels
                 SpCsVisible = Visibility.Visible;
                 int zoomSpan = radioControl.SpanHz;
 
-                double rawLeft = ((radioControl.CursorFreqOffsetHz + halfDisplayBw - zoomSpan / 2.0) / displayBw) * spectrumWidth;
-                double rawRight = ((radioControl.CursorFreqOffsetHz + halfDisplayBw + zoomSpan / 2.0) / displayBw) * spectrumWidth;
+                double rawLeft = ((radioControl.CursorFreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw - zoomSpan / 2.0) / displayBw) * spectrumWidth;
+                double rawRight = ((radioControl.CursorFreqOffsetHz + receiveBandCenterOffsetHz + halfDisplayBw + zoomSpan / 2.0) / displayBw) * spectrumWidth;
                 double finalLeft = Math.Max(0, Math.Round(rawLeft));
                 double finalRight = Math.Min(spectrumWidth, Math.Round(rawRight));
                 SpRawCsLeft = rawLeft;
@@ -180,8 +187,119 @@ namespace SRdeck.ViewModels
                 DebugPwrText = $"P_fft:{radioState.AveFftPwr:F1} P_rx:{radioState.AveRxPwr:F1} MinF:{radioState.Min2FftPwr:F1}";
             }
 
-            StationLabels.Clear();
-            BandPlanRegions.Clear();
+            SyncFrequencyCatalogLayout(radioControl, spectrumWidth, displayBw);
+        }
+
+        private void SyncFrequencyCatalogLayout(
+            RadioControl radioControl,
+            double spectrumWidth,
+            double displayBandwidthHz)
+        {
+            if (spectrumWidth <= 0 || displayBandwidthHz <= 0)
+            {
+                if (StationLabels.Count > 0) StationLabels.Clear();
+                if (BandPlanRegions.Count > 0) BandPlanRegions.Clear();
+                _stationLabelsDirty = true;
+                _bandPlanRegionsDirty = true;
+                return;
+            }
+
+            int widthKey = (int)Math.Round(spectrumWidth);
+            int bandwidthKey = (int)Math.Round(displayBandwidthHz);
+            double minimumHz = radioControl.CenterFreqHz - displayBandwidthHz / 2.0;
+            double maximumHz = radioControl.CenterFreqHz + displayBandwidthHz / 2.0;
+
+            if (radioControl.IsBandPlanVisible)
+            {
+                bool rebuild = _bandPlanRegionsDirty ||
+                    _lastBandPlanCenterFrequencyHz != radioControl.CenterFreqHz ||
+                    _lastBandPlanWidth != widthKey ||
+                    _lastBandPlanDisplayBandwidthHz != bandwidthKey;
+                if (rebuild)
+                {
+                    BandPlanRegions.Clear();
+                    foreach (BandPlanItem band in _bandPlans)
+                    {
+                        if (band.EndHz <= minimumHz || band.StartHz >= maximumHz) continue;
+                        double left = Math.Max(0, (band.StartHz - minimumHz) / displayBandwidthHz * spectrumWidth);
+                        double right = Math.Min(spectrumWidth, (band.EndHz - minimumHz) / displayBandwidthHz * spectrumWidth);
+                        if (right <= left) continue;
+                        BandPlanRegions.Add(new BandPlanRendererItem
+                        {
+                            Left = left,
+                            Width = right - left,
+                            Label = band.Label,
+                            Color = band.Color
+                        });
+                    }
+                    _bandPlanRegionsDirty = false;
+                    _lastBandPlanCenterFrequencyHz = radioControl.CenterFreqHz;
+                    _lastBandPlanWidth = widthKey;
+                    _lastBandPlanDisplayBandwidthHz = bandwidthKey;
+                }
+            }
+            else if (BandPlanRegions.Count > 0)
+            {
+                BandPlanRegions.Clear();
+                _bandPlanRegionsDirty = true;
+            }
+
+            if (radioControl.IsStationNameVisible)
+            {
+                bool rebuild = _stationLabelsDirty ||
+                    _lastStationCenterFrequencyHz != radioControl.CenterFreqHz ||
+                    _lastStationTunedFrequencyHz != radioControl.TunedFreqHz ||
+                    _lastStationWidth != widthKey ||
+                    _lastStationDisplayBandwidthHz != bandwidthKey ||
+                    _lastStationBandPlanVisible != radioControl.IsBandPlanVisible;
+                if (rebuild)
+                {
+                    StationLabels.Clear();
+                    double[] occupiedRightEdges = new double[10];
+                    int yOffset = radioControl.IsBandPlanVisible ? 17 : 2;
+                    foreach (StationItem station in _stations)
+                    {
+                        if (station.FrequencyHz < minimumHz || station.FrequencyHz > maximumHz) continue;
+                        double markerX = (station.FrequencyHz - minimumHz) / displayBandwidthHz * spectrumWidth;
+                        string text = $"\u25BC{station.Name}";
+                        double textWidth = MeasureTextWidth(text);
+                        double left = markerX - MeasureTextWidth("\u25BC") / 2.0 - 1;
+                        if (left + textWidth > spectrumWidth)
+                        {
+                            text = $"{station.Name}\u25BC";
+                            textWidth = MeasureTextWidth(text);
+                            left = markerX - textWidth + MeasureTextWidth("\u25BC") / 2.0 - 1;
+                        }
+                        left = Math.Clamp(left, 0, Math.Max(0, spectrumWidth - textWidth));
+
+                        int lane = Array.FindIndex(occupiedRightEdges, edge => edge <= left);
+                        if (lane < 0) continue;
+                        occupiedRightEdges[lane] = left + textWidth + 4;
+                        StationLabels.Add(new StationLabel
+                        {
+                            Name = text,
+                            X = Math.Round(left),
+                            Y = lane * 15 + yOffset,
+                            LineX = Math.Round(markerX - left),
+                            FrequencyHz = station.FrequencyHz,
+                            Color = GetStationLabelColor(station.FrequencyHz, radioControl)
+                        });
+                    }
+                    _stationLabelsDirty = false;
+                    _lastStationCenterFrequencyHz = radioControl.CenterFreqHz;
+                    _lastStationTunedFrequencyHz = radioControl.TunedFreqHz;
+                    _lastStationWidth = widthKey;
+                    _lastStationDisplayBandwidthHz = bandwidthKey;
+                    _lastStationBandPlanVisible = radioControl.IsBandPlanVisible;
+                }
+            }
+            else if (StationLabels.Count > 0)
+            {
+                StationLabels.Clear();
+                _stationLabelsDirty = true;
+            }
+
+            SyncStationLabelColors(radioControl);
         }
 
     }

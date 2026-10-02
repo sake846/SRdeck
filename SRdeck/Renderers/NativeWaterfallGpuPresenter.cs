@@ -105,12 +105,9 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
             if (!_interop!.TryBeginUpdate(out var update)) return;
             using (update)
             {
-                for (int n = 0; n < rowsToAdvance; n++)
-                {
-                    // Draw the held peak row for every elapsed display row; inserting black rows
-                    // here creates periodic one-line dropouts when frame timing skips a row.
-                    SyncWaterfallRow(p, r, fftDat.Length, displayBw, fullBw, fftCenterFreqHz);
-                }
+                // Every elapsed display row uses the same held peak, including catch-up rows.
+                PrepareWaterfallRow(p, r, fftDat.Length, displayBw, fullBw, fftCenterFreqHz);
+                ScrollUploadTopRows(rowsToAdvance);
             }
             _pendingWaterfallMs -= rowsToAdvance * pixelDurationMs;
             if (_pendingWaterfallMs < 0.0) _pendingWaterfallMs = 0.0;
@@ -200,13 +197,15 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
         catch { }
     }
 
-    private void SyncWaterfallRow(RadioControl p, RadioState r, int fullFftSize, float displayBw, float fullBw, int fftCenterFreqHz)
+    private void PrepareWaterfallRow(RadioControl p, RadioState r, int fullFftSize, float displayBw, float fullBw, int fftCenterFreqHz)
     {
         uint[] lut = ColorLUT.GetLutBgr32(p.WaterfallColorMode);
         float safeDisplayBw = Math.Max(1f, displayBw);
         float halfDisplay = safeDisplayBw * 0.5f;
         float halfFull = fullBw * 0.5f;
         float centerOffsetHz = fftCenterFreqHz > 0 ? p.CenterFreqHz - fftCenterFreqHz : 0f;
+        float systemDb = float.IsFinite(p.SystemDb) ? p.SystemDb : 0f;
+        float minFloor = WaterfallColorScale.ResolveNoiseFloor(r);
         for (int x = 0; x < _width; x++)
         {
             float pixelStartNorm = (float)x / Math.Max(1, _width);
@@ -226,40 +225,41 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
             int endIdx = Math.Clamp((int)MathF.Ceiling(sourceEndNorm * fullFftSize), startIdx + 1, fullFftSize);
             float pMax = float.MinValue;
             for (int m = startIdx; m < endIdx; m++) if (_maxFftDat![m] > pMax) pMax = _maxFftDat[m];
-            float systemDb = float.IsFinite(p.SystemDb) ? p.SystemDb : 0f;
-            float minFloor = WaterfallColorScale.ResolveNoiseFloor(r);
             float physical = pMax - systemDb + RfCalOffset;
             int colorIdx = WaterfallColorScale.GetColorIndex(physical, minFloor, BiasDb);
             _rowPixels[x] = lut[colorIdx];
         }
-        ScrollUploadTopRow();
     }
 
-    private unsafe void ScrollUploadTopRow()
+    private unsafe void ScrollUploadTopRows(int rows)
     {
-        SyncHistoryTopRow();
-        fixed (uint* ptr = _rowPixels)
+        SyncHistoryTopRows(rows);
+        fixed (uint* ptr = _historyPixels)
         {
-            try { _ = NativeGpuDrawApi.ScrollUploadTopRow(_nativeSurface, (IntPtr)ptr, _width); }
+            try { _ = NativeGpuDrawApi.ScrollUploadTopRows(_nativeSurface, (IntPtr)ptr, _width, rows); }
             catch { return; }
         }
     }
 
-    private void SyncHistoryTopRow()
+    private void SyncHistoryTopRows(int rows)
     {
         int required = _width * _height;
         if (_historyPixels.Length != required) _historyPixels = new uint[required];
-        if (_height > 1)
+        // ponytail: one contiguous history move per update; use a ring if single-row
+        // moves become a measured bottleneck. Resize/time-mode resampling stays unchanged.
+        if (_height > rows)
         {
-            Array.Copy(_historyPixels, 0, _historyPixels, _width, _width * (_height - 1));
+            Array.Copy(_historyPixels, 0, _historyPixels, _width * rows, _width * (_height - rows));
         }
-        Array.Copy(_rowPixels, 0, _historyPixels, 0, _width);
+        for (int n = 0; n < rows; n++)
+            Array.Copy(_rowPixels, 0, _historyPixels, n * _width, _width);
     }
 
     private unsafe void RestoreResizedHistory(uint[] oldHistory, int oldWidth, int oldHeight)
     {
         if (!IsReady || oldHistory == null || oldHistory.Length == 0 || oldWidth <= 0 || oldHeight <= 0) return;
-        if (_historyPixels.Length != _width * _height) _historyPixels = new uint[_width * _height];
+        if (_historyPixels.Length != _width * _height || ReferenceEquals(_historyPixels, oldHistory))
+            _historyPixels = new uint[_width * _height];
         float scaleX = oldWidth / (float)_width;
         float scaleY = oldHeight / (float)_height;
         for (int y = 0; y < _height; y++)

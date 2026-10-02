@@ -20,6 +20,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ISdrEngine _engine;
     private readonly IAudioService _audioService;
     private readonly IPluginManager _pluginManager;
+    private readonly FrequencyCatalogStore _frequencyCatalog = new();
     public ISdrEngine GetEngineForSetup() => _engine;
     public void StopAudioOutputForShutdown() => _audioService.StopOutput();
 
@@ -64,10 +65,14 @@ public partial class MainViewModel : ObservableObject
     private readonly InputCoordinationService _inputService = new();
     private int _sdrPlayRfGainDb = 20;
     private int _rtlSdrRfGainDb = 100;
+    private int _hackRfRfGainDb = 50;
+    private int _rx888RfGainDb = 100;
 
     public void SyncAndSaveLastState(RadioControl radioControl)
     {
         if (IsRtlDevice) _rtlSdrRfGainDb = RfGainDb;
+        else if (IsHackRfDevice) _hackRfRfGainDb = RfGainDb;
+        else if (IsRx888Device) _rx888RfGainDb = RfGainDb;
         else _sdrPlayRfGainDb = RfGainDb;
 
         _lastState.CenterFreqHz = radioControl.CenterFreqHz;
@@ -77,6 +82,8 @@ public partial class MainViewModel : ObservableObject
         _lastState.SdrPlayRfGainDb = _sdrPlayRfGainDb;
         _lastState.SdrPlaySensitivity = SdrPlaySensitivity;
         _lastState.RtlSdrRfGainDb = _rtlSdrRfGainDb;
+        _lastState.HackRfRfGainDb = _hackRfRfGainDb;
+        _lastState.Rx888RfGainDb = _rx888RfGainDb;
 
         _lastState.WaterfallColorMode = radioControl.WaterfallColorMode;
 

@@ -33,8 +33,8 @@ internal static class NativeGpuDrawApi
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "gpudraw_upload_bgra_surface")]
     internal static extern int UploadBgraSurface(IntPtr handle, IntPtr pixels, int width, int height);
 
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "gpudraw_scroll_upload_top_row")]
-    internal static extern int ScrollUploadTopRow(IntPtr handle, IntPtr rowPixels, int width);
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "gpudraw_scroll_upload_top_rows")]
+    internal static extern int ScrollUploadTopRows(IntPtr handle, IntPtr rowPixels, int width, int rows);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "gpudraw_scroll_upload_row_region")]
     internal static extern int ScrollUploadRowRegion(IntPtr handle, IntPtr rowPixels, int width, int top, int height, int flushAfter);

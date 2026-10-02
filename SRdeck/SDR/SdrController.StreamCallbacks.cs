@@ -14,54 +14,70 @@ public partial class SdrController
     private void OnStreamACallback(nint ptrSampleI, nint ptrSampleQ, ref SdrPlayApi.StreamCbParamsT callbackParams, uint numSamples, uint reset, nint callbackContext)
     {
         if (_isStopping) return;
-        Interlocked.Increment(ref _callbackCount);
-        RecordStreamCallback(numSamples, reset);
-
-        if (reset == 1)
+        bool captureTiming = IsTimingCaptureEnabled;
+        long callbackStartedTicks = captureTiming ? Stopwatch.GetTimestamp() : 0;
+        try
         {
-            Debug.Print($"sdrplay_api_StreamCallback: numSamples={numSamples} (Reset)");
-        }
+            Interlocked.Increment(ref _callbackCount);
+            RecordStreamCallback(numSamples, reset);
 
-        int sampleCount = (int)Math.Min(numSamples, int.MaxValue);
-        if (sampleCount <= 0) return;
-
-        lock (_streamCallbackLock)
-        {
-            Channel<QueuedSampleBlock>? queue = _sampleQueue;
-            if (queue == null)
+            if (reset == 1)
             {
-                Interlocked.Increment(ref _droppedCallbackCount);
-                return;
+                Debug.Print($"sdrplay_api_StreamCallback: numSamples={numSamples} (Reset)");
             }
 
-            short[] samplesI = ArrayPool<short>.Shared.Rent(sampleCount);
-            short[] samplesQ = ArrayPool<short>.Shared.Rent(sampleCount);
-            SdrSampleMetadata metadata = _sampleClock.Capture(sampleCount, callbackParams.FirstSampleNum, reset != 0);
-            metadata = metadata with
-            {
-                IsDiscontinuous = metadata.IsDiscontinuous || callbackParams.RfChanged != 0 || callbackParams.FsChanged != 0
-            };
-            try
-            {
-                Marshal.Copy(ptrSampleI, samplesI, 0, sampleCount);
-                Marshal.Copy(ptrSampleQ, samplesQ, 0, sampleCount);
+            int sampleCount = (int)Math.Min(numSamples, int.MaxValue);
+            if (sampleCount <= 0) return;
 
-                if (!queue.Writer.TryWrite(new QueuedSampleBlock(samplesI, samplesQ, (uint)sampleCount, metadata)))
+            lock (_streamCallbackLock)
+            {
+                Channel<QueuedSampleBlock>? queue = _sampleQueue;
+                if (queue == null)
                 {
                     Interlocked.Increment(ref _droppedCallbackCount);
-                    ReturnSampleBlock(new QueuedSampleBlock(samplesI, samplesQ, numSamples));
                     return;
                 }
 
-                Interlocked.Increment(ref _enqueuedSampleBlocks);
+                short[] samplesI = ArrayPool<short>.Shared.Rent(sampleCount);
+                short[] samplesQ = ArrayPool<short>.Shared.Rent(sampleCount);
+                SdrSampleMetadata metadata = _sampleClock.Capture(sampleCount, callbackParams.FirstSampleNum, reset != 0);
+                metadata = metadata with
+                {
+                    IsDiscontinuous = metadata.IsDiscontinuous || callbackParams.RfChanged != 0 || callbackParams.FsChanged != 0
+                };
+                try
+                {
+                    Marshal.Copy(ptrSampleI, samplesI, 0, sampleCount);
+                    Marshal.Copy(ptrSampleQ, samplesQ, 0, sampleCount);
+
+                    long enqueuedTimestampTicks = captureTiming ? Stopwatch.GetTimestamp() : 0;
+                    if (!queue.Writer.TryWrite(new QueuedSampleBlock(
+                            samplesI,
+                            samplesQ,
+                            (uint)sampleCount,
+                            metadata,
+                            enqueuedTimestampTicks)))
+                    {
+                        Interlocked.Increment(ref _droppedCallbackCount);
+                        ReturnSampleBlock(new QueuedSampleBlock(samplesI, samplesQ, numSamples));
+                        return;
+                    }
+
+                    Interlocked.Increment(ref _enqueuedSampleBlocks);
+                }
+                catch
+                {
+                    Interlocked.Increment(ref _droppedCallbackCount);
+                    ArrayPool<short>.Shared.Return(samplesI, clearArray: false);
+                    ArrayPool<short>.Shared.Return(samplesQ, clearArray: false);
+                    Debug.Print("[SdrController] Failed to copy an IQ callback block.");
+                }
             }
-            catch
-            {
-                Interlocked.Increment(ref _droppedCallbackCount);
-                ArrayPool<short>.Shared.Return(samplesI, clearArray: false);
-                ArrayPool<short>.Shared.Return(samplesQ, clearArray: false);
-                Debug.Print("[SdrController] Failed to copy an IQ callback block.");
-            }
+        }
+        finally
+        {
+            if (captureTiming)
+                RecordCallbackElapsed(Stopwatch.GetTimestamp() - callbackStartedTicks);
         }
     }
 
@@ -106,9 +122,19 @@ public partial class SdrController
                 while (!cancellationToken.IsCancellationRequested && queue.Reader.TryRead(out QueuedSampleBlock block))
                 {
                     Interlocked.Increment(ref _dequeuedSampleBlocks);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        ReturnSampleBlock(block);
+                        continue;
+                    }
+
+                    bool captureTiming = IsTimingCaptureEnabled;
+                    long deliveryStartedTicks = captureTiming ? Stopwatch.GetTimestamp() : 0;
+                    if (captureTiming && block.EnqueuedTimestampTicks > 0)
+                        RecordQueueWait(deliveryStartedTicks - block.EnqueuedTimestampTicks);
+
                     try
                     {
-                        if (cancellationToken.IsCancellationRequested) continue;
                         SdrSampleMetadata metadata = continuity.Observe(block.Metadata, block.SampleCount);
                         SampleBlockReceived?.Invoke(new(block.SamplesI, block.SamplesQ, block.SampleCount, metadata));
                         SamplesReceived?.Invoke(block.SamplesI, block.SamplesQ, block.SampleCount);
@@ -120,6 +146,8 @@ public partial class SdrController
                     }
                     finally
                     {
+                        if (captureTiming)
+                            RecordSampleDeliveryElapsed(Stopwatch.GetTimestamp() - deliveryStartedTicks);
                         ReturnSampleBlock(block);
                     }
                 }

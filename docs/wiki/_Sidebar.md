@@ -14,7 +14,7 @@
 - [SDR入力設定](SDR-Source-Settings)
 - [スペクトラムとウォーターフォール](Spectrum-and-Waterfall)
 - [音声出力とIQキャプチャ](Audio-and-Recording)
-- [地図とオフライン地図](Map-and-Offline-Data)
+- [地図とキャッシュ](Map-and-Cache)
 
 ## プラグイン
 

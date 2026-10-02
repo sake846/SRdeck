@@ -9,7 +9,7 @@ using SRdeck.Messages;
 
 namespace SRdeck.SDR;
 
-public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSampleBlockSource
+public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrSampleBlockSource, ISdrStreamTimingDiagnostics
 {
     public SdrDeviceCapabilities Capabilities { get; } = new(SdrDeviceKind.SdrPlay);
     public int FsHz { get; set; }
@@ -93,7 +93,8 @@ public partial class SdrController : ISdrDevice, ISdrStreamingDiagnostics, ISdrS
         short[] SamplesI,
         short[] SamplesQ,
         uint SampleCount,
-        SdrSampleMetadata Metadata = default);
+        SdrSampleMetadata Metadata = default,
+        long EnqueuedTimestampTicks = 0);
 
     public SdrController(bool suppressErrors = false)
     {
