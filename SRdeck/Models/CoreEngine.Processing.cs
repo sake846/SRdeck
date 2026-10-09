@@ -156,6 +156,7 @@ public partial class CoreEngine
             new SpectrumStatisticsOptions(
                 SdrDevice?.FsHz ?? (int)AppConstants.FULL_BW,
                 RequestedSpectrumWidth,
-                RfCalibrationOffset));
+                RfCalibrationOffset),
+            frame.PowerSummary);
     }
 }

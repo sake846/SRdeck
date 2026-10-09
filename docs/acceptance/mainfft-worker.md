@@ -13,6 +13,7 @@
 ## MainFftService
 
 - 実ワーカーから公開されたフレームは、フレーム ID、中心周波数、ウォーターフォール連番、全表示バッファを同じ世代で公開する。
+- GPU集約による帯域電力サマリーも同じフレームで公開し、再利用・リセット時に前のサマリーを残さない。
 - 同じフレームを複数リースした場合、各リースの解放を独立して数え、二重解放を無視する。未公開になったフレームは全リース解放後だけ次の書き込みバッファへ再利用する。
 - 破棄中に完了したフレームは公開コールバック、診断更新、画面フレーム更新を発生させない。
 - 公開フレームごとに完了コールバックと FFT 診断更新を一度だけ実行する。
@@ -22,4 +23,5 @@
 - `Main FFT worker failure stop and ownership`
 - `Main FFT worker metadata pruning`
 - `Main FFT service real worker lifecycle`
+- `GPU spectrum aggregation preserves noise and power`、`Spectrum power summary tuning guard`
 - 既存の `Main FFT coherent frame publication`、`Main FFT warm-up buffer reuse`、`Main FFT reset generation isolation`、`Main FFT async completion metadata pairing`

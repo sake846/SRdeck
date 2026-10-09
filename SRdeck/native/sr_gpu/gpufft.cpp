@@ -1,4 +1,7 @@
 #include "gpufft_common.h"
+#include <emmintrin.h>
+#include <dxgi.h>
+#include <string>
 
 class GpuFftContext
 {
@@ -16,14 +19,30 @@ public:
     double lastUploadMs = 0.0;
     double lastDispatchMs = 0.0;
     double lastReadbackMs = 0.0;
+    double lastCollectMs = 0.0;
+    double lastCopyQueueMs = 0.0;
+    double lastFlushMs = 0.0;
 
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
     ComPtr<ID3D11ComputeShader> csPackedToComplex;
     ComPtr<ID3D11ComputeShader> csStockham;
+    ComPtr<ID3D11ComputeShader> csStockhamPair;
+    ComPtr<ID3D11ComputeShader> csStockhamFour;
+    ComPtr<ID3D11ComputeShader> csStockhamSix;
+    struct FftPass
+    {
+        int stages;
+        UINT threads;
+        ComPtr<ID3D11ComputeShader> shader;
+        ComPtr<ID3D11ComputeShader> packedShader;
+    };
+    std::vector<FftPass> fftPlan;
     ComPtr<ID3D11ComputeShader> csDbConvert;
+    ComPtr<ID3D11ComputeShader> csSpectrumReduce;
     ComPtr<ID3D11Buffer> cbFft;
     ComPtr<ID3D11Buffer> cbDb;
+    ComPtr<ID3D11Buffer> cbSpectrum;
 
     ComPtr<ID3D11Buffer> bufPacked;
     ComPtr<ID3D11ShaderResourceView> srvPacked;
@@ -40,14 +59,29 @@ public:
     ComPtr<ID3D11Buffer> bufOut;
     ComPtr<ID3D11UnorderedAccessView> uavOut;
 
+    struct BinRange { uint32_t first; uint32_t last; };
+    std::vector<BinRange> ranges;
+    int spectrumWidth = 0;
+    int noiseWidth = 0;
+    int spectrumCapacity = 0;
+    ComPtr<ID3D11Buffer> bufRanges;
+    ComPtr<ID3D11ShaderResourceView> srvRanges;
+    ComPtr<ID3D11Buffer> bufSpectrum;
+    ComPtr<ID3D11UnorderedAccessView> uavSpectrum;
+
     struct ReadbackSlot
     {
         ComPtr<ID3D11Buffer> stagingOut;
+        ComPtr<ID3D11Buffer> stagingSpectrum;
+        int spectrumCapacity = 0;
         ComPtr<ID3D11Query> query;
         bool pending = false;
         uint64_t sequence = 0;
         int64_t submissionTag = 0;
         int batchCount = 0;
+        bool aggregated = false;
+        int outputCount = 0;
+        SpectrumRequest spectrumRequest = {};
     };
 
     ReadbackSlot readbackSlots[ReadbackSlotCount];
@@ -63,8 +97,70 @@ static void UnbindFft(ID3D11DeviceContext* ctx)
     ctx->CSSetUnorderedAccessViews(0, 1, nullUav, counts);
 }
 
-static int RunPipeline(GpuFftContext* c, int batchCount, float offset, bool usePackedInput)
+// Profiles are compiled on initialization/calibration only; normal frames allocate nothing.
+static HRESULT BuildFftProfile(GpuFftContext* c, int profile, std::vector<GpuFftContext::FftPass>& plan,
+    std::vector<GpuFftContext::FftPass>* kernels = nullptr)
 {
+    if (profile < 0 || profile > 8 || c->logN < 2 || c->logN > 22) return E_INVALIDARG;
+    plan.clear();
+    if (profile == 0) return S_OK; // Original single-stage reference and safe fallback.
+    const UINT bodyThreads = profile == 3 || profile == 5 ? 32 : profile == 7 ? 128 : profile == 8 ? 256 : 64;
+    for (int remaining = c->logN; remaining > 0;)
+    {
+        bool first = plan.empty();
+        int stages = profile <= 2 ?
+            (profile == 2 && remaining >= 6 ? 6 : remaining >= 4 ? 4 : remaining >= 2 ? 2 : 1) :
+            profile <= 4 ? std::min(5, remaining) : first ? (remaining % 6 == 0 ? 6 : remaining % 6) : 6;
+        UINT threads = profile >= 5 && first ? 32 : bodyThreads;
+        GpuFftContext::FftPass pass = { stages, threads, {} };
+        const bool packedInput = first && profile >= 3;
+        if (kernels)
+            for (const auto& kernel : *kernels)
+                if (kernel.stages == stages && kernel.threads == threads)
+                {
+                    pass.shader = kernel.shader;
+                    if (packedInput) pass.packedShader = kernel.packedShader;
+                }
+        for (const auto& previous : plan)
+            if (previous.stages == stages && previous.threads == threads) pass.shader = previous.shader;
+        if (!pass.shader && threads == 64)
+            pass.shader = stages == 1 ? c->csStockham : stages == 2 ? c->csStockhamPair :
+                stages == 4 ? c->csStockhamFour : stages == 6 ? c->csStockhamSix : nullptr;
+        std::string s = std::to_string(stages), t = std::to_string(threads);
+        const D3D_SHADER_MACRO defines[] = { { "FFT_STAGES", s.c_str() }, { "FFT_THREADS", t.c_str() }, { nullptr, nullptr } };
+        if (!pass.shader)
+        {
+            HRESULT hr = CompileCs(c->device.Get(), kShaderStockhamFused, &pass.shader, defines);
+            if (FAILED(hr)) return hr;
+        }
+        if (packedInput && !pass.packedShader)
+        {
+            const D3D_SHADER_MACRO packed[] = { { "FFT_STAGES", s.c_str() }, { "FFT_THREADS", t.c_str() },
+                { "FFT_PACKED_INPUT", "1" }, { nullptr, nullptr } };
+            HRESULT hr = CompileCs(c->device.Get(), kShaderStockhamFused, &pass.packedShader, packed);
+            if (FAILED(hr)) return hr;
+        }
+        if (kernels)
+        {
+            auto found = std::find_if(kernels->begin(), kernels->end(), [&](const auto& kernel)
+                { return kernel.stages == stages && kernel.threads == threads; });
+            if (found == kernels->end()) kernels->push_back(pass);
+            else if (pass.packedShader) found->packedShader = pass.packedShader;
+        }
+        plan.push_back(pass);
+        remaining -= stages;
+    }
+    return S_OK;
+}
+
+static int RunPipeline(GpuFftContext* c, int batchCount, float offset, bool usePackedInput,
+    const SpectrumRequest* spectrumRequest = nullptr, int stagesPerPass = 0,
+    ID3D11ComputeShader* wideShader = nullptr)
+{
+    const bool usePlan = stagesPerPass == 0 && !c->fftPlan.empty();
+    const bool fusedInput = usePlan && usePackedInput && c->fftPlan.front().packedShader;
+    if (stagesPerPass == 0) stagesPerPass = 1;
+    if (stagesPerPass == 6 && !wideShader) wideShader = c->csStockhamSix.Get();
     FftParams fftParams = {
         static_cast<uint32_t>(c->fftSize),
         0u,
@@ -72,10 +168,11 @@ static int RunPipeline(GpuFftContext* c, int batchCount, float offset, bool useP
         0u
     };
 
-    UINT dispatchX = CeilDiv(static_cast<UINT>(c->fftSize), 64);
+    // 128 threads keep a 4M FFT within D3D11's 65535-group dispatch limit.
+    UINT dispatchX = CeilDiv(static_cast<UINT>(c->fftSize), 128);
     UINT dispatchY = static_cast<UINT>(batchCount);
 
-    if (usePackedInput)
+    if (usePackedInput && !fusedInput)
     {
         c->context->UpdateSubresource(c->cbFft.Get(), 0, nullptr, &fftParams, 0, 0);
         ID3D11Buffer* cbs[] = { c->cbFft.Get() };
@@ -90,22 +187,55 @@ static int RunPipeline(GpuFftContext* c, int batchCount, float offset, bool useP
     }
 
     bool pingPong = true;
-    for (int s = 0; s < c->logN; ++s)
+    size_t passIndex = 0;
+    for (int s = 0; s < c->logN;)
     {
+        const auto* pass = usePlan ? &c->fftPlan[passIndex++] : nullptr;
+        const int stages = pass ? pass->stages : stagesPerPass > 4 && wideShader && s + stagesPerPass <= c->logN ? stagesPerPass :
+            stagesPerPass >= 4 && s + 3 < c->logN ? 4 :
+            stagesPerPass >= 2 && s + 1 < c->logN ? 2 : 1;
         fftParams.stage = static_cast<uint32_t>(s);
         c->context->UpdateSubresource(c->cbFft.Get(), 0, nullptr, &fftParams, 0, 0);
         ID3D11Buffer* cbs[] = { c->cbFft.Get() };
-        ID3D11ShaderResourceView* srvs[] = { pingPong ? c->srvA.Get() : c->srvB.Get() };
+        const bool packedPass = fusedInput && s == 0;
+        ID3D11ShaderResourceView* srvs[] = {
+            packedPass ? c->srvPacked.Get() : pingPong ? c->srvA.Get() : c->srvB.Get(),
+            packedPass ? c->srvWindow.Get() : nullptr };
         ID3D11UnorderedAccessView* uavs[] = { pingPong ? c->uavB.Get() : c->uavA.Get() };
-        c->context->CSSetShader(c->csStockham.Get(), nullptr, 0);
+        c->context->CSSetShader(packedPass ? pass->packedShader.Get() : pass ? pass->shader.Get() : stages > 4 ? wideShader : stages == 4 ? c->csStockhamFour.Get() :
+            stages == 2 ? c->csStockhamPair.Get() : c->csStockham.Get(), nullptr, 0);
         c->context->CSSetConstantBuffers(0, 1, cbs);
-        c->context->CSSetShaderResources(0, 1, srvs);
+        c->context->CSSetShaderResources(0, 2, srvs);
         c->context->CSSetUnorderedAccessViews(0, 1, uavs, nullptr);
 
-        UINT dispatchStockhamX = CeilDiv(static_cast<UINT>(c->fftSize / 2), 64);
+        UINT dispatchStockhamX = CeilDiv(static_cast<UINT>(c->fftSize >> stages), pass ? pass->threads : 64);
         c->context->Dispatch(dispatchStockhamX, dispatchY, 1);
         UnbindFft(c->context.Get());
         pingPong = !pingPong;
+        s += stages;
+    }
+
+    if (spectrumRequest != nullptr)
+    {
+        const auto& r = *spectrumRequest;
+        const UINT partialCount = CeilDiv(static_cast<UINT>(r.endBin - r.startBin), 4096);
+        SpectrumParams params = { static_cast<uint32_t>(c->fftSize),
+            static_cast<uint32_t>(r.spectrumWidth), static_cast<uint32_t>(r.noiseWidth),
+            static_cast<uint32_t>(r.startBin), static_cast<uint32_t>(r.endBin),
+            r.centerBin, partialCount, offset };
+        c->context->UpdateSubresource(c->cbSpectrum.Get(), 0, nullptr, &params, 0, 0);
+        ID3D11Buffer* cbs[] = { c->cbSpectrum.Get() };
+        ID3D11ShaderResourceView* srvs[] = {
+            pingPong ? c->srvA.Get() : c->srvB.Get(), c->srvRanges.Get() };
+        ID3D11UnorderedAccessView* uavs[] = { c->uavSpectrum.Get() };
+        c->context->CSSetShader(c->csSpectrumReduce.Get(), nullptr, 0);
+        c->context->CSSetConstantBuffers(0, 1, cbs);
+        c->context->CSSetShaderResources(0, 2, srvs);
+        c->context->CSSetUnorderedAccessViews(0, 1, uavs, nullptr);
+        const UINT groups = r.spectrumWidth + r.noiseWidth + partialCount + 1;
+        c->context->Dispatch(std::min(groups, 65535u), CeilDiv(groups, 65535), 1);
+        UnbindFft(c->context.Get());
+        return 0;
     }
 
     DbParams dbParams = {
@@ -126,6 +256,60 @@ static int RunPipeline(GpuFftContext* c, int batchCount, float offset, bool useP
     UnbindFft(c->context.Get());
 
     return 0;
+}
+
+static HRESULT PrepareSpectrum(GpuFftContext* c, const SpectrumRequest& r, int count)
+{
+    if (!c->csSpectrumReduce || !c->cbSpectrum)
+    {
+        HRESULT hr = CompileCs(c->device.Get(), kShaderSpectrumReduce, &c->csSpectrumReduce);
+        if (FAILED(hr)) return hr;
+        D3D11_BUFFER_DESC desc = {};
+        desc.ByteWidth = sizeof(SpectrumParams);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        hr = c->device->CreateBuffer(&desc, nullptr, &c->cbSpectrum);
+        if (FAILED(hr)) return hr;
+    }
+    if (count > c->spectrumCapacity)
+    {
+        c->spectrumCapacity = 0;
+        c->uavSpectrum.Reset();
+        c->bufSpectrum.Reset();
+        HRESULT hr = CreateStructuredBuffer<float>(c->device.Get(), count,
+            D3D11_BIND_UNORDERED_ACCESS, &c->bufSpectrum);
+        if (FAILED(hr)) return hr;
+        hr = CreateUav(c->device.Get(), c->bufSpectrum.Get(), count, &c->uavSpectrum);
+        if (FAILED(hr)) return hr;
+        c->spectrumCapacity = count;
+    }
+    if (c->spectrumWidth != r.spectrumWidth || c->noiseWidth != r.noiseWidth)
+    {
+        c->spectrumWidth = c->noiseWidth = 0;
+        // Build exact bucket boundaries once per layout, not once per frame.
+        const int rangeCount = r.spectrumWidth + r.noiseWidth;
+        c->ranges.resize(rangeCount);
+        int offset = 0;
+        for (int width : { r.spectrumWidth, r.noiseWidth })
+        {
+            for (int i = 0; i < width; ++i)
+                c->ranges[offset + i] = {
+                    static_cast<uint32_t>(static_cast<int64_t>(i) * c->fftSize / width),
+                    static_cast<uint32_t>(static_cast<int64_t>(i + 1) * c->fftSize / width) };
+            offset += width;
+        }
+        c->srvRanges.Reset();
+        c->bufRanges.Reset();
+        HRESULT hr = CreateStructuredBuffer<GpuFftContext::BinRange>(c->device.Get(), rangeCount,
+            D3D11_BIND_SHADER_RESOURCE, &c->bufRanges);
+        if (FAILED(hr)) return hr;
+        hr = CreateSrv(c->device.Get(), c->bufRanges.Get(), rangeCount, &c->srvRanges);
+        if (FAILED(hr)) return hr;
+        c->context->UpdateSubresource(c->bufRanges.Get(), 0, nullptr, c->ranges.data(), 0, 0);
+        c->spectrumWidth = r.spectrumWidth;
+        c->noiseWidth = r.noiseWidth;
+    }
+    return S_OK;
 }
 
 extern "C" {
@@ -172,6 +356,17 @@ __declspec(dllexport) int gpufft_create(int fftSize, int logN, int maxBatchSize,
     if (FAILED(hr)) { delete c; return -4; }
     hr = CompileCs(c->device.Get(), kShaderStockham, &c->csStockham);
     if (FAILED(hr)) { delete c; return -5; }
+    hr = CompileCs(c->device.Get(), kShaderStockhamPair, &c->csStockhamPair);
+    if (FAILED(hr)) { delete c; return -5; }
+    hr = CompileCs(c->device.Get(), kShaderStockhamFused, &c->csStockhamFour);
+    if (FAILED(hr)) { delete c; return -5; }
+    if (fftSize >= (1 << 20))
+    {
+        const D3D_SHADER_MACRO defines[] = { { "FFT_STAGES", "6" }, { nullptr, nullptr } };
+        // Keep the 4-stage path available if this larger shader cannot be created.
+        hr = CompileCs(c->device.Get(), kShaderStockhamFused, &c->csStockhamSix, defines);
+        if (FAILED(hr)) c->csStockhamSix.Reset();
+    }
     hr = CompileCs(c->device.Get(), kShaderDbConvert, &c->csDbConvert);
     if (FAILED(hr)) { delete c; return -6; }
 
@@ -243,7 +438,40 @@ __declspec(dllexport) void gpufft_destroy(void* handle)
     delete c;
 }
 
-__declspec(dllexport) int gpufft_process_packed(
+} // extern "C"
+
+static void PackIq(const short* real, const short* imag, int32_t* output, int count)
+{
+    int i = 0;
+    // SSE2 is available on every Windows x64 target. Unaligned loads handle ring offsets.
+    for (; i + 8 <= count; i += 8)
+    {
+        const __m128i r = _mm_loadu_si128(reinterpret_cast<const __m128i*>(real + i));
+        const __m128i q = _mm_loadu_si128(reinterpret_cast<const __m128i*>(imag + i));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + i), _mm_unpacklo_epi16(r, q));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(output + i + 4), _mm_unpackhi_epi16(r, q));
+    }
+    for (; i < count; ++i)
+        output[i] = static_cast<uint16_t>(real[i]) |
+            (static_cast<uint32_t>(static_cast<uint16_t>(imag[i])) << 16);
+}
+
+static void PackRingIq(const short* real, const short* imag, int inputLength,
+    int sourceOffset, int32_t* output, int count)
+{
+    int source = sourceOffset % inputLength;
+    if (source < 0) source += inputLength;
+    while (count > 0)
+    {
+        const int chunk = std::min(count, inputLength - source);
+        PackIq(real + source, imag + source, output, chunk);
+        output += chunk;
+        count -= chunk;
+        source = 0;
+    }
+}
+
+static int ProcessPacked(
     void* handle,
     const short* inputI,
     const short* inputQ,
@@ -254,12 +482,20 @@ __declspec(dllexport) int gpufft_process_packed(
     int64_t submissionTag,
     int64_t* completedTag,
     int* inputAccepted,
-    float* outputDbFlat)
+    float* outputDbFlat,
+    int outputCapacity,
+    const SpectrumRequest* spectrumRequest,
+    SpectrumRequest* completedSpectrumRequest)
 {
     auto* c = reinterpret_cast<GpuFftContext*>(handle);
     if (!c || !inputI || !inputQ || !offsets || !completedTag || !inputAccepted || !outputDbFlat) return -30;
     if (batchCount <= 0 || batchCount > c->maxBatchSize) return -31;
     if (inputLength <= 0) return -34;
+    if (spectrumRequest != nullptr && (batchCount != 1 || !completedSpectrumRequest ||
+        spectrumRequest->spectrumWidth <= 0 || spectrumRequest->spectrumWidth > c->fftSize ||
+        spectrumRequest->noiseWidth <= 0 || spectrumRequest->noiseWidth > c->fftSize ||
+        spectrumRequest->startBin < 0 || spectrumRequest->endBin < spectrumRequest->startBin ||
+        spectrumRequest->endBin > c->fftSize)) return -35;
 
     *completedTag = 0;
     *inputAccepted = 0;
@@ -268,6 +504,7 @@ __declspec(dllexport) int gpufft_process_packed(
     c->lastUploadMs = 0.0;
     c->lastDispatchMs = 0.0;
     c->lastReadbackMs = 0.0;
+    c->lastCollectMs = c->lastCopyQueueMs = c->lastFlushMs = 0.0;
 
     auto t0 = std::chrono::steady_clock::now();
     bool hasOutput = false;
@@ -288,25 +525,33 @@ __declspec(dllexport) int gpufft_process_packed(
         }
 
         D3D11_MAPPED_SUBRESOURCE mapped = {};
-        HRESULT hr = c->context->Map(slot.stagingOut.Get(), 0, D3D11_MAP_READ, 0, &mapped);
+        ID3D11Buffer* staging = slot.aggregated ? slot.stagingSpectrum.Get() : slot.stagingOut.Get();
+        HRESULT hr = c->context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
         if (FAILED(hr))
         {
             slot.pending = false;
             c->lastReadbackMs = ElapsedMs(t0);
             return -33;
         }
-        if (slot.sequence >= newestOutputSequence)
+        if (slot.sequence >= newestOutputSequence && slot.aggregated == (spectrumRequest != nullptr))
         {
-            int copyBatchCount = std::min(slot.batchCount, batchCount);
-            memcpy(outputDbFlat, mapped.pData, sizeof(float) * c->fftSize * copyBatchCount);
+            int count = slot.aggregated ? slot.outputCount : c->fftSize * std::min(slot.batchCount, batchCount);
+            if (count > outputCapacity)
+            {
+                c->context->Unmap(staging, 0);
+                return -36;
+            }
+            memcpy(outputDbFlat, mapped.pData, sizeof(float) * count);
+            if (slot.aggregated) *completedSpectrumRequest = slot.spectrumRequest;
             newestOutputSequence = slot.sequence;
             newestOutputTag = slot.submissionTag;
             hasOutput = true;
         }
-        c->context->Unmap(slot.stagingOut.Get(), 0);
+        c->context->Unmap(staging, 0);
         slot.pending = false;
     }
     c->lastReadbackMs = ElapsedMs(t0);
+    c->lastCollectMs = c->lastReadbackMs;
     if (hasOutput) *completedTag = newestOutputTag;
 
     GpuFftContext::ReadbackSlot* freeSlot = nullptr;
@@ -323,6 +568,25 @@ __declspec(dllexport) int gpufft_process_packed(
         return hasOutput ? 0 : 1;
     }
 
+    int outputCount = c->fftSize * batchCount;
+    if (spectrumRequest != nullptr)
+    {
+        outputCount = spectrumRequest->spectrumWidth + spectrumRequest->noiseWidth +
+            CeilDiv(spectrumRequest->endBin - spectrumRequest->startBin, 4096) + 1;
+        if (FAILED(PrepareSpectrum(c, *spectrumRequest, outputCount))) return -37;
+        if (outputCount > freeSlot->spectrumCapacity)
+        {
+            freeSlot->stagingSpectrum.Reset();
+            freeSlot->spectrumCapacity = 0;
+            D3D11_BUFFER_DESC desc = {};
+            desc.ByteWidth = sizeof(float) * outputCount;
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            if (FAILED(c->device->CreateBuffer(&desc, nullptr, &freeSlot->stagingSpectrum))) return -37;
+            freeSlot->spectrumCapacity = outputCount;
+        }
+    }
+
     t0 = std::chrono::steady_clock::now();
     const int packedCount = c->fftSize * batchCount;
     if (static_cast<int>(c->packedInput.size()) < packedCount)
@@ -332,15 +596,8 @@ __declspec(dllexport) int gpufft_process_packed(
 
     for (int b = 0; b < batchCount; ++b)
     {
-        int base = b * c->fftSize;
-        int sourceIdx = offsets[b] % inputLength;
-        if (sourceIdx < 0) sourceIdx += inputLength;
-        for (int i = 0; i < c->fftSize; ++i)
-        {
-            int idx = sourceIdx + i;
-            if (idx >= inputLength) idx -= inputLength;
-            c->packedInput[base + i] = (static_cast<int32_t>(static_cast<uint16_t>(inputQ[idx])) << 16) | static_cast<uint16_t>(inputI[idx]);
-        }
+        PackRingIq(inputI, inputQ, inputLength, offsets[b],
+            c->packedInput.data() + b * c->fftSize, c->fftSize);
     }
     c->lastPackMs = ElapsedMs(t0);
 
@@ -349,21 +606,58 @@ __declspec(dllexport) int gpufft_process_packed(
     c->lastUploadMs = ElapsedMs(t0);
 
     t0 = std::chrono::steady_clock::now();
-    int rc = RunPipeline(c, batchCount, offset, true);
+    int rc = RunPipeline(c, batchCount, offset, true, spectrumRequest);
     c->lastDispatchMs = ElapsedMs(t0);
     if (rc != 0) return -32;
 
     t0 = std::chrono::steady_clock::now();
-    c->context->CopyResource(freeSlot->stagingOut.Get(), c->bufOut.Get());
+    if (spectrumRequest != nullptr)
+    {
+        D3D11_BOX box = { 0, 0, 0, static_cast<UINT>(sizeof(float) * outputCount), 1, 1 };
+        c->context->CopySubresourceRegion(freeSlot->stagingSpectrum.Get(), 0, 0, 0, 0,
+            c->bufSpectrum.Get(), 0, &box);
+    }
+    else
+        c->context->CopyResource(freeSlot->stagingOut.Get(), c->bufOut.Get());
     c->context->End(freeSlot->query.Get());
+    c->lastCopyQueueMs = ElapsedMs(t0);
+    auto flushStart = std::chrono::steady_clock::now();
     c->context->Flush();
+    c->lastFlushMs = ElapsedMs(flushStart);
     freeSlot->pending = true;
     freeSlot->sequence = c->nextReadbackSequence++;
     freeSlot->submissionTag = submissionTag;
     freeSlot->batchCount = batchCount;
+    freeSlot->aggregated = spectrumRequest != nullptr;
+    freeSlot->outputCount = outputCount;
+    if (spectrumRequest != nullptr) freeSlot->spectrumRequest = *spectrumRequest;
     *inputAccepted = 1;
     c->lastReadbackMs += ElapsedMs(t0);
     return hasOutput ? 0 : 1;
+}
+
+extern "C" {
+
+__declspec(dllexport) int gpufft_process_packed(
+    void* handle, const short* inputI, const short* inputQ, int inputLength,
+    const int* offsets, int batchCount, float offset, int64_t submissionTag,
+    int64_t* completedTag, int* inputAccepted, float* outputDbFlat)
+{
+    auto* c = reinterpret_cast<GpuFftContext*>(handle);
+    return ProcessPacked(handle, inputI, inputQ, inputLength, offsets, batchCount, offset,
+        submissionTag, completedTag, inputAccepted, outputDbFlat,
+        c ? c->capacity : 0, nullptr, nullptr);
+}
+
+__declspec(dllexport) int gpufft_process_spectrum(
+    void* handle, const short* inputI, const short* inputQ, int inputLength,
+    const int* offsets, float offset, int64_t submissionTag,
+    int64_t* completedTag, int* inputAccepted, float* output, int outputCapacity,
+    const SpectrumRequest* request, SpectrumRequest* completedRequest)
+{
+    if (!request) return -35;
+    return ProcessPacked(handle, inputI, inputQ, inputLength, offsets, 1, offset,
+        submissionTag, completedTag, inputAccepted, output, outputCapacity, request, completedRequest);
 }
 
 __declspec(dllexport) int gpufft_process_float(
@@ -415,4 +709,17 @@ __declspec(dllexport) int gpufft_get_last_timings(
     return 0;
 }
 
+__declspec(dllexport) int gpufft_get_last_readback_timings(
+    void* handle, double* collectMs, double* copyQueueMs, double* flushMs)
+{
+    auto* c = reinterpret_cast<GpuFftContext*>(handle);
+    if (!c || !collectMs || !copyQueueMs || !flushMs) return -50;
+    *collectMs = c->lastCollectMs;
+    *copyQueueMs = c->lastCopyQueueMs;
+    *flushMs = c->lastFlushMs;
+    return 0;
+}
+
 } // extern "C"
+
+#include "gpufft_calibration.h"

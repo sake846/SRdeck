@@ -239,6 +239,7 @@
     <!-- Status Header Style -->
     <Style x:Key="PluginStatusHeaderStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource ControlBaseBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CornerRadius" Value="{StaticResource PluginOuterPanelTopCornerRadius}" />

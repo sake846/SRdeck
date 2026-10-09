@@ -51,6 +51,10 @@
 
 ### 3.1 プロジェクトの作成
 
+ビルド対象ごとの前提ツール、C++ / Windows SDK / CMake の準備とエラー別の対処は
+[開発環境](wiki/Development-Environment.md) を参照する。公開 `SRdeckPlugins.sln` の
+プラグインだけのビルドと、ホストを含む `SRdeck.sln` のビルドでは必要な環境が異なる。
+
 リポジトリ内で開発する最小のヘッドレスプロジェクトは次の形にする。
 
 ```xml
@@ -76,8 +80,9 @@ WPFビューを提供する場合だけ `TargetFramework` を `net10.0-windows`�
 共有ライブラリの型を `using` して利用すること自体は、この所有規則へ違反しない。
 
 リポジトリ外で開発する場合、ホストと同じ版の `SRdeckPlugin.Contracts.dll` と、使用する場合だけ
-`SRdeckPlugin.Sdk.dll`／`SRdeckPlugin.Wpf.dll` を参照する。現時点ではNuGetパッケージを公開していないため、
-対象ホストの配布物または同じタグのビルド成果物を使用する。Contractsの版を別ホストから混在させない。
+`SRdeckPlugin.Sdk.dll`／`SRdeckPlugin.Wpf.dll` を参照する。公開ソーススナップショットでは、
+同じSRdeckリリースで提供するプラットフォームNuGetパッケージを使用できる。
+パッケージまたは配布DLLの版は対象ホストと一致させ、Contractsの版を別ホストから混在させない。
 
 コンパイル可能な例は [ヘッドレス生IQスターター](samples/SRdeckPlugin.Example/README.md) と
 [標準チャネルIQスターター](samples/SRdeckPlugin.ChannelExample/README.md) を参照する。

@@ -265,7 +265,9 @@ public partial class MainViewModel : ObservableObject
             }
         }
         radioControl.CursorFreqOffsetHz = RenderUtils.XToFreqOffset((float)position.X, SpectrumWidth, Display.CurrentMainSpanHz);
-        radioControl.CursorFreqHz = radioControl.CenterFreqHz + radioControl.CursorFreqOffsetHz;
+        int cursorStepHz = radioControl.StepHz > 0 ? radioControl.StepHz : RadioControl.DefaultStepHz;
+        radioControl.CursorFreqHz = (radioControl.CenterFreqHz + radioControl.CursorFreqOffsetHz + cursorStepHz / 2) / cursorStepHz * cursorStepHz;
+        radioControl.CursorFreqOffsetHz = radioControl.CursorFreqHz - radioControl.CenterFreqHz;
         radioControl.CursorHistorySec = -1;
         radioControl.CursorPowerDb = (int)(100.0 * position.Y / SpectrumHeight);
         radioControl.CursorPoint = position;
@@ -334,7 +336,9 @@ public partial class MainViewModel : ObservableObject
         int roundingHz = Display.CurrentMainRoundingHz;
         int mainSpanHz = Display.CurrentMainSpanHz;
         radioControl.CursorFreqOffsetHz = RenderUtils.XToFreqOffset((float)position.X, WaterfallWidth, mainSpanHz);
-        radioControl.CursorFreqHz = radioControl.CenterFreqHz + radioControl.CursorFreqOffsetHz;
+        int cursorStepHz = radioControl.StepHz > 0 ? radioControl.StepHz : RadioControl.DefaultStepHz;
+        radioControl.CursorFreqHz = (radioControl.CenterFreqHz + radioControl.CursorFreqOffsetHz + cursorStepHz / 2) / cursorStepHz * cursorStepHz;
+        radioControl.CursorFreqOffsetHz = radioControl.CursorFreqHz - radioControl.CenterFreqHz;
         double height = Math.Max(1.0, WaterfallHeight);
         int maxHistorySec = GetMaxHistorySec();
         // Keep the cursor mapped to the full waterfall depth so it can move past the IQ buffer limit.

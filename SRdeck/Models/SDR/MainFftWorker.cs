@@ -62,7 +62,10 @@ public sealed record MainFftResult(
     float[] NoiseFloorFftData,
     int CenterFrequencyHz,
     long WaterfallBlockSequence,
-    MainFftTiming Timing);
+    MainFftTiming Timing)
+{
+    public FftPowerSummary? PowerSummary { get; init; }
+}
 
 public interface IMainFftWorker : IDisposable
 {
@@ -312,7 +315,7 @@ internal sealed class MainFftWorker : IMainFftWorker
                 noiseFloor,
                 hasMatchedFrame ? completedMetadata.CenterFrequencyHz : request.InputCenterFreqHz,
                 hasMatchedFrame ? completedMetadata.WaterfallBlockSequence : request.WaterfallBlockSequence,
-                timing);
+                timing) { PowerSummary = _processor.LastPowerSummary };
         }
         catch (Exception ex)
         {

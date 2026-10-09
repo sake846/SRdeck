@@ -96,7 +96,7 @@ internal sealed class ApplicationStartupCoordinator
         }
 
         if (!isHeadless)
-            progress.Report("FFT・プラグインDSPを準備中…");
+            progress.Report("FFT性能を確認・プラグインDSPを準備中…");
         long processingWarmupStarted = Stopwatch.GetTimestamp();
         await Task.Run(async () =>
         {

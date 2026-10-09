@@ -21,7 +21,7 @@ SRdeckはSRdeck SDRスイートのホストアプリケーションと、公開�
 
 ## リリースメタデータ
 
-- リリースバージョン: `1.0.6`
+- リリースバージョン: `1.0.7`
 
 ## 内容
 
@@ -34,13 +34,30 @@ SRdeckはSRdeck SDRスイートのホストアプリケーションと、公開�
 
 ## ビルド
 
+先に次の環境を用意してください。
+
+- Windows x64、.NET 10 SDK（Desktop Runtime だけではビルドできません）
+- Visual Studio / Build Tools の「C++ によるデスクトップ開発」ワークロード
+  - MSVC x64/x86 ビルドツール（VS 2022: v143、VS 2026: v145）
+  - Windows 10 SDK または Windows 11 SDK
+  - Windows 用 C++ CMake ツール、または別途インストールした CMake
+- CMake **3.21以上（VS 2022）／4.2以上（VS 2026）**。PATH に追加するか、
+  `CMAKE_EXE` 環境変数へ `cmake.exe` のフルパスを設定
+- 初回の NuGet 復元用のインターネット接続
+
+PowerShell を開き直し、`dotnet --info` と `cmake --version` を確認してから、ソースのルートで実行します。
+
 ```powershell
 dotnet build SRdeck.sln -c Release
 ```
 
 このビルドでは、`SRdeck/native/sr_fft` と `SRdeck/native/sr_gpu` のnative DLLも
 自動的にCMakeで構築し、アプリの出力フォルダーへコピーします。事前にCMakeと
-Visual Studio 2022のC++ビルドツールをインストールし、CMakeをPATHに追加してください。
+上記の C++ ビルドツールと Windows SDK をインストールしてください。
+`EnableRx888=true` の場合は `sr_rx888` もビルドします。
+CMake が失敗する場合は [開発環境](docs/wiki/Development-Environment.md) の
+ネイティブ環境の確認とエラー別の対処を参照してください。自動ビルドは `-A x64` を渡すため、
+Visual Studio ジェネレーターを使用します。
 
 ホストスナップショットにはオプションのプラグインを組み込んでいません。プラグインは`SRdeckPlugins`リポジトリで提供します。
 
@@ -48,8 +65,8 @@ Visual Studio 2022のC++ビルドツールをインストールし、CMakeをPAT
 
 対応するGitHub Releaseには、フレームワーク依存のWindows x64パッケージを2種類添付します。
 
-- `SRdeck-1.0.6-win-x64-host-only.zip` — オプションプラグインを含まないホストアプリケーション
-- `SRdeck-1.0.6-win-x64-with-plugins.zip` — 公開対象プラグインを同梱したホストアプリケーション
+- `SRdeck-1.0.7-win-x64-host-only.zip` — オプションプラグインを含まないホストアプリケーション
+- `SRdeck-1.0.7-win-x64-with-plugins.zip` — 公開対象プラグインを同梱したホストアプリケーション
 
 パッケージには`SRdeck.exe`、権利・セキュリティ文書、依存関係の通知、
 `PACKAGE-MANIFEST.json`を含みます。実行前に.NET 10 Desktop Runtime (x64)を

@@ -22,7 +22,7 @@ Comprehensive user guides, plugin documentation, troubleshooting, and developer 
 
 ## Release metadata
 
-- Release version: `1.0.6`
+- Release version: `1.0.7`
 
 ## Contents
 
@@ -33,7 +33,21 @@ Comprehensive user guides, plugin documentation, troubleshooting, and developer 
 - `SRdeckCore.SignalProcessing` — modulation-independent DSP components
 - `docs` — plugin specifications, guides, and samples
 
-Build the repository with:
+## Building
+
+Install these prerequisites first:
+
+- Windows x64 and the .NET 10 SDK (the Desktop Runtime alone cannot build sources).
+- The **Desktop development with C++** workload in Visual Studio or Build Tools:
+  - MSVC x64/x86 build tools (v143 for VS 2022; v145 for VS 2026).
+  - A Windows 10 or Windows 11 SDK.
+  - C++ CMake tools for Windows, or a separate CMake installation.
+- CMake **3.21 or newer for VS 2022; 4.2 or newer for VS 2026**. Add it to
+  `PATH`, or set the `CMAKE_EXE` environment variable to its full executable path.
+- An internet connection for the first NuGet restore.
+
+Open a new PowerShell window, check `dotnet --info` and `cmake --version`,
+then build from the source root:
 
 ```powershell
 dotnet build SRdeck.sln -c Release
@@ -41,8 +55,10 @@ dotnet build SRdeck.sln -c Release
 
 This build also compiles the native DLLs in `SRdeck/native/sr_fft` and
 `SRdeck/native/sr_gpu` with CMake and copies them to the application output
-directory. Install CMake and the Visual Studio 2022 C++ build tools first, and
-make sure CMake is available on `PATH`.
+directory. Setting `EnableRx888=true` also builds `sr_rx888`.
+See [Development Environment](docs/wiki/Development-Environment.md) for a
+native toolchain check and CMake troubleshooting. The automatic build passes
+`-A x64`, so use a Visual Studio generator.
 
 The host source snapshot does not embed or build the optional plugins.  Those
 are published separately in the `SRdeckPlugins` repository.
@@ -51,8 +67,8 @@ are published separately in the `SRdeckPlugins` repository.
 
 The matching GitHub Release provides framework-dependent Windows x64 packages:
 
-- `SRdeck-1.0.6-win-x64-host-only.zip` — host application without optional plugins.
-- `SRdeck-1.0.6-win-x64-with-plugins.zip` — host application with the published plugin set.
+- `SRdeck-1.0.7-win-x64-host-only.zip` — host application without optional plugins.
+- `SRdeck-1.0.7-win-x64-with-plugins.zip` — host application with the published plugin set.
 
 The packages include `SRdeck.exe`, legal/security documents, dependency notices,
 and a `PACKAGE-MANIFEST.json`. Install the .NET 10 Desktop Runtime (x64) before

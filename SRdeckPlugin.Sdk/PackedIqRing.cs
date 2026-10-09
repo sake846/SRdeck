@@ -11,7 +11,7 @@ internal sealed class PackedIqRing
     private int sampleCount;
 
     public PackedIqRing(int durationSeconds) =>
-        this.durationSeconds = Math.Clamp(durationSeconds, 1, 20);
+        this.durationSeconds = Math.Clamp(durationSeconds, 1, 180);
 
     public void Reset() => writeSample = sampleCount = 0;
 

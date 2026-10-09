@@ -288,6 +288,7 @@
     <!-- Standard settings header shared by all protocol settings views. -->
     <Style x:Key="PluginSettingsHeaderStyle" TargetType="ContentControl">
         <Setter Property="Background" Value="{DynamicResource ControlBaseBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="FontSize" Value="10" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -301,6 +302,7 @@
                             CornerRadius="{StaticResource PluginOuterPanelTopCornerRadius}">
                         <Grid>
                             <ContentPresenter ContentSource="Content"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               Margin="0,0,40,0"

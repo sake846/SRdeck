@@ -528,7 +528,8 @@
                     <ContentControl Grid.Row="1" Style="{DynamicResource PluginSettingsSelectorStyle}" />
 
                     <!-- Active Plugin Workspace -->
-                    <ContentControl Grid.Row="2" Content="{Binding PluginWorkspace.ActiveContent}" />
+                    <ContentControl Grid.Row="2" Content="{Binding PluginWorkspace.ActiveContent}"
+                                    Foreground="{DynamicResource TextPrimaryBrush}" />
                 </Grid>
 
             </Grid>

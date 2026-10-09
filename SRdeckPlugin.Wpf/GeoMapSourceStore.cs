@@ -6,7 +6,7 @@ namespace SRdeckPlugin.Wpf;
 public enum GeoMapSourceMode
 {
     Auto,
-    Offline // Cache only; kept as a persisted mode for existing settings.
+    Offline // Cache only.
 }
 
 public sealed record GeoMapSourceOptions(GeoMapSourceMode Mode = GeoMapSourceMode.Auto);

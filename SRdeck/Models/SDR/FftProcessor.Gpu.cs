@@ -55,25 +55,13 @@ public partial class FftProcessor
         var sw = System.Diagnostics.Stopwatch.StartNew();
         lock (_gpuLock)
         {
-            if (_gpuFfts[mode] == null || _gpuFfts[mode]!.MaxBatchSize != batchSize)
-            {
-                for (int i = 0; i < _gpuFfts.Length; i++)
-                {
-                    if (_gpuFfts[i] != null) { _gpuFfts[i]?.Dispose(); _gpuFfts[i] = null; }
-                }
-                try
-                {
-                    _gpuFfts[mode] = new GpuFftRunner(fftSize, fftSizeB, batchSize, hams[0].hData);
-                }
-                catch
-                {
-                    _gpuFfts[mode] = null;
-                }
-            }
+            try { GetGpuRunner(mode, batchSize, hams[0]); }
+            catch { _gpuFfts[mode] = null; }
 
             var runner = _gpuFfts[mode];
             if (runner != null && runner.IsAvailable)
             {
+                runner.ConfigureCalibration(batchSize, stepSize, null, allowMeasurement: false);
                 for (int i = 0; i < batchSize; i++)
                 {
                     _gpuInputOffsets[i] = referencePtr - fftSize - i * stepSize;
@@ -293,12 +281,7 @@ public partial class FftProcessor
         int baseMainSpanHz,
         int fsHz)
     {
-        float fullBw = fsHz > 0 ? fsHz : AppConstants.FULL_BW;
-        float baseDisplayBw = baseMainSpanHz > 0
-            ? baseMainSpanHz
-            : fullBw;
-        int targetWidth = (int)Math.Ceiling(requestedWidth * fullBw / baseDisplayBw);
-        targetWidth = Math.Clamp(targetWidth, 10, fftSize);
+        int targetWidth = GetNoiseFloorWidth(requestedWidth, fftSize, baseMainSpanHz, fsHz);
 
         if (noiseFloorFftData.Length != targetWidth)
         {
@@ -321,5 +304,12 @@ public partial class FftProcessor
             }
             noiseFloorFftData[i] = maxVal * invBatchSize;
         }
+    }
+
+    internal static int GetNoiseFloorWidth(int requestedWidth, int fftSize, int baseMainSpanHz, int fsHz)
+    {
+        float fullBw = fsHz > 0 ? fsHz : AppConstants.FULL_BW;
+        float baseDisplayBw = baseMainSpanHz > 0 ? baseMainSpanHz : fullBw;
+        return Math.Clamp((int)Math.Ceiling(requestedWidth * fullBw / baseDisplayBw), 10, fftSize);
     }
 }

@@ -13,10 +13,14 @@
 #include <chrono>
 #include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <mutex>
 #include <numeric>
 
 #include "gpufft_shaders.h"
+#ifdef SR_GPU_PRECOMPILED
+#include "gpufft_precompiled.h"
+#endif
 
 using Microsoft::WRL::ComPtr;
 
@@ -40,6 +44,31 @@ struct DbParams
     uint32_t batchCount;
     float offset;
     float pad;
+};
+
+// Matches GpuSpectrumRequest. Bin ranges are in fftshift order; EndBin is exclusive.
+struct SpectrumRequest
+{
+    int spectrumWidth;
+    int noiseWidth;
+    int startBin;
+    int endBin;
+    int centerBin;
+    int sampleRateHz;
+    int frequencyOffsetHz;
+    int spanHz;
+};
+
+struct SpectrumParams
+{
+    uint32_t fftSize;
+    uint32_t spectrumWidth;
+    uint32_t noiseWidth;
+    uint32_t startBin;
+    uint32_t endBin;
+    int32_t centerBin;
+    uint32_t partialCount;
+    float offset;
 };
 
 struct ChannelMapEntry
@@ -113,11 +142,16 @@ static inline double ElapsedMs(std::chrono::steady_clock::time_point start)
     return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 }
 
-static inline HRESULT CompileCs(ID3D11Device* dev, const char* src, ID3D11ComputeShader** outCs)
+static inline HRESULT CompileCs(ID3D11Device* dev, const char* src, ID3D11ComputeShader** outCs,
+    const D3D_SHADER_MACRO* defines = nullptr)
 {
+#ifdef SR_GPU_PRECOMPILED
+    auto compiled = FindPrecompiledCs(src, defines);
+    if (compiled.data) return dev->CreateComputeShader(compiled.data, compiled.size, nullptr, outCs);
+#endif
     ComPtr<ID3DBlob> code;
     ComPtr<ID3DBlob> err;
-    HRESULT hr = D3DCompile(src, strlen(src), nullptr, nullptr, nullptr, "main", "cs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &err);
+    HRESULT hr = D3DCompile(src, strlen(src), nullptr, defines, nullptr, "main", "cs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &err);
     if (FAILED(hr))
     {
         return hr;

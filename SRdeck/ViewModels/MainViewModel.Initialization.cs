@@ -220,8 +220,7 @@ public partial class MainViewModel : ObservableObject
 
     private void InitializeParameters()
     {
-        const int legacyBuiltInPluginMode = 9;
-        if ((int)_lastState.DemodMode == legacyBuiltInPluginMode)
+        if (!Enum.IsDefined(_lastState.DemodMode))
             _lastState.DemodMode = DemodulationMode.None;
 
         var displayMode = GetActiveFrequencyDisplayMode();

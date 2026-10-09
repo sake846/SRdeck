@@ -3,9 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace SRdeck.DSP;
 
-public sealed class GpuFftRunner : IDisposable
+public sealed partial class GpuFftRunner : IDisposable
 {
-    private static class NativeMethods
+    private static partial class NativeMethods
     {
         private const string DllName = "sr_gpu";
 
@@ -50,9 +50,8 @@ public sealed class GpuFftRunner : IDisposable
     private readonly int _fftSize;
     private readonly int _logN;
     private readonly int _maxBatchSize;
-    private readonly int _capacity;
     private readonly IntPtr _nativeHandle;
-    private readonly float[] _nativeOut;
+    private float[] _nativeOut = Array.Empty<float>();
     private float[]? _flatI;
     private float[]? _flatQ;
     private FastFourierTransform[]? _cpuFfts;
@@ -80,8 +79,9 @@ public sealed class GpuFftRunner : IDisposable
         _fftSize = fftSize;
         _logN = logN;
         _maxBatchSize = maxBatchSize;
-        _capacity = _fftSize * _maxBatchSize;
-        _nativeOut = new float[_capacity];
+        _windowSignature = window is not null && fftSize > 0 && window.Length >= fftSize
+            ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(MemoryMarshal.AsBytes(window.AsSpan(0, fftSize))))
+            : "rectangular";
         try
         {
             IntPtr wptr = IntPtr.Zero;
@@ -116,6 +116,7 @@ public sealed class GpuFftRunner : IDisposable
         if (_disposed) return;
         if (batchCount > _maxBatchSize) batchCount = _maxBatchSize;
         int elementCount = _fftSize * batchCount;
+        EnsureNativeOutput(elementCount);
         EnsureFloatInputBuffers(elementCount);
         var flatI = _flatI!;
         var flatQ = _flatQ!;
@@ -178,6 +179,7 @@ public sealed class GpuFftRunner : IDisposable
         LastTimePrep = 0;
         LastTimeCopyFrom = 0;
         LastTimeCopyTo = 0;
+        EnsureNativeOutput(_fftSize);
         long started = Stopwatch.GetTimestamp();
         int result = IsAvailable
             ? NativeMethods.ProcessFloat(_nativeHandle, inputI, inputQ, 1, offset, _nativeOut)
@@ -217,6 +219,7 @@ public sealed class GpuFftRunner : IDisposable
             return false;
         }
 
+        EnsureNativeOutput(_fftSize * batchCount);
         var sw = Stopwatch.StartNew();
         int rc = NativeMethods.ProcessPacked(
             _nativeHandle,
@@ -336,6 +339,11 @@ public sealed class GpuFftRunner : IDisposable
 
         _flatI = new float[requiredLength];
         _flatQ = new float[requiredLength];
+    }
+
+    private void EnsureNativeOutput(int length)
+    {
+        if (_nativeOut.Length < length) _nativeOut = new float[length];
     }
 
     private void EnsureCpuFallbackBuffers(int batchCount)

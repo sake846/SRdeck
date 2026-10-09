@@ -7,6 +7,7 @@ namespace SRdeck.Models.SDR;
 
 public interface IFftProcessor : IDisposable
 {
+    FftPowerSummary? LastPowerSummary => null;
     double LastGpuPrep { get; }
     double LastGpuUpload { get; }
     double LastGpuShader { get; }
@@ -51,6 +52,7 @@ public interface IFftProcessor : IDisposable
 /// </summary>
 public partial class FftProcessor : IFftProcessor
 {
+    public FftPowerSummary? LastPowerSummary { get; private set; }
     private readonly HanningWindow[][] _hamsPool = new HanningWindow[MAX_RESOLUTION_MODES][];
     private readonly FastFourierTransform[][] _fftsPool = new FastFourierTransform[MAX_RESOLUTION_MODES][];
     private readonly GpuFftRunner?[] _gpuFfts = new GpuFftRunner[MAX_RESOLUTION_MODES];
@@ -134,6 +136,7 @@ public partial class FftProcessor : IFftProcessor
     {
         completedTag = 0;
         inputAccepted = false;
+        LastPowerSummary = null;
         int mode = control.FftResolutionMode;
         if (mode < 0 || mode >= MAX_RESOLUTION_MODES) mode = 0;
 
@@ -172,7 +175,8 @@ public partial class FftProcessor : IFftProcessor
                 if (hams[i] == null) hams[i] = new HanningWindow(fftSize);
                 if (!control.IsGpuFftEnabled && ffts[i] == null) ffts[i] = new FastFourierTransform(fftSize);
 
-                if (_gpuOutDb[i] == null || _gpuOutDb[i].Length < fftSize)
+                if ((!control.IsGpuFftEnabled || batchSize > 1) &&
+                    (_gpuOutDb[i] == null || _gpuOutDb[i].Length < fftSize))
                 {
                     _gpuOutDb[i] = new float[fftSize];
                 }
@@ -199,6 +203,23 @@ public partial class FftProcessor : IFftProcessor
                 ReleasePackedRingBuffers();
                 LastFftCore = swCore.Elapsed.TotalMilliseconds;
                 return false;
+            }
+
+            // ponytail: Reduce single FFTs only; preserve multi-batch log averaging
+            // on the full-bin path until the UI exposes averaging again.
+            if (batchSize == 1)
+            {
+                bool fresh = ProcessGpuSpectrum(control, requestedWidth, mode, fftSize, fftSizeB,
+                    hams[0], submissionTag, out completedTag, out inputAccepted,
+                    ref spectrumFftData, ref waterfallFftData, ref waterfallAveragingBuffer,
+                    ref noiseFloorFftData, out bool supported);
+                if (supported)
+                {
+                    fullResFftData = Array.Empty<float>();
+                    LastFftCore = swCore.Elapsed.TotalMilliseconds;
+                    return fresh;
+                }
+                _gpuOutDb[0] ??= new float[fftSize];
             }
 
             bool hasFreshFrame = ProcessGpuFft(

@@ -2,6 +2,14 @@ using System.Numerics;
 
 namespace SRdeck.Models;
 
+public readonly record struct FftPowerSummary(
+    float BandPowerDb,
+    float CenterPowerDb,
+    int BinCount,
+    int SampleRateHz,
+    int FrequencyOffsetHz,
+    int SpanHz);
+
 internal readonly record struct SpectrumStatisticsOptions(
     int FallbackSampleRateHz,
     int RequestedSpectrumWidth,
@@ -15,7 +23,8 @@ internal static class SpectrumStatisticsCalculator
         float[]? noiseFloorSpectrum,
         float[] powerSpectrum,
         RadioControl control,
-        SpectrumStatisticsOptions options)
+        SpectrumStatisticsOptions options,
+        FftPowerSummary? powerSummary = null)
     {
         if (spectrum == null || spectrum.Length == 0) return;
 
@@ -30,7 +39,14 @@ internal static class SpectrumStatisticsCalculator
             options,
             out radioState.MinFftScanMinHz,
             out radioState.MinFftScanMaxHz) - (float)control.SystemDb + options.RfCalibrationOffset;
-        SyncRssi(ref radioState, powerSpectrum, control, options);
+        // The full-band noise floor remains usable when an asynchronous power
+        // summary still refers to the previous tuned receive band.
+        bool initializeNoiseFloor = !float.IsFinite(radioState.Min2FftPwr)
+            || radioState.Min2FftPwr == AppConstants.MIN_RSSI_DB;
+        radioState.Min2FftPwr = initializeNoiseFloor
+            ? radioState.MinFftPwr
+            : radioState.MinFftPwr * AppConstants.RSSI_EMA_ALPHA + radioState.Min2FftPwr * (1.0f - AppConstants.RSSI_EMA_ALPHA);
+        SyncRssi(ref radioState, powerSpectrum, control, options, powerSummary);
     }
 
     private static float CalculateMaxPower(float[] spectrum)
@@ -129,57 +145,73 @@ internal static class SpectrumStatisticsCalculator
             : minPower;
     }
 
+    internal static (int Start, int End, int Center) GetPowerBins(int length, RadioControl control, int sampleRateHz)
+    {
+        double binWidthHz = (double)sampleRateHz / length;
+        int centerBin = length / 2;
+        int tunedBin = centerBin + (int)Math.Round(control.FreqOffsetHz / binWidthHz);
+        double halfSpanHz = Math.Max(0, control.SpanHz) / 2.0;
+        int start = (int)Math.Clamp(Math.Ceiling(centerBin +
+            (control.FreqOffsetHz - halfSpanHz) / binWidthHz), 0, length);
+        int end = (int)Math.Clamp(Math.Floor(centerBin +
+            (control.FreqOffsetHz + halfSpanHz) / binWidthHz), -1, length - 1) + 1;
+        return (start, Math.Max(start, end), tunedBin);
+    }
+
     private static void SyncRssi(
         ref RadioState radioState,
         float[] spectrum,
         RadioControl control,
-        SpectrumStatisticsOptions options)
+        SpectrumStatisticsOptions options,
+        FftPowerSummary? powerSummary)
     {
-        bool initializeNoiseFloor = !float.IsFinite(radioState.Min2FftPwr)
-            || radioState.Min2FftPwr == AppConstants.MIN_RSSI_DB;
         int dataLength = spectrum.Length;
         int sampleRateHz = control.FsHz > 0 ? control.FsHz : options.FallbackSampleRateHz;
         if (sampleRateHz <= 0) sampleRateHz = (int)AppConstants.FULL_BW;
 
-        if (dataLength == 0) return;
-        double binWidthHz = (double)sampleRateHz / dataLength;
-        int centerBin = dataLength / 2;
-        int tunedBinIndex = centerBin + (int)Math.Round(control.FreqOffsetHz / binWidthHz);
-        double halfSpanHz = Math.Max(0, control.SpanHz) / 2.0;
-        int startBin = (int)Math.Clamp(Math.Ceiling(centerBin +
-            (control.FreqOffsetHz - halfSpanHz) / binWidthHz), 0, dataLength);
-        int endBin = (int)Math.Clamp(Math.Floor(centerBin +
-            (control.FreqOffsetHz + halfSpanHz) / binWidthHz), -1, dataLength - 1);
-        double linearSum = 0;
-        int binCount = 0;
-        const double Ln10 = 2.302585092994046;
-        for (int binIndex = startBin; binIndex <= endBin; binIndex++)
+        int binCount;
+        float powerDbFs;
+        float centerValDb;
+        if (powerSummary is { } summary)
         {
-            if (float.IsFinite(spectrum[binIndex]))
-            {
-                linearSum += Math.Exp(spectrum[binIndex] * 0.1 * Ln10);
-                binCount++;
-            }
-        }
-        if (binCount > 0)
-        {
-            float powerDbFs = (float)(10.0 * Math.Log10(Math.Max(linearSum, 1e-30)));
-            radioState.RfCalibrationDelta = -(float)control.SystemDb + options.RfCalibrationOffset;
-            radioState.AveRxPwr = powerDbFs + radioState.RfCalibrationDelta;
-            float centerValDb = (tunedBinIndex >= 0 && tunedBinIndex < dataLength) ? spectrum[tunedBinIndex] : AppConstants.MIN_RSSI_DB;
-            radioState.AveFftPwr = centerValDb - (float)control.SystemDb + options.RfCalibrationOffset;
-            radioState.AveDb = powerDbFs - 10.0f * MathF.Log10((float)binCount);
-            radioState.Ave2Db = radioState.AveDb * AppConstants.RSSI_EMA_ALPHA + radioState.Ave2Db * (1.0f - AppConstants.RSSI_EMA_ALPHA);
-            radioState.Min2FftPwr = initializeNoiseFloor
-                ? radioState.MinFftPwr
-                : radioState.MinFftPwr * AppConstants.RSSI_EMA_ALPHA + radioState.Min2FftPwr * (1.0f - AppConstants.RSSI_EMA_ALPHA);
+            // An asynchronous frame can still describe the previous tuning. Wait
+            // for matching metadata rather than attributing its power to a new band.
+            if (summary.SampleRateHz != sampleRateHz ||
+                summary.FrequencyOffsetHz != control.FreqOffsetHz || summary.SpanHz != control.SpanHz)
+                return;
+            binCount = summary.BinCount;
+            powerDbFs = summary.BandPowerDb;
+            centerValDb = summary.CenterPowerDb;
         }
         else
         {
-            // Keep smoothing alive even when current tuned bin is temporarily out of the visible FFT range.
-            radioState.Min2FftPwr = initializeNoiseFloor
-                ? radioState.MinFftPwr
-                : radioState.MinFftPwr * AppConstants.RSSI_EMA_ALPHA + radioState.Min2FftPwr * (1.0f - AppConstants.RSSI_EMA_ALPHA);
+            if (dataLength == 0) return;
+            var (startBin, endBin, tunedBinIndex) = GetPowerBins(dataLength, control, sampleRateHz);
+            double linearSum = 0;
+            binCount = 0;
+            const double Ln10 = 2.302585092994046;
+            for (int binIndex = startBin; binIndex < endBin; binIndex++)
+            {
+                if (float.IsFinite(spectrum[binIndex]))
+                {
+                    linearSum += Math.Exp(spectrum[binIndex] * 0.1 * Ln10);
+                    binCount++;
+                }
+            }
+            powerDbFs = (float)(10.0 * Math.Log10(Math.Max(linearSum, 1e-30)));
+            centerValDb = (tunedBinIndex >= 0 && tunedBinIndex < dataLength)
+                ? spectrum[tunedBinIndex] : AppConstants.MIN_RSSI_DB;
+        }
+        if (binCount > 0)
+        {
+            radioState.RfCalibrationDelta = -(float)control.SystemDb + options.RfCalibrationOffset;
+            radioState.AveRxPwr = powerDbFs + radioState.RfCalibrationDelta;
+            radioState.AveFftPwr = centerValDb - (float)control.SystemDb + options.RfCalibrationOffset;
+            radioState.AveDb = powerDbFs - 10.0f * MathF.Log10((float)binCount);
+            radioState.Ave2Db = radioState.AveDb * AppConstants.RSSI_EMA_ALPHA + radioState.Ave2Db * (1.0f - AppConstants.RSSI_EMA_ALPHA);
+        }
+        else
+        {
             radioState.AveDb = radioState.MinFftPwr;
             radioState.Ave2Db = radioState.AveDb * AppConstants.RSSI_EMA_ALPHA + radioState.Ave2Db * (1.0f - AppConstants.RSSI_EMA_ALPHA);
         }

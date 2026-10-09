@@ -127,24 +127,11 @@ public static class GeoMapStateStore
                 string json = File.ReadAllText(filePath);
                 using JsonDocument doc = JsonDocument.Parse(json);
                 JsonElement root = doc.RootElement;
-                JsonElement mapStateElement = default;
-                bool found = false;
-
-                if (root.ValueKind == JsonValueKind.Object)
-                {
-                    if (root.TryGetProperty("Settings", out JsonElement settingsElement) &&
-                        settingsElement.ValueKind == JsonValueKind.Object &&
-                        settingsElement.TryGetProperty("MapState", out mapStateElement))
-                    {
-                        found = true;
-                    }
-                    else if (root.TryGetProperty("MapState", out mapStateElement))
-                    {
-                        found = true;
-                    }
-                }
-
-                if (found && mapStateElement.ValueKind == JsonValueKind.Object)
+                if (root.ValueKind == JsonValueKind.Object &&
+                    root.TryGetProperty("Settings", out JsonElement settingsElement) &&
+                    settingsElement.ValueKind == JsonValueKind.Object &&
+                    settingsElement.TryGetProperty("MapState", out JsonElement mapStateElement) &&
+                    mapStateElement.ValueKind == JsonValueKind.Object)
                 {
                     GeoMapState? loaded = mapStateElement.Deserialize<GeoMapState>();
                     if (loaded is not null && IsValidState(loaded))
@@ -181,7 +168,7 @@ public static class GeoMapStateStore
                 catch { }
             }
 
-            if (rootNode is not JsonObject rootObj)
+            if (rootNode is not JsonObject rootObj || rootObj["Settings"] is not JsonObject)
             {
                 rootObj = new JsonObject
                 {
@@ -191,17 +178,7 @@ public static class GeoMapStateStore
                 rootNode = rootObj;
             }
 
-            JsonObject settingsObj;
-            if (rootObj.TryGetPropertyValue("Settings", out JsonNode? settingsNode) && settingsNode is JsonObject existingSettingsObj)
-            {
-                settingsObj = existingSettingsObj;
-            }
-            else
-            {
-                settingsObj = new JsonObject();
-                rootObj["Settings"] = settingsObj;
-            }
-
+            var settingsObj = (JsonObject)rootObj["Settings"]!;
             settingsObj["MapState"] = JsonSerializer.SerializeToNode(state);
 
             string outputJson = rootNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });

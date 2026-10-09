@@ -18,10 +18,13 @@ public sealed record MainFftFrame(
     float[] SpectrumData,
     float[] WaterfallData,
     float[] NoiseFloorData,
-    // Full-resolution FFT bin levels in dB, time-averaged as linear power.
+    // Full-resolution FFT bin levels in dB, or empty when PowerSummary is present.
     float[] PowerSpectrumData,
     int CenterFrequencyHz,
-    long WaterfallBlockSequence);
+    long WaterfallBlockSequence)
+{
+    public FftPowerSummary? PowerSummary { get; init; }
+}
 
 internal sealed class MainFftFrameSlot(MainFftFrame frame)
 {
@@ -112,6 +115,9 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
     private readonly record struct PreparationKey(
         int SampleRateHz,
         int MainSpanHz,
+        int BaseMainSpanHz,
+        int SpanHz,
+        int FrequencyOffsetHz,
         int ResolutionMode,
         int BatchCount,
         bool IsGpuEnabled,
@@ -155,6 +161,9 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
         var key = new PreparationKey(
             control.FsHz,
             control.MainSpanHz,
+            control.BaseMainSpanHz,
+            control.SpanHz,
+            control.FreqOffsetHz,
             control.FftResolutionMode,
             control.FftBatchCount,
             control.IsGpuFftEnabled,
@@ -172,6 +181,8 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
             float[] noiseFloor = _writeNoiseFloorData;
             try
             {
+                if (_worker.Processor is FftProcessor fftProcessor)
+                    fftProcessor.CalibrateGpuBeforeStart(control, requestedWidth);
                 _worker.Processor.ProcessFft(
                     buffer,
                     0,
@@ -206,7 +217,12 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
             {
                 Buffer = submission.Buffer,
                 ReferencePtr = submission.ReferencePointer,
-                Control = submission.Control,
+                // FFT bins are relative to the IQ center, which can differ from the panned display.
+                Control = submission.Control with
+                {
+                    CenterFreqHz = submission.InputCenterFrequencyHz,
+                    FreqOffsetHz = submission.Control.TunedFreqHz - submission.InputCenterFrequencyHz
+                },
                 RequestedWidth = submission.RequestedWidth,
                 SpectrumFftData = _writeSpectrumData,
                 WaterfallFftData = _writeWaterfallData,
@@ -292,7 +308,7 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                     result.NoiseFloorFftData,
                     result.FullResFftData,
                     result.CenterFrequencyHz,
-                    result.WaterfallBlockSequence));
+                    result.WaterfallBlockSequence) { PowerSummary = result.PowerSummary });
                 SetWriteBuffersLocked(TakeReusableBuffersLocked(previous));
                 published = true;
             }

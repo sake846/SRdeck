@@ -11,7 +11,7 @@ cbuffer FftParams : register(b0)
 StructuredBuffer<int> packed : register(t0);
 StructuredBuffer<float> window : register(t1);
 RWStructuredBuffer<float2> outputBuf : register(u0);
-[numthreads(64,1,1)]
+[numthreads(128,1,1)]
 void main(uint3 tid : SV_DispatchThreadID)
 {
     uint x = tid.x;
@@ -62,6 +62,141 @@ void main(uint3 tid : SV_DispatchThreadID)
 }
 )";
 
+// Two consecutive Stockham stages without a global intermediate write/read.
+static const char* kShaderStockhamPair = R"(
+cbuffer FftParams : register(b0)
+{
+    uint fftSize;
+    uint stage;
+    uint batchCount;
+    uint _pad;
+}
+StructuredBuffer<float2> inputBuf : register(t0);
+RWStructuredBuffer<float2> outputBuf : register(u0);
+
+float2 multiply(float2 v, float2 w)
+{
+    return float2(v.x * w.x - v.y * w.y, v.x * w.y + v.y * w.x);
+}
+
+[numthreads(64,1,1)]
+void main(uint3 tid : SV_DispatchThreadID)
+{
+    uint t = tid.x;
+    uint batch = tid.y;
+    if (batch >= batchCount || t >= fftSize / 4) return;
+    uint L = 1u << stage;
+    uint j = t % L;
+    uint i = t / L;
+    uint baseIdx = batch * fftSize;
+    float2 a = inputBuf[baseIdx + t];
+    float2 b = inputBuf[baseIdx + t + fftSize / 2];
+    float2 c = inputBuf[baseIdx + t + fftSize / 4];
+    float2 d = inputBuf[baseIdx + t + 3 * (fftSize / 4)];
+    float s, co;
+    sincos(-6.28318530718 * (float)j / (float)(2u * L), s, co);
+    float2 bw = multiply(b, float2(co, s));
+    float2 dw = multiply(d, float2(co, s));
+    float2 u = a + bw;
+    float2 v = a - bw;
+    float2 p = c + dw;
+    float2 q = c - dw;
+    // Keep the original angles and arithmetic, including the second branch.
+    sincos(-6.28318530718 * (float)j / (float)(4u * L), s, co);
+    float2 pw = multiply(p, float2(co, s));
+    sincos(-6.28318530718 * (float)(j + L) / (float)(4u * L), s, co);
+    float2 qw = multiply(q, float2(co, s));
+    uint out0 = baseIdx + i * (4u * L) + j;
+    outputBuf[out0] = u + pw;
+    outputBuf[out0 + 2u * L] = u - pw;
+    outputBuf[out0 + L] = v + qw;
+    outputBuf[out0 + 3u * L] = v - qw;
+}
+)";
+
+// Stockham stages keep their radix-sized intermediates in registers.
+static const char* kShaderStockhamFused = R"(
+#ifndef FFT_STAGES
+#define FFT_STAGES 4
+#endif
+#ifndef FFT_THREADS
+#define FFT_THREADS 64
+#endif
+static const uint radix = 1u << FFT_STAGES;
+cbuffer FftParams : register(b0)
+{
+    uint fftSize;
+    uint stage;
+    uint batchCount;
+    uint _pad;
+}
+#if FFT_PACKED_INPUT
+StructuredBuffer<int> packedBuf : register(t0);
+StructuredBuffer<float> windowBuf : register(t1);
+#else
+StructuredBuffer<float2> inputBuf : register(t0);
+#endif
+RWStructuredBuffer<float2> outputBuf : register(u0);
+
+[numthreads(FFT_THREADS,1,1)]
+void main(uint3 tid : SV_DispatchThreadID)
+{
+    uint t = tid.x;
+    uint batch = tid.y;
+    if (batch >= batchCount || t >= fftSize / radix) return;
+    uint L = 1u << stage;
+    uint j = t % L;
+    uint i = t / L;
+    uint baseIdx = batch * fftSize;
+    float2 values[radix];
+    float2 next[radix];
+    [unroll]
+    for (uint k = 0; k < radix; ++k)
+    {
+        uint sample = t + k * (fftSize / radix);
+#if FFT_PACKED_INPUT
+        int p = packedBuf[baseIdx + sample];
+        int real = (p << 16) >> 16;
+        int imag = p >> 16;
+        float w = windowBuf[sample];
+        // Preserve the rounding of the separate window conversion shader.
+        precise float2 windowed = float2((float)real * w, (float)imag * w);
+        values[k] = windowed;
+#else
+        values[k] = inputBuf[baseIdx + sample];
+#endif
+    }
+    [unroll]
+    for (uint step = 0; step < FFT_STAGES; ++step)
+    {
+        uint width = 1u << step;
+        [unroll]
+        for (uint branch = 0; branch < width; ++branch)
+        {
+            float s, c;
+            float angle = -6.28318530718 * (float)(j + branch * L) / (float)(2u * width * L);
+            sincos(angle, s, c);
+            [unroll]
+            for (uint block = 0; block < (radix / 2) / width; ++block)
+            {
+                uint k = block * width + branch;
+                float2 u = values[k];
+                float2 v = values[k + radix / 2];
+                float2 vw = float2(v.x * c - v.y * s, v.x * s + v.y * c);
+                uint out0 = block * (2u * width) + branch;
+                next[out0] = u + vw;
+                next[out0 + width] = u - vw;
+            }
+        }
+        [unroll]
+        for (uint k = 0; k < radix; ++k) values[k] = next[k];
+    }
+    [unroll]
+    for (uint k = 0; k < radix; ++k)
+        outputBuf[baseIdx + i * (radix * L) + j + k * L] = values[k];
+}
+)";
+
 static const char* kShaderDbConvert = R"(
 cbuffer DbParams : register(b0)
 {
@@ -72,7 +207,7 @@ cbuffer DbParams : register(b0)
 }
 StructuredBuffer<float2> inputBuf : register(t0);
 RWStructuredBuffer<float> outputBuf : register(u0);
-[numthreads(64,1,1)]
+[numthreads(128,1,1)]
 void main(uint3 tid : SV_DispatchThreadID)
 {
     uint x = tid.x;
@@ -84,6 +219,77 @@ void main(uint3 tid : SV_DispatchThreadID)
     float2 v = inputBuf[baseIdx + x];
     float power = max(1e-20, v.x * v.x + v.y * v.y);
     outputBuf[target] = 10.0 * log10(power) + offset;
+}
+)";
+
+static const char* kShaderSpectrumReduce = R"(
+cbuffer SpectrumParams : register(b0)
+{
+    uint fftSize;
+    uint spectrumWidth;
+    uint noiseWidth;
+    uint startBin;
+    uint endBin;
+    int centerBin;
+    uint partialCount;
+    float offset;
+}
+StructuredBuffer<float2> inputBuf : register(t0);
+RWStructuredBuffer<float> outputBuf : register(u0);
+groupshared float values[64];
+StructuredBuffer<uint2> ranges : register(t1);
+
+float powerAt(uint bin)
+{
+    float2 v = inputBuf[(bin + fftSize / 2) % fftSize];
+    return max(1e-20, v.x * v.x + v.y * v.y);
+}
+
+[numthreads(64,1,1)]
+void main(uint3 group : SV_GroupID, uint lane : SV_GroupIndex)
+{
+    uint index = group.x + group.y * 65535;
+    uint displayCount = spectrumWidth + noiseWidth;
+    if (index > displayCount + partialCount) return;
+    if (index == displayCount + partialCount)
+    {
+        if (lane == 0)
+            outputBuf[index] = centerBin >= 0 && centerBin < (int)fftSize
+                ? 10.0 * log10(powerAt((uint)centerBin)) + offset : 0.0;
+        return;
+    }
+
+    bool sumPower = index >= displayCount;
+    uint first, last;
+    if (sumPower)
+    {
+        first = startBin + (index - displayCount) * 4096;
+        last = min(first + 4096, endBin);
+    }
+    else
+    {
+        // CPU-built uint64 boundaries exactly match the existing aggregation,
+        // including non-power-of-two widths at 1M--4M FFT sizes.
+        first = ranges[index].x;
+        last = ranges[index].y;
+    }
+    float value = 0.0;
+    for (uint bin = first + lane; bin < last; bin += 64)
+    {
+        float power = powerAt(bin);
+        value = sumPower ? value + power : max(value, power);
+    }
+    values[lane] = value;
+    GroupMemoryBarrierWithGroupSync();
+    for (uint stride = 32; stride > 0; stride >>= 1)
+    {
+        if (lane < stride)
+            values[lane] = sumPower ? values[lane] + values[lane + stride]
+                                   : max(values[lane], values[lane + stride]);
+        GroupMemoryBarrierWithGroupSync();
+    }
+    if (lane == 0)
+        outputBuf[index] = sumPower ? values[0] : 10.0 * log10(values[0]) + offset;
 }
 )";
 
