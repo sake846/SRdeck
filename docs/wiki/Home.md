@@ -81,6 +81,6 @@ GitHub Releasesでは、同じホストを基にした次の2種類を配布し�
 
 - [SRdeckソースリポジトリ](https://github.com/sake846/SRdeck)
 - [リリース](https://github.com/sake846/SRdeck/releases)
-- [プラグイン開発ガイド](https://github.com/sake846/SRdeck/blob/main/docs/plugin-development-guide.md)
-- [プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/plugin-interface-specification.md)
+- [プラグイン開発ガイド](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-development-guide.md)
+- [プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-interface-specification.md)
 - [セキュリティポリシー](https://github.com/sake846/SRdeck/blob/main/SECURITY.md)

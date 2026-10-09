@@ -112,4 +112,4 @@ SRdeck\
 6. クリーンなアプリケーションフォルダーで1プラグインだけ試します。
 7. 開発者はDescriptor、能力フラグ、エントリクラス条件を確認します。
 
-開発者向けの詳細は[開発概要](Developer-Overview)と[プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/plugin-interface-specification.md)を参照してください。
+開発者向けの詳細は[開発概要](Developer-Overview)と[プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-interface-specification.md)を参照してください。

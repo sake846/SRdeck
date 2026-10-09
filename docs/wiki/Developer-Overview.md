@@ -14,7 +14,7 @@ SRdeckは、SDR制御と方式固有処理を公開契約で分離したプラ�
 | `SRdeckPlugin.*` | 周波数、DSP、FEC、プロトコル、状態、UI | ホスト内部ViewModelへの依存 |
 | `SRdeck.Tests` | ホスト／プラグイン横断のxUnit回帰試験 | 公開パッケージのランタイム機能 |
 
-APIの型形状は`SRdeckPlugin.Contracts`、意味と適合条件は`docs/plugin-interface-specification.md`、方式固有動作は各プラグイン実装とテストが正本です。
+APIの型形状は`SRdeckPlugin.Contracts`、意味と適合条件は`docs/contracts/plugin-interface-specification.md`、方式固有動作は各プラグイン実装とテストが正本です。
 
 ## 検出とロード
 
@@ -197,9 +197,9 @@ IQコールバックで重いI/OやWPF更新を行いません。DSPはUI非依�
 
 ## 読む順序
 
-1. [標準サービス設計](https://github.com/sake846/SRdeck/blob/main/docs/plugin-standard-services-architecture.md)
-2. [プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/plugin-interface-specification.md)
-3. [開発・配布ガイド](https://github.com/sake846/SRdeck/blob/main/docs/plugin-development-guide.md)
-4. [右ペインUIデザイン指針](https://github.com/sake846/SRdeck/blob/main/docs/plugin-right-pane-design-guidelines.md)
-5. [回帰試験仕様](https://github.com/sake846/SRdeck/blob/main/docs/regression-test-specification.md)
+1. [標準サービス設計](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-standard-services-architecture.md)
+2. [プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-interface-specification.md)
+3. [開発・配布ガイド](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-development-guide.md)
+4. [右ペインUIデザイン指針](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-right-pane-design-guidelines.md)
+5. [回帰試験仕様](https://github.com/sake846/SRdeck/blob/main/docs/contracts/regression-test-specification.md)
 6. [最初のプラグイン](Creating-First-Plugin)

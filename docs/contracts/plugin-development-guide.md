@@ -2,7 +2,7 @@
 
 ## 1. 目的と適用範囲
 
-この文書は、`docs/plugin-interface-specification.md` で定義した現行契約の実装ガイドである。
+この文書は、`docs/contracts/plugin-interface-specification.md` で定義した現行契約の実装ガイドである。
 基幹のスペクトラム、ウォーターフォール、SDR制御、開始・停止処理を変更せず、
 多様な受信・復調・解析方式を独立DLLとして追加するために使う。
 標準サービスと個別プラグインの所有権は

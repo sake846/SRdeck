@@ -219,4 +219,4 @@ WPFオブジェクトはDispatcherスレッドで操作します。IQコール�
 - 高頻度更新で`WPF`や`PRC`を悪化させない
 - Stop／MODE切替後にTimerやイベントが残らない
 
-詳細な規範は[右ペインUIデザイン指針](https://github.com/sake846/SRdeck/blob/main/docs/plugin-right-pane-design-guidelines.md)を参照してください。
+詳細な規範は[右ペインUIデザイン指針](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-right-pane-design-guidelines.md)を参照してください。

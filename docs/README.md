@@ -8,12 +8,14 @@
 
 ## 読む順序
 
-1. [標準サービス設計](plugin-standard-services-architecture.md) — ホスト、共通部品、個別プラグインの責務境界
-2. [インタフェース仕様](plugin-interface-specification.md) — 公開契約の意味、ライフサイクル、配送、同調、設定、互換性
-3. [開発・配布ガイド](plugin-development-guide.md) — プロジェクト作成、実装、配布、レビュー手順
-4. [右ペインUIデザイン指針](plugin-right-pane-design-guidelines.md) — WPF UIを提供する場合の情報設計と視覚規約
-5. [回帰試験仕様](regression-test-specification.md) — 横断試験マトリクス、実行区分、受入試験、更新規則
-6. [試験レビュー記録テンプレート](regression-test-review-template.md) — 変更ごとの要求・対象・アサート・実行証拠、未充足の確認
+1. [標準サービス設計](contracts/plugin-standard-services-architecture.md) — ホスト、共通部品、個別プラグインの責務境界
+2. [インタフェース仕様](contracts/plugin-interface-specification.md) — 公開契約の意味、ライフサイクル、配送、同調、設定、互換性
+3. [開発・配布ガイド](contracts/plugin-development-guide.md) — プロジェクト作成、実装、配布、レビュー手順
+4. [右ペインUIデザイン指針](contracts/plugin-right-pane-design-guidelines.md) — WPF UIを提供する場合の情報設計と視覚規約
+5. [回帰試験仕様](contracts/regression-test-specification.md) — 横断試験マトリクス、実行区分、受入試験、更新規則
+6. [試験レビュー記録テンプレート](contracts/regression-test-review-template.md) — 変更ごとの要求・対象・アサート・実行証拠、未充足の確認
+
+受入条件の補足仕様: [入力協調](contracts/acceptance/input-coordination.md)、[Main FFT](contracts/acceptance/mainfft-worker.md)、[再生ライフサイクル](contracts/acceptance/playback-lifecycle.md)。
 
 新規プラグインを作成する場合は、開発ガイドと
 [ヘッドレス生IQスターター](samples/SRdeckPlugin.Example/README.md) または
@@ -24,7 +26,7 @@
 | 内容 | 正本 |
 |---|---|
 | コンパイル可能なAPI形状 | `SRdeckPlugin.Contracts` の公開型 |
-| APIの意味、必須動作、適合条件 | `plugin-interface-specification.md` |
+| APIの意味、必須動作、適合条件 | `contracts/plugin-interface-specification.md` |
 | SDK基底クラスと補助APIの動作 | `SRdeckPlugin.Sdk` の公開型とXMLコメント |
 | WPFテーマキーと共通コントロール | `SRdeckPlugin.Wpf/Themes` と公開型 |
 | 回帰試験名、関数、実行順 | `SRdeck.Tests/RegressionTestCatalog.cs` |

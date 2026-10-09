@@ -198,4 +198,4 @@ THIRD-PARTY-NOTICES.md
 8. ZIP内容のハッシュ／マニフェストを生成し、公開物と照合します。
 9. 別PCまたはクリーンユーザー環境で最終確認します。
 
-詳細な規範は[開発・配布ガイド](https://github.com/sake846/SRdeck/blob/main/docs/plugin-development-guide.md)と[回帰試験仕様](https://github.com/sake846/SRdeck/blob/main/docs/regression-test-specification.md)を参照してください。
+詳細な規範は[開発・配布ガイド](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-development-guide.md)と[回帰試験仕様](https://github.com/sake846/SRdeck/blob/main/docs/contracts/regression-test-specification.md)を参照してください。

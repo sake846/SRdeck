@@ -222,4 +222,4 @@ WPF UIを追加する場合は`IPluginViewProvider`を実装し、Descriptorへ`
 - 標準チャネルIQ: `docs/samples/SRdeckPlugin.ChannelExample`
 - UI: [右ペインUI設計](Right-Pane-UI-Design)
 - テストとZIP: [テストと配布](Testing-and-Distribution)
-- API全体: [プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/plugin-interface-specification.md)
+- API全体: [プラグインAPI仕様](https://github.com/sake846/SRdeck/blob/main/docs/contracts/plugin-interface-specification.md)

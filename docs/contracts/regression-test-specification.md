@@ -31,7 +31,7 @@ Windows上のWPF自動試験や、固定入力を使うGPU試験は回帰試験�
 | 回帰試験名、実行順、実行関数 | `SRdeck.Tests/RegressionTestCatalog.cs` |
 | 検出される全試験と件数 | `dotnet test --list-tests` |
 | 公開APIの型とメンバー | `SRdeckPlugin.Contracts` |
-| 契約の意味と適合条件 | `docs/plugin-interface-specification.md` |
+| 契約の意味と適合条件 | `docs/contracts/plugin-interface-specification.md` |
 | 横断試験の設計規約 | 本書 |
 | 方式固有の既知ベクトル、プロトコル境界 | `SRdeck.Tests`内の当該方式の試験・データと、所有プラグインのプロジェクト内文書 |
 | 変更に対する適用範囲、未充足観点、実行証拠 | 当該変更のPRまたは変更記録に添付した試験レビュー記録 |

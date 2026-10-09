@@ -130,7 +130,7 @@ IDの例:
 ## 5. プロジェクト境界
 
 次のプロジェクト境界を採用する。実装済みプロジェクトの一覧は
-`docs/plugin-development-guide.md` を参照する。
+`docs/contracts/plugin-development-guide.md` を参照する。
 
 | プロジェクト | 責務 |
 |---|---|
