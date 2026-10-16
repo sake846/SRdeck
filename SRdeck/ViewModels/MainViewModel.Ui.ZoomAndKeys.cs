@@ -5,33 +5,12 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Models;
 using SRdeck.Messages;
-using SRdeck.ViewModels.Components;
 using SRdeck.Renderers;
 
 namespace SRdeck.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    private static readonly DemodWaveMode[] AvailableDemodWaveModes =
-    {
-        DemodWaveMode.Wave,
-        DemodWaveMode.FFT,
-        DemodWaveMode.Lissajous,
-        DemodWaveMode.Vector,
-        DemodWaveMode.Compare
-    };
-
-    private static DemodWaveMode GetNextDemodWaveMode(DemodWaveMode currentMode)
-    {
-        int currentIndex = Array.IndexOf(AvailableDemodWaveModes, currentMode);
-        if (currentIndex < 0)
-        {
-            return AvailableDemodWaveModes[0];
-        }
-
-        return AvailableDemodWaveModes[(currentIndex + 1) % AvailableDemodWaveModes.Length];
-    }
-
     [RelayCommand]
     private void ZoomWindowClick(string region) => HandleZoomWindowRegionClick(region, false);
 
@@ -163,50 +142,6 @@ public partial class MainViewModel : ObservableObject
             radioControl.ApplyPrimaryReceiverTuning();
             WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
         }
-    }
-
-    [RelayCommand]
-    private void DemodWaveClick(object commandObject) => HandleDemodWaveCommand(commandObject, 1);
-
-    private void HandleDemodWaveCommand(object commandObject, int index)
-    {
-        if (commandObject is DemodWaveCommandType commandType)
-        {
-            RadioControl radioControl = _engine.Control;
-            ApplyDemodWaveCommand(commandType, ref radioControl);
-            WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
-        }
-    }
-
-    private void ApplyDemodWaveCommand(DemodWaveCommandType commandType, ref RadioControl parameters)
-    {
-        switch (commandType)
-        {
-            case DemodWaveCommandType.Debug:
-                parameters.IsDebugVisible = !parameters.IsDebugVisible;
-                break;
-            case DemodWaveCommandType.Station:
-                parameters.DemodWaveDisplayMode = GetNextDemodWaveMode(parameters.DemodWaveDisplayMode);
-                DemodWaveDisplayMode = parameters.DemodWaveDisplayMode;
-                break;
-            case DemodWaveCommandType.Color:
-            case DemodWaveCommandType.Green:
-            case DemodWaveCommandType.Amber:
-                parameters.WaterfallColorMode = 0;
-                break;
-        }
-    }
-
-    public void ApplyDemodWaveModeDirect(int receiverIndex, DemodWaveMode mode)
-    {
-        RadioControl radioControl = _engine.Control;
-        if (receiverIndex == 1)
-        {
-            radioControl.DemodWaveDisplayMode = mode;
-            DemodWaveDisplayMode = radioControl.DemodWaveDisplayMode;
-        }
-        _engine.Control = radioControl;
-        WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(radioControl));
     }
 
     [RelayCommand]

@@ -5,12 +5,7 @@ using SRdeck.Configuration;
 
 namespace SRdeck.Services.Plugins;
 
-public interface IPluginSettingsStoreFactory
-{
-    IPluginSettingsStore Create(string pluginId);
-}
-
-public sealed class JsonPluginSettingsStoreFactory : IPluginSettingsStoreFactory
+public sealed class JsonPluginSettingsStoreFactory
 {
     private readonly string _pluginsDirectory;
 

@@ -1,0 +1,34 @@
+<UserControl x:Class="SRdeckPlugin.Wpf.Controls.ReceptionOverviewPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Text="受信で分かったこと" Style="{DynamicResource PluginPrimarySectionHeaderStyle}" Margin="2,0,0,5"/>
+        <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="2,0,2,6"/>
+        <TextBlock Text="{Binding Scope}" Foreground="{DynamicResource TextDimBrush}" TextWrapping="Wrap" Margin="2,0,2,8"/>
+        <ItemsControl ItemsSource="{Binding Metrics}" Margin="0,0,0,8">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate><DataTemplate>
+                <Border Style="{DynamicResource PluginMetricCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextDimBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding Value}" Foreground="{DynamicResource PluginDisplayAccentPrimaryBrush}"
+                                   FontFamily="{DynamicResource DisplayFontFamily}" FontSize="20" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+            </DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="取得情報の内訳" Style="{DynamicResource PluginPrimarySectionHeaderStyle}" Margin="2,0,0,5"/>
+        <ItemsControl ItemsSource="{Binding Facts}">
+            <ItemsControl.ItemTemplate><DataTemplate>
+                <Border BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="0,0,0,1" Padding="6,4">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Grid>
+                </Border>
+            </DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{Binding Note}" Foreground="{DynamicResource TextDimBrush}" TextWrapping="Wrap" Margin="2,6,2,0"/>
+    </StackPanel>
+</UserControl>

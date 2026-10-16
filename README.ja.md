@@ -7,6 +7,10 @@
 SRdeckはSRdeck SDRスイートのホストアプリケーションと、公開プラグイン基盤です。
 このリポジトリにはバージョン付きのリリーススナップショットを収録しています。
 
+## SRdeckの画面
+
+![SRdeckのメイン画面](docs/images/SRdeck.png)
+
 製品の変更をこのリポジトリへ直接コミットしないでください。通常の開発・レビュー手順を利用してください。
 
 ## 📖 ドキュメント・Wiki
@@ -21,7 +25,7 @@ SRdeckはSRdeck SDRスイートのホストアプリケーションと、公開�
 
 ## リリースメタデータ
 
-- リリースバージョン: `1.0.7`
+- リリースバージョン: `1.0.8`
 
 ## 内容
 
@@ -45,11 +49,33 @@ SRdeckはSRdeck SDRスイートのホストアプリケーションと、公開�
   `CMAKE_EXE` 環境変数へ `cmake.exe` のフルパスを設定
 - 初回の NuGet 復元用のインターネット接続
 
-PowerShell を開き直し、`dotnet --info` と `cmake --version` を確認してから、ソースのルートで実行します。
+環境を用意したら、`SRdeck.sln`と同じフォルダーにある`build.bat`をダブルクリックします。
+コマンドプロンプトから実行する場合は、ソースのルートで次のコマンドを使います。
 
-```powershell
-dotnet build SRdeck.sln -c Release
+```cmd
+build.bat
 ```
+
+BATが`dotnet`コマンドの存在を確認し、依存パッケージの復元とソリューションのRelease x64ビルドを
+順に実行します。作業フォルダーにはBAT自身の配置先を使うため、別のフォルダーから起動しても
+ビルドできます。終了時は結果を確認できるようキー入力を待ちます。
+
+引数で構成と、終了時のキー入力待ちの省略（自動実行用）を指定できます。
+
+```cmd
+build.bat Debug
+build.bat Release --no-pause
+```
+
+復元またはビルドに失敗すると、その時点で停止し、0以外の終了コードを返します。
+PowerShellから実行する場合は、`build.bat`の代わりに`.\build.bat`と指定してください。
+生成される実行ファイルは次の場所にあります。
+
+```text
+SRdeck\bin\x64\Release\net10.0-windows\win-x64\SRdeck.exe
+```
+
+Debug構成では、出力パスの`Release`を`Debug`に置き換えてください。
 
 このビルドでは、`SRdeck/native/sr_fft` と `SRdeck/native/sr_gpu` のnative DLLも
 自動的にCMakeで構築し、アプリの出力フォルダーへコピーします。事前にCMakeと
@@ -59,14 +85,23 @@ CMake が失敗する場合は [開発環境](docs/wiki/Development-Environment.
 ネイティブ環境の確認とエラー別の対処を参照してください。自動ビルドは `-A x64` を渡すため、
 Visual Studio ジェネレーターを使用します。
 
+CMakeの場所は既存のプロジェクト設定に従い、対応するVisual Studio同梱版やPATHから選択します。
+別のCMakeを明示する場合は、コマンドプロンプトで`CMAKE_EXE`を設定してから同じウィンドウで
+BATを実行してください。
+
+```cmd
+set "CMAKE_EXE=C:\Program Files\CMake\bin\cmake.exe"
+build.bat
+```
+
 ホストスナップショットにはオプションのプラグインを組み込んでいません。プラグインは`SRdeckPlugins`リポジトリで提供します。
 
 ## 実行ファイルパッケージ
 
 対応するGitHub Releaseには、フレームワーク依存のWindows x64パッケージを2種類添付します。
 
-- `SRdeck-1.0.7-win-x64-host-only.zip` — オプションプラグインを含まないホストアプリケーション
-- `SRdeck-1.0.7-win-x64-with-plugins.zip` — 公開対象プラグインを同梱したホストアプリケーション
+- `SRdeck-1.0.8-win-x64-host-only.zip` — オプションプラグインを含まないホストアプリケーション
+- `SRdeck-1.0.8-win-x64-with-plugins.zip` — 公開対象プラグインを同梱したホストアプリケーション
 
 パッケージには`SRdeck.exe`、権利・セキュリティ文書、依存関係の通知、
 `PACKAGE-MANIFEST.json`を含みます。実行前に.NET 10 Desktop Runtime (x64)を

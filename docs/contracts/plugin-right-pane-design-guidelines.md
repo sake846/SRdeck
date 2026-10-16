@@ -128,6 +128,22 @@ DSP、ViewModel、UI スレッドなどの構造上の規約は [プラグイン
 概要と時系列で同じコレクションを使ってもよいが、概要は要約と導線、時系列は探索と詳細確認を担当し、
 同じ表や同じ操作一式を重複させない。
 
+航空系 4 方式と AIS の概要は、保持中の受信情報から「何を把握できたか」をまとめる。
+見出しは「受信で分かったこと」「取得情報の内訳」「詳しく確認」とし、集計対象と時刻範囲を表示する。
+検索や一覧の絞り込みは概要の集計に反映せず、累積の復号カウンターや正常率は診断で扱う。
+
+| 方式 | 概要で把握すること |
+|---|---|
+| ACARS | 正規化した機体識別、メッセージ数、位置を含む通信、受信周波数、メッセージ分類の内訳 |
+| ADS-B | 保持中の機体数と、位置・コールサイン・高度などの取得状況 |
+| HFDL | 機体側と地上局側の通信数、機体識別と Flight ID の区別、受信種別の内訳 |
+| VDL2 | 送信元・宛先の機体／地上局アドレス、上位内容を解析できた件数、プロトコル内訳 |
+| AIS | 船舶・局数と位置・名称／呼出符号・目的地の取得状況、基地局・航路標識の内訳 |
+
+概要から一覧・時系列・地図・診断へ直接移動できるようにする。HFDL の地図は選択中の地上局を表示することを
+案内に明記する。ADS-B と AIS の取得情報は保持中の対象に基づき、地図の保持期間による表示件数とは区別する。
+未取得の情報から対象の状態を推測しない。データ更新・保持上限の変更・クリア時は概要も更新する。
+
 #### 4.3.3 追加タブの採用条件
 
 方式固有の作業が基本タブへ収まらない場合だけ、次の追加タブを設ける。
@@ -430,12 +446,12 @@ DSP、ViewModel、UI スレッドなどの構造上の規約は [プラグイン
 ### 8.4 操作コントロール
 
 右ペインの操作部品は、左下ペインの見た目をプラグイン共通スタイルとして再現する。
-プラグインビューが `SRdeck` の `MainComboBoxStyle` や `LedYellowGreenStepButtonStyle` を直接参照してはならない。
+プラグインビューが `SRdeck` の `MainComboBoxStyle` や `LedLeftYellowGreenStepButtonStyle` を直接参照してはならない。
 `SRdeckPlugin.Wpf/Themes/PluginControls.xaml` の次のスタイルを使い、共通スタイル側で左下ペインとの同等性を維持する。
 
 | コントロール | 使用するスタイル | 左下ペインから踏襲する見た目 |
 |---|---|---|
-| 通常ボタン | `PluginButtonStyle` | `LedYellowGreenStepButtonStyle` と同じ暗い計器面、9 px の丸み、細い立体枠、上端の控えめな光沢、11 px 文字、19 px 高 |
+| 通常ボタン | `PluginButtonStyle` | 左下ペインと同じ暗い計器面、9 px の丸み、細い立体枠、上端の控えめな光沢、11 px 文字、19 px 高 |
 | トグルボタン | `PluginToggleButtonStyle` | `PluginButtonStyle` と同等の 19 px 高・暗い計器面。選択時（`IsChecked="True"`）に黄緑テキストとグローを適用 |
 | 分割ステップボタン | `PluginLeftStepButtonStyle`, `PluginRightStepButtonStyle` | 左下ペイン (SP等) の `LedLeftYellowGreenStepButtonStyle` / `LedRightYellowGreenStepButtonStyle` と同等の左右タイプ分割ボタン。表示は `◀` `▶` 等 |
 | コンボボックス | `PluginComboBoxStyle` | `MainComboBoxStyle` と同じ暗い面、9 px の丸み、右側の下向き矢印、11 px 文字、19 px 高。ドロップダウンも暗い面を継続 |

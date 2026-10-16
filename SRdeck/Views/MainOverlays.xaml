@@ -75,39 +75,6 @@
             </Border>
         </Grid>
 
-        <!-- Confirm Message Overlay -->
-        <Grid Background="#E61A1A1A" Visibility="{Binding ConfirmOverlayVisibility}" Panel.ZIndex="3600">
-            <Border Background="{StaticResource BgDarkBrush}" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
-                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,25" MaxWidth="500">
-                <StackPanel>
-                    <TextBlock Text="{Binding ConfirmOverlayTitle}" Foreground="#FF88CC00" FontSize="16" FontWeight="Bold" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding ConfirmOverlayMessageText}" Foreground="White" FontSize="13" FontFamily="{StaticResource MainFontFamily}" HorizontalAlignment="Center" Margin="0,15,0,0" TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,25,0,0">
-                        <Button Content="はい" Command="{Binding ConfirmOverlayOkCommand}" Width="100" Height="30" Margin="0,0,10,0"
-                                Background="#FF303030" Foreground="White" BorderBrush="{StaticResource ControlBorderBrush}" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="1">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                        <Button Content="いいえ" Command="{Binding CloseConfirmOverlayCommand}" Width="100" Height="30"
-                                Background="#FF303030" Foreground="White" BorderBrush="{StaticResource ControlBorderBrush}" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="1">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </Grid>
-
         <!-- Help Overlay -->
         <Button HorizontalAlignment="Center"
                 VerticalAlignment="Center"

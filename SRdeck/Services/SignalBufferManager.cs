@@ -20,8 +20,6 @@ public interface ISignalBufferManager
 
 public sealed class SignalBufferManager : ISignalBufferManager
 {
-    private const int AudioBufferSize = 12_800;
-
     public IqBufferCapacityResult EnsureIqBufferCapacity(
         IqSampleRingBuffer currentBuffer,
         int sampleRateHz)

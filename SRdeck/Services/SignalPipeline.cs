@@ -40,36 +40,23 @@ public interface ISignalPipeline : IDisposable
     void ResetResidualDcRemoval();
 }
 
-public interface ISignalPipelineFactory
-{
-    ISignalPipeline Create(
-        SignalBlockCompletedHandler blockCompleted,
-        Action processSignalCycle,
-        Action<int> synchronizePlaybackFrequency,
-        Action<double> updateSystemDb,
-        IAgcManager agcManager);
-}
-
-public sealed class SignalPipelineFactory : ISignalPipelineFactory
+public sealed class SignalPipelineFactory
 {
     private readonly ISignalBufferState _bufferState;
     private readonly ISignalInputMetrics _inputMetrics;
     private readonly ISignalBufferManager _bufferManager;
-    private readonly ISignalBufferWriterFactory _bufferWriterFactory;
-    private readonly ISignalBlockCoordinatorFactory _blockCoordinatorFactory;
+    private readonly ISignalProcessingWorkerFactory _processingWorkerFactory;
 
     public SignalPipelineFactory(
         ISignalBufferState bufferState,
         ISignalInputMetrics inputMetrics,
         ISignalBufferManager bufferManager,
-        ISignalBufferWriterFactory bufferWriterFactory,
-        ISignalBlockCoordinatorFactory blockCoordinatorFactory)
+        ISignalProcessingWorkerFactory processingWorkerFactory)
     {
         _bufferState = bufferState;
         _inputMetrics = inputMetrics;
         _bufferManager = bufferManager;
-        _bufferWriterFactory = bufferWriterFactory;
-        _blockCoordinatorFactory = blockCoordinatorFactory;
+        _processingWorkerFactory = processingWorkerFactory;
     }
 
     public ISignalPipeline Create(
@@ -82,12 +69,15 @@ public sealed class SignalPipelineFactory : ISignalPipelineFactory
             _bufferState,
             _inputMetrics,
             _bufferManager,
-            _bufferWriterFactory.Create(blockCompleted),
-            _blockCoordinatorFactory.Create(
+            new SignalBufferWriter(_bufferState, _inputMetrics, blockCompleted),
+            new SignalBlockCoordinator(
+                _bufferState,
+                _inputMetrics,
+                agcManager,
+                _processingWorkerFactory,
                 processSignalCycle,
                 synchronizePlaybackFrequency,
-                updateSystemDb,
-                agcManager));
+                updateSystemDb));
 }
 
 internal sealed class SignalPipeline : ISignalPipeline

@@ -12,7 +12,7 @@ using SRdeck.SDR;
 
 namespace SRdeck.ViewModels
 {
-    public partial class SdrControlViewModel : ObservableObject
+    public partial class SdrControlViewModel : ObservableObject, IDisposable
     {
         private readonly ISdrEngine _engine;
         private readonly IRadioSessionController _sessions;
@@ -20,6 +20,7 @@ namespace SRdeck.ViewModels
         private readonly Action<string> _setWindowTitle;
         private readonly TimeSpan _streamRecoveryDelay;
         private bool _isStarting;
+        private volatile bool _disposed;
         private int _streamRecoveryInProgress;
         private int _automaticStreamRecoveryAttempts;
         private const int MaxAutomaticStreamRecoveryAttempts = 2;
@@ -40,6 +41,16 @@ namespace SRdeck.ViewModels
             _streamRecoveryDelay = streamRecoveryDelay ?? TimeSpan.FromMilliseconds(750);
             _engine.DeviceRemoved += HandleDeviceRemoved;
             _engine.StreamStalled += HandleStreamStalled;
+        }
+
+        public void Dispose()
+        {
+            _disposed = true;
+            _sessions.SdrConfigurationChanged -= HandleSdrConfigurationChanged;
+            _sessions.PlaybackEnded -= HandlePlaybackEnded;
+            _engine.DeviceRemoved -= HandleDeviceRemoved;
+            _engine.StreamStalled -= HandleStreamStalled;
+            FrequencyDisplayOptionChanged = null;
         }
 
         public ObservableCollection<FrequencyDisplayOption> FrequencyDisplayOptions { get; set; } = new();
@@ -73,7 +84,7 @@ namespace SRdeck.ViewModels
 
         private async Task StartCore(bool resetRecoveryAttempts)
         {
-            if (_isStarting)
+            if (_disposed || _isStarting)
             {
                 return;
             }
@@ -118,8 +129,10 @@ namespace SRdeck.ViewModels
 
         private void HandleSdrConfigurationChanged(object? sender, EventArgs args)
         {
+            if (_disposed) return;
             void SyncState()
             {
+                if (_disposed) return;
                 IsStarted = _engine.IsSdrRunning || _engine.IsPlaying;
                 IsStopped = !IsStarted;
                 StartButtonText = _engine.IsSdrRunning ? "動作中" : _engine.IsPlaying ? "再生中" : "開始";
@@ -135,7 +148,7 @@ namespace SRdeck.ViewModels
         [RelayCommand]
         public async Task IqPlayback()
         {
-            if (_isStarting) return;
+            if (_disposed || _isStarting) return;
             if (_engine.IsPlaying)
             {
                 await Stop();
@@ -193,8 +206,10 @@ namespace SRdeck.ViewModels
 
         private void HandlePlaybackEnded(object? sender, EventArgs args)
         {
+            if (_disposed) return;
             void SyncState()
             {
+                if (_disposed) return;
                 IsStarted = false;
                 IsStopped = true;
                 StartButtonText = "開始";
@@ -211,8 +226,10 @@ namespace SRdeck.ViewModels
 
         private void HandleDeviceRemoved()
         {
+            if (_disposed) return;
             void StopOnUiThread()
             {
+                if (_disposed) return;
                 WeakReferenceMessenger.Default.Send(new SdrErrorMessage(
                     "SDRplayデバイスとの接続が失われました。USB接続を確認してから再度開始してください。"));
                 _ = Stop();
@@ -229,8 +246,10 @@ namespace SRdeck.ViewModels
 
         private void HandleStreamStalled()
         {
+            if (_disposed) return;
             void RecoverOnUiThread()
             {
+                if (_disposed) return;
                 _ = RecoverStreamAsync();
             }
 
@@ -245,6 +264,7 @@ namespace SRdeck.ViewModels
 
         private async Task RecoverStreamAsync()
         {
+            if (_disposed) return;
             if (Interlocked.Exchange(ref _streamRecoveryInProgress, 1) != 0)
             {
                 return;
@@ -258,6 +278,7 @@ namespace SRdeck.ViewModels
                     $"attempt={attempt} maxAttempts={MaxAutomaticStreamRecoveryAttempts}");
 
                 await Stop();
+                if (_disposed) return;
                 if (attempt > MaxAutomaticStreamRecoveryAttempts)
                 {
                     SdrPlayDiagnosticLog.Write("stream-recovery-abandoned", $"attempt={attempt}");
@@ -272,6 +293,7 @@ namespace SRdeck.ViewModels
                 }
 
                 await Task.Delay(_streamRecoveryDelay);
+                if (_disposed) return;
                 await StartCore(resetRecoveryAttempts: false);
                 if (IsStarted)
                 {

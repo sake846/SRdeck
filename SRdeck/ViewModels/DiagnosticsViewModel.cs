@@ -673,15 +673,6 @@ public partial class DiagnosticsViewModel : ObservableObject
         barBuilder.Append("]"); return barBuilder.ToString();
     }
 
-    private string GetBufBar(double valueMs)
-    {
-        const int MAX_CHARS = 40; const double FULL_SCALE_MS = 500.0;
-        int filledCount = (int)Math.Max(0, Math.Min(MAX_CHARS, Math.Round(valueMs / (FULL_SCALE_MS / MAX_CHARS))));
-        var barBuilder = new StringBuilder(); barBuilder.Append("[");
-        for (int i = 0; i < MAX_CHARS; i++) { if (i < filledCount) barBuilder.Append('#'); else barBuilder.Append('-'); }
-        barBuilder.Append("]"); return barBuilder.ToString();
-    }
-
     private static (int bitDepth, string description) GetEffectiveBitDepth(ISdrDevice? sdrDevice, int fsHz)
     {
         if (sdrDevice == null)

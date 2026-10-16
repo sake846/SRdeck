@@ -1,6 +1,8 @@
 # VDL Mode 2プラグイン
 
-プラグインIDは`vdl`です。VHF Data Link Mode 2のD8PSK信号を受信し、AVLCフレームとACARS上位層を解析します。受信履歴、Callsign、プロトコル別集約、位置、Raw frameを表示します。
+プラグインIDは`vdl`です。VHF Data Link Mode 2の信号を受信し、AVLCフレームとACARSメッセージを解析します。
+
+変調方式はD8PSKです。受信履歴、Callsign、プロトコル別の集計、位置、Raw frameを表示します。
 
 ## チャネルプロファイル
 

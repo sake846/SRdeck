@@ -104,10 +104,4 @@ internal class ZoomWindowClickHandler
         
         Debug.Print($"ZoomWindow: SpanHz = {nextSpan:#,0} (Receiver: {receiverIndex})");
     }
-
-    private void SyncZoomFrequency(ref RadioControl radioControl, int receiverIndex)
-    {
-        radioControl.ApplyPrimaryReceiverTuning();
-        Debug.Print($"ZoomWindowClickHandler: TunedFreqHz = {radioControl.TunedFreqHz:#,0}, FreqOffsetHz = {radioControl.FreqOffsetHz:#,0}");
-    }
 }

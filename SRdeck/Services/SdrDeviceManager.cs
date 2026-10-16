@@ -21,28 +21,15 @@ public interface ISdrDeviceManager
     ISdrDevice? DetachDevice();
 }
 
-public interface ISdrDeviceManagerFactory
+public sealed class SdrDeviceManagerFactory
 {
-    ISdrDeviceManager Create(
-        Action<short[], short[], uint> samplesReceived,
-        Action<double, int> gainHardwareChanged,
-        Action deviceRemoved,
-        Action streamStalled,
-        Action<SdrSampleBlock>? sampleBlockReceived = null);
-}
-
-public sealed class SdrDeviceManagerFactory : ISdrDeviceManagerFactory
-{
-    private readonly ISdrDeviceBindingFactory _bindingFactory;
     private readonly ISdrDevicePropertySynchronizer _propertySynchronizer;
     private readonly ISdrFrequencyTransitionTracker _frequencyTransitionTracker;
 
     public SdrDeviceManagerFactory(
-        ISdrDeviceBindingFactory bindingFactory,
         ISdrDevicePropertySynchronizer propertySynchronizer,
         ISdrFrequencyTransitionTracker frequencyTransitionTracker)
     {
-        _bindingFactory = bindingFactory;
         _propertySynchronizer = propertySynchronizer;
         _frequencyTransitionTracker = frequencyTransitionTracker;
     }
@@ -54,7 +41,12 @@ public sealed class SdrDeviceManagerFactory : ISdrDeviceManagerFactory
         Action streamStalled,
         Action<SdrSampleBlock>? sampleBlockReceived = null) =>
         new SdrDeviceManager(
-            _bindingFactory.Create(samplesReceived, gainHardwareChanged, deviceRemoved, streamStalled, sampleBlockReceived),
+            new SdrDeviceBinding(
+                samplesReceived,
+                gainHardwareChanged,
+                deviceRemoved,
+                streamStalled,
+                sampleBlockReceived),
             _propertySynchronizer,
             _frequencyTransitionTracker);
 }

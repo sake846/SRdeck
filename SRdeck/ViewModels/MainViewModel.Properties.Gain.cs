@@ -83,12 +83,12 @@ public partial class MainViewModel : ObservableObject
 
     public int SdrPlayRfGainDb
     {
-        get => _sdrPlayRfGainDb;
+        get => _statePersistence.SdrPlayRfGainDb;
         set
         {
             int clamped = Math.Clamp(value, 0, _engine.MaxGainReduction);
-            if (_sdrPlayRfGainDb == clamped) return;
-            _sdrPlayRfGainDb = clamped;
+            if (_statePersistence.SdrPlayRfGainDb == clamped) return;
+            _statePersistence.SdrPlayRfGainDb = clamped;
             OnPropertyChanged();
             if (!IsDirectGainDevice)
             {
@@ -100,12 +100,12 @@ public partial class MainViewModel : ObservableObject
 
     public int RtlSdrRfGainDb
     {
-        get => _rtlSdrRfGainDb;
+        get => _statePersistence.RtlSdrRfGainDb;
         set
         {
             int clamped = Math.Clamp(value, 0, _engine.MaxGainReduction);
-            if (_rtlSdrRfGainDb == clamped) return;
-            _rtlSdrRfGainDb = clamped;
+            if (_statePersistence.RtlSdrRfGainDb == clamped) return;
+            _statePersistence.RtlSdrRfGainDb = clamped;
             OnPropertyChanged();
             OnPropertyChanged(nameof(RtlSdrGainSummary));
             if (IsRtlDevice)
@@ -118,12 +118,12 @@ public partial class MainViewModel : ObservableObject
 
     public int HackRfRfGainDb
     {
-        get => _hackRfRfGainDb;
+        get => _statePersistence.HackRfRfGainDb;
         set
         {
             int clamped = Math.Clamp(value, 0, 100);
-            if (_hackRfRfGainDb == clamped) return;
-            _hackRfRfGainDb = clamped;
+            if (_statePersistence.HackRfRfGainDb == clamped) return;
+            _statePersistence.HackRfRfGainDb = clamped;
             OnPropertyChanged();
             if (IsHackRfDevice)
             {
@@ -220,33 +220,33 @@ public partial class MainViewModel : ObservableObject
 
     private int GetCurrentDeviceRfGain()
     {
-        if (IsRtlDevice) return _rtlSdrRfGainDb;
-        if (IsHackRfDevice || IsHackRfDeviceController()) return _hackRfRfGainDb;
-        if (IsRx888Device) return _rx888RfGainDb;
+        if (IsRtlDevice) return _statePersistence.RtlSdrRfGainDb;
+        if (IsHackRfDevice || IsHackRfDeviceController()) return _statePersistence.HackRfRfGainDb;
+        if (IsRx888Device) return _statePersistence.Rx888RfGainDb;
 
-        return _sdrPlayRfGainDb;
+        return _statePersistence.SdrPlayRfGainDb;
     }
 
     private void SyncCurrentDeviceRfGain(int value)
     {
         if (IsRtlDevice)
         {
-            _rtlSdrRfGainDb = value;
+            _statePersistence.RtlSdrRfGainDb = value;
             OnPropertyChanged(nameof(RtlSdrRfGainDb));
             OnPropertyChanged(nameof(RtlSdrGainSummary));
         }
         else if (IsHackRfDevice || IsHackRfDeviceController())
         {
-            _hackRfRfGainDb = value;
+            _statePersistence.HackRfRfGainDb = value;
             OnPropertyChanged(nameof(HackRfRfGainDb));
         }
         else if (IsRx888Device)
         {
-            _rx888RfGainDb = value;
+            _statePersistence.Rx888RfGainDb = value;
         }
         else
         {
-            _sdrPlayRfGainDb = value;
+            _statePersistence.SdrPlayRfGainDb = value;
             OnPropertyChanged(nameof(SdrPlayRfGainDb));
         }
     }
@@ -406,22 +406,6 @@ public partial class MainViewModel : ObservableObject
         if (SelectedNotchFilter != normalized)
         {
             SelectedNotchFilter = normalized;
-        }
-    }
-
-    public Action<string>? ChangeGainAction { get; set; }
-
-    [CommunityToolkit.Mvvm.Input.RelayCommand]
-    private void ChangeGain(string param)
-    {
-        if (int.TryParse(param, out int delta))
-        {
-            int effectiveDelta = IsDirectGainDevice ? delta * 5 : delta;
-            int newVal = _engine.CurrentGainDb + effectiveDelta;
-            newVal = Math.Clamp(newVal, _engine.MinGainReduction, _engine.MaxGainReduction);
-            _engine.CurrentGainDb = newVal;
-            if (_engine is Models.CoreEngine core) core.ApplyGainUpdate();
-            RfGainDb = newVal;
         }
     }
 

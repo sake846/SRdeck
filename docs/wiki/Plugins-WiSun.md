@@ -1,6 +1,12 @@
 # Wi-SUNプラグイン
 
-プラグインIDは`wisun`です。920 MHz帯などのIEEE 802.15.4g SUN FSK信号を復調し、PHY／MACフレーム、PAN、ノード、通信履歴を表示します。
+プラグインIDは`wisun`です。920 MHz帯などのWi-SUN信号を受信し、通信フレームやネットワーク情報を表示します。
+
+IEEE 802.15.4g SUN FSKを復調し、PHY／MACフレーム、PAN、ノード、通信履歴を確認できます。
+
+## 画面例
+
+![Wi-SUNの受信画面](Plugins-WiSun.png)
 
 ## 対応内容
 

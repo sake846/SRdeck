@@ -534,10 +534,15 @@ public partial class GeoMapView : UserControl
     private const string MapHtml = """
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://srdeck-map-assets.local; script-src 'unsafe-inline' https://srdeck-map-assets.local; img-src data: https://srdeck-map-assets.local https://srdeck-map-tiles.local; connect-src https://srdeck-map-tiles.local">
 <link rel="stylesheet" href="https://srdeck-map-assets.local/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:__PANEL_BASE__}.leaflet-container{font:12px sans-serif}.geo-marker{width:14px;height:14px;border-radius:50%;border:2px solid __PANEL_SURFACE__;box-shadow:0 0 5px __PANEL_BASE__}.aircraft-marker{width:30px;height:30px;filter:drop-shadow(0 1px 3px __PANEL_BASE__)}.aircraft-marker svg,.station-marker svg,.vessel-marker svg{display:block;overflow:visible}.station-marker{width:26px;height:26px;filter:drop-shadow(0 1px 3px __PANEL_BASE__)}.vessel-marker{width:18px;height:24px;filter:drop-shadow(0 1px 3px __PANEL_BASE__)}.selected-map-marker{filter:drop-shadow(0 0 5px __FOCUS__)}.leaflet-tooltip.aircraft-label{background:__OVERLAY_90__;border:1px solid __CONTROL_BORDER__;border-radius:3px;box-shadow:0 1px 4px __PANEL_BASE__;color:__TEXT_PRIMARY__;font:600 12px Consolas,monospace;padding:2px 5px;white-space:nowrap}.leaflet-tooltip.selected-map-label{border-color:__FOCUS__;box-shadow:0 0 6px __FOCUS__}.leaflet-tooltip-right.aircraft-label:before{border-right-color:__CONTROL_BORDER__}.hide-aircraft-labels .aircraft-label{display:none}.display-control{background:__OVERLAY_92__;border:1px solid __CONTROL_BORDER__;border-radius:4px;box-shadow:0 1px 5px __PANEL_BASE__;color:__TEXT_SECONDARY__;padding:6px 9px;line-height:20px;user-select:none}.display-control label{display:block;cursor:pointer;white-space:nowrap}.display-control input{margin:0 6px 0 0;vertical-align:-1px;accent-color:__CHECKBOX_ACCENT__}.map-legend{background:__OVERLAY_86__;color:__TEXT_SECONDARY__;padding:6px 8px;border:1px solid __CONTROL_BORDER__;border-radius:3px;line-height:18px}.map-legend i{display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%}.leaflet-tooltip.geo-callout:before{display:none!important}
-.leaflet-tooltip.geo-callout{margin:0!important;background:__PANEL_SURFACE__;border:1.5px solid __CONTROL_BORDER__;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,.5);color:__TEXT_PRIMARY__;font:600 11px sans-serif;padding:3px 7px;white-space:nowrap;cursor:pointer!important;pointer-events:auto!important;opacity:.95}
+.leaflet-tooltip.geo-callout{margin:0!important;background:__PANEL_SURFACE__;border:1.5px solid __CONTROL_BORDER__;border-radius:5px;box-shadow:0 2px 6px rgba(0,0,0,.5);color:__TEXT_PRIMARY__;font:600 11px sans-serif;padding:3px 7px;white-space:nowrap;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;cursor:pointer!important;pointer-events:auto!important;opacity:.95}
 .leaflet-tooltip.geo-callout *{cursor:pointer!important}
 .leaflet-tooltip.geo-callout.selected-map-label{border-color:__FOCUS__;box-shadow:0 0 8px __FOCUS__}
 .geo-callout-badge{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.leaflet-tooltip.geo-callout-group{width:max-content;padding:3px;overflow-y:auto;overflow-x:hidden}
+.geo-callout-row{display:flex;align-items:center;gap:5px;width:100%;box-sizing:border-box;background:none;border:0;border-radius:3px;padding:4px 6px;color:inherit;font:inherit;text-align:left}
+.geo-callout-row:hover,.geo-callout-row:focus-visible,.geo-callout-row.is-selected{background:__PANEL_BASE__;outline:1px solid __FOCUS__;outline-offset:-1px}
+.geo-callout-row .geo-callout-badge{flex:none;margin:0}
+.geo-callout-name{min-width:0;white-space:normal;overflow-wrap:anywhere}
 .hide-aircraft-labels .geo-callout-leader{display:none}
 #map-status{position:absolute;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:18px;background:__PANEL_BASE__;color:__TEXT_DIM__;font:12px sans-serif;text-align:center;pointer-events:none}#map-status.hidden{display:none}
 </style></head>
@@ -647,37 +652,108 @@ window.updateMarkers=function(points){
 function trailRuns(trail,fallback){const runs=[];let color=safeColor(trail[0].Color||fallback);let points=[[trail[0].Latitude,trail[0].Longitude]];for(let i=1;i<trail.length;i++){const segmentColor=safeColor(trail[i-1].Color||fallback);if(segmentColor!==color){if(points.length>1)runs.push({color,points});points=[[trail[i-1].Latitude,trail[i-1].Longitude]];color=segmentColor}points.push([trail[i].Latitude,trail[i].Longitude])}if(points.length>1)runs.push({color,points});return runs}function stationSvg(color){color=safeColor(color);return '<div class="station-marker"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><path d="M13 4v18M9 22h8M10.5 10.5 13 4l2.5 6.5M8 8a7 7 0 0 0 0 9M18 8a7 7 0 0 1 0 9M5.5 5a11 11 0 0 0 0 15M20.5 5a11 11 0 0 1 0 15" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'}function vesselSvg(color,heading){color=safeColor(color);return '<div class="vessel-marker" style="transform:rotate('+heading+'deg)"><svg viewBox="0 0 16 24" width="16" height="24" aria-hidden="true"><path d="M8 0.5 15 21.5 8 17.5 1 21.5Z" fill="'+color+'" stroke="__PANEL_BASE__" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 5v9" fill="none" stroke="__PANEL_SURFACE__" stroke-width="1" stroke-linecap="round"/></svg></div>'}function aircraftSvg(color,heading){color=safeColor(color);return '<div class="aircraft-marker" style="transform:rotate('+heading+'deg)"><svg viewBox="0 0 30 30" width="30" height="30" aria-hidden="true"><path d="M15 1.8c1.3 0 2.2 1.5 2.2 3.2v6.1l9.6 6.2v2.8l-9.6-3.2v6.2l3.2 2.2v2.1L15 26l-5.4 1.4v-2.1l3.2-2.2v-6.2l-9.6 3.2v-2.8l9.6-6.2V5c0-1.7.9-3.2 2.2-3.2z" fill="'+color+'" stroke="__PANEL_BASE__" stroke-width="1.4" stroke-linejoin="round"/></svg></div>'}function safeColor(v){return /^#[0-9a-f]{6}$/i.test(v||'')?v:'__SERIES_4__'}function esc(v){const d=document.createElement('div');d.textContent=v||'';return d.innerHTML;}
 const useCalloutLabels=__USE_CALLOUTS__;
 const calloutLeaderLayer=L.layerGroup().addTo(map);
+const calloutLabelLayer=L.layerGroup().addTo(map);
 let calloutEntries=[];
-const calloutSlots=[{dir:'right',dx:60,dy:-25},{dir:'left',dx:-60,dy:-25},{dir:'right',dx:60,dy:25},{dir:'left',dx:-60,dy:25},{dir:'right',dx:90,dy:-55},{dir:'left',dx:-90,dy:-55},{dir:'right',dx:90,dy:55},{dir:'left',dx:-90,dy:55}];
 function layoutGeoCallouts(){
- calloutLeaderLayer.clearLayers();
- if(!useCalloutLabels||calloutEntries.length===0)return;
- const items=calloutEntries.map(entry=>({entry,pt:map.latLngToLayerPoint(entry.marker.getLatLng())}));
- const clusters=[];const clusterDistanceSquared=140*140;
- items.forEach(item=>{let cluster=clusters.find(candidate=>candidate.some(other=>{const dx=item.pt.x-other.pt.x;const dy=item.pt.y-other.pt.y;return dx*dx+dy*dy<clusterDistanceSquared}));if(cluster)cluster.push(item);else clusters.push([item])});
- clusters.forEach(cluster=>{if(cluster.length===1){bindGeoCallout(cluster[0].entry,'top',[0,-12]);drawGeoCalloutLeader(cluster[0].entry,cluster[0].pt,0,-12);return}cluster.sort((a,b)=>a.pt.y-b.pt.y);cluster.forEach((item,index)=>{const slot=calloutSlots[index%calloutSlots.length];const tier=Math.floor(index/calloutSlots.length);const dx=slot.dx+tier*30*(slot.dx>0?1:-1);const dy=slot.dy+tier*30*(slot.dy>0?1:-1);bindGeoCallout(item.entry,slot.dir,[dx,dy]);drawGeoCalloutLeader(item.entry,item.pt,dx,dy)})});
+ calloutLeaderLayer.clearLayers();calloutLabelLayer.clearLayers();
+ if(!useCalloutLabels||!labelsVisible||calloutEntries.length===0)return;
+ const size=map.getSize(),container=map.getContainer().getBoundingClientRect(),items=[];
+ if(size.x<32||size.y<32)return;
+ calloutEntries.forEach(entry=>{
+  const pt=map.latLngToContainerPoint(entry.marker.getLatLng());
+  if(pt.x<0||pt.y<0||pt.x>size.x||pt.y>size.y)return;
+  items.push({entry,pt});
+ });
+ const occupied=items.map(item=>({left:item.pt.x-14,right:item.pt.x+14,top:item.pt.y-14,bottom:item.pt.y+14}));
+ map.getContainer().querySelectorAll('.leaflet-control').forEach(control=>{
+  const rect=control.getBoundingClientRect();
+  occupied.push({left:rect.left-container.left,right:rect.right-container.left,top:rect.top-container.top,bottom:rect.bottom-container.top});
+ });
+ const groups=clusterGeoCallouts(items).map(members=>{
+  members.sort((a,b)=>a.entry.point.Label.localeCompare(b.entry.point.Label)||String(a.entry.point.Id).localeCompare(String(b.entry.point.Id)));
+  const pt={x:members.reduce((sum,item)=>sum+item.pt.x,0)/members.length,y:members.reduce((sum,item)=>sum+item.pt.y,0)/members.length};
+  const clearance=Math.max(...members.map(item=>Math.abs(item.pt.x-pt.x)))+28;
+  return {members,pt,clearance,selected:members.some(item=>item.entry.point.IsSelected)};
+ });
+ groups.sort((a,b)=>Number(b.selected)-Number(a.selected)||a.pt.y-b.pt.y||a.pt.x-b.pt.x);
+ // ponytail: scan visible rectangles; use a spatial index if dense maps make layout slow.
+ groups.forEach(group=>{
+  const grouped=group.members.length>1;
+  const maxWidth=grouped?Math.max(group.pt.x-group.clearance-8,size.x-8-group.pt.x-group.clearance):size.x-16;
+  const tooltip=bindGeoCallout(group,Math.max(16,maxWidth),Math.min(240,size.y-16));
+  const element=tooltip.getElement();element.style.visibility='hidden';
+  const bounds=findGeoCalloutBounds(group.pt,element.offsetWidth,element.offsetHeight,size,occupied,grouped?group.clearance:0);
+  if(!bounds){calloutLabelLayer.removeLayer(tooltip);return}
+  occupied.push(bounds);
+  tooltip.setLatLng(map.containerPointToLatLng(L.point((bounds.left+bounds.right)/2,(bounds.top+bounds.bottom)/2)));
+  element.style.visibility='';
+  const selected=element.querySelector('.is-selected');
+  if(selected)element.scrollTop=Math.max(0,selected.offsetTop-element.clientHeight+selected.offsetHeight);
+  drawGeoCalloutLeader(group,bounds);
+ });
 }
-function drawGeoCalloutLeader(entry,markerPoint,offsetX,offsetY){
- const target=L.point(markerPoint.x+offsetX,markerPoint.y+offsetY);const dx=target.x-markerPoint.x;const dy=target.y-markerPoint.y;const distance=Math.sqrt(dx*dx+dy*dy);if(distance===0)return;const end=map.layerPointToLatLng(L.point(target.x+(dx/distance)*4,target.y+(dy/distance)*4));const outer=entry.point.IsSelected?'__FOCUS__':'__CONTROL_BORDER__';
- L.polyline([entry.marker.getLatLng(),end],{color:outer,weight:4,opacity:.95,interactive:false,className:'geo-callout-leader'}).addTo(calloutLeaderLayer);
- L.polyline([entry.marker.getLatLng(),end],{color:'__PANEL_SURFACE__',weight:2,opacity:1,interactive:false,className:'geo-callout-leader'}).addTo(calloutLeaderLayer);
+function clusterGeoCallouts(items){
+ const pending=[...items],groups=[];
+ while(pending.length){
+  const members=[pending.shift()];
+  for(let index=0;index<members.length;index++){
+   for(let i=pending.length-1;i>=0;i--){
+    const dx=members[index].pt.x-pending[i].pt.x,dy=members[index].pt.y-pending[i].pt.y;
+    if(dx*dx+dy*dy<=36*36)members.push(...pending.splice(i,1));
+   }
+  }
+  groups.push(members);
+ }
+ return groups;
 }
-function bindGeoCallout(entry,direction,offset){
- const className='aircraft-label geo-callout'+(entry.point.IsSelected?' selected-map-label':'');const tooltip=entry.marker.getTooltip();
- if(entry.direction===direction&&entry.offset&&entry.offset[0]===offset[0]&&entry.offset[1]===offset[1]&&tooltip)return;
- entry.direction=direction;entry.offset=offset;if(tooltip)entry.marker.unbindTooltip();
- entry.marker.bindTooltip(L.tooltip({permanent:true,direction,offset,className,interactive:true}).setContent(entry.content));
- setTimeout(()=>{const element=entry.marker.getTooltip()?.getElement();if(!element||element._hasGeoCalloutEvents)return;element._hasGeoCalloutEvents=true;L.DomEvent.disableClickPropagation(element);L.DomEvent.disableScrollPropagation(element);L.DomEvent.on(element,'click',event=>{L.DomEvent.stopPropagation(event);invokeMarker(entry.point.Id);setTimeout(()=>entry.marker.openPopup(),10)})},0);
+function findGeoCalloutBounds(pt,width,height,size,occupied,clearance=0){
+ const gap=6,padding=8,centered=Math.max(padding,Math.min(size.x-padding-width,pt.x-width/2));
+ const lefts=clearance?[pt.x+clearance,pt.x-clearance-width]:[centered];
+ const step=clearance?30:height+gap,baseTop=Math.max(padding,Math.min(size.y-padding-height,pt.y-height/2));
+ for(let row=0;row<Math.ceil(size.y/step);row++){
+  const tops=clearance?[baseTop-row*step,baseTop+row*step]:[pt.y-20-height-row*step,pt.y+20+row*step];
+  for(const top of tops)for(const left of lefts){
+   const bounds={left,right:left+width,top,bottom:top+height};
+   if(left<padding||bounds.right>size.x-padding||top<padding||bounds.bottom>size.y-padding)continue;
+   if(!occupied.some(other=>bounds.left<other.right+gap&&bounds.right>other.left-gap&&bounds.top<other.bottom+gap&&bounds.bottom>other.top-gap))return bounds;
+  }
+ }
+ return null;
+}
+function geoCalloutLeaderPoints(pt,bounds,grouped){
+ if(grouped){
+  const right=bounds.left>pt.x,endX=right?bounds.left:bounds.right,elbowX=endX+(right?-12:12),endY=(bounds.top+bounds.bottom)/2;
+  return [[pt.x+(right?14:-14),pt.y],[elbowX,pt.y],[elbowX,endY],[endX,endY]];
+ }
+ const above=bounds.bottom<pt.y,y=above?bounds.bottom:bounds.top,targetX=Math.max(bounds.left+8,Math.min(bounds.right-8,pt.x));
+ return [[pt.x,pt.y+(above?-14:14)],[pt.x,y],[targetX,y]];
+}
+function drawGeoCalloutLeader(group,bounds){
+ const points=geoCalloutLeaderPoints(group.pt,bounds,group.members.length>1).map(point=>map.containerPointToLatLng(L.point(point[0],point[1])));
+ const outer=group.selected?'__FOCUS__':'__CONTROL_BORDER__';
+ L.polyline(points,{color:outer,weight:3,opacity:.85,interactive:false,className:'geo-callout-leader'}).addTo(calloutLeaderLayer);
+ L.polyline(points,{color:'__PANEL_SURFACE__',weight:1,opacity:1,interactive:false,className:'geo-callout-leader'}).addTo(calloutLeaderLayer);
+}
+function bindGeoCallout(group,maxWidth,maxHeight){
+ const content=group.members.map((item,index)=>'<button type="button" class="geo-callout-row'+(item.entry.point.IsSelected?' is-selected':'')+'" data-callout-index="'+index+'"><span class="geo-callout-badge" style="background:'+safeColor(item.entry.point.Color)+'"></span><span class="geo-callout-name">'+esc(item.entry.point.Label)+'</span></button>').join('');
+ const tooltip=L.tooltip({permanent:true,direction:'center',className:'aircraft-label geo-callout geo-callout-group',interactive:true}).setLatLng(map.containerPointToLatLng(L.point(group.pt.x,group.pt.y))).setContent(content).addTo(calloutLabelLayer);
+ const element=tooltip.getElement();element.style.maxWidth=Math.floor(maxWidth)+'px';element.style.maxHeight=maxHeight+'px';
+ element.querySelectorAll('.geo-callout-row').forEach((row,index)=>row.title=group.members[index].entry.point.Label);
+ L.DomEvent.disableClickPropagation(element);L.DomEvent.disableScrollPropagation(element);
+ L.DomEvent.on(element,'click',event=>{const row=event.target.closest('.geo-callout-row');if(!row)return;L.DomEvent.stopPropagation(event);const entry=group.members[Number(row.dataset.calloutIndex)].entry;invokeMarker(entry.point.Id);setTimeout(()=>entry.marker.openPopup(),10)});
+ return tooltip;
 }
 const updateGeoMarkers=window.updateMarkers;
 window.updateMarkers=function(points){
  updateGeoMarkers(points);
- calloutLeaderLayer.clearLayers();calloutEntries=[];
+ calloutLeaderLayer.clearLayers();calloutLabelLayer.clearLayers();calloutEntries=[];
  if(!useCalloutLabels||!points||points.length===0)return;
- calloutEntries=points.map(point=>({point,marker:markerEntries.get(String(point.Id))?.marker,content:'<span class="geo-callout-badge" style="background:'+safeColor(point.Color)+'"></span>'+esc(point.Label),direction:null,offset:null})).filter(entry=>entry.marker);
- layoutGeoCallouts();requestAnimationFrame(layoutGeoCallouts);
+ calloutEntries=points.map(point=>({point,marker:markerEntries.get(String(point.Id))?.marker})).filter(entry=>entry.marker);
+ calloutEntries.forEach(entry=>{entry.marker.unbindTooltip();entry.marker.getElement().title=entry.point.Label});
+ layoutGeoCallouts();
 };
-map.on('zoomend moveend viewreset',layoutGeoCallouts);
+map.on('zoomend moveend viewreset resize',layoutGeoCallouts);
+map.getContainer().addEventListener('change',event=>{if(event.target.id==='toggle-labels')layoutGeoCallouts()});
 </script></body></html>
 """;
 }

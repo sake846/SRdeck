@@ -14,8 +14,6 @@ namespace SRdeck.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     // UI レイアウト・インタラクション定数
-    private const double ZOOM_WINDOW_MIN_PADDING = 30;
-    private const double ZOOM_WINDOW_CONFLICT_DIST = 10;
     private const double CENTER_FREQ_DRAG_STEP = 500000;
     private const double WATERFALL_HISTORY_MAX_SEC = 180;
     private const double ZOOM_DRAG_THRESHOLD = 3;
@@ -78,7 +76,7 @@ public partial class MainViewModel : ObservableObject
 
     private void SyncButtons(RadioControl p)
     {
-        if (_lastState.WaterfallColorMode != p.WaterfallColorMode) { _lastState.WaterfallColorMode = p.WaterfallColorMode; _lastStateService.SaveLastState(_lastState); }
+        if (_statePersistence.State.WaterfallColorMode != p.WaterfallColorMode) { _statePersistence.State.WaterfallColorMode = p.WaterfallColorMode; _statePersistence.Save(); }
     }
 
     [RelayCommand]

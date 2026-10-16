@@ -1,6 +1,8 @@
 # HFDLプラグイン
 
-プラグインIDは`hfdl`です。HF Data Linkを受信し、ARINC 635のSPDU／LPDUエンベロープ、Flight ID、位置、復号結果、生Payloadを解析します。
+プラグインIDは`hfdl`です。HF Data Linkの信号を受信し、航空機との通信内容を解析します。
+
+ARINC 635のSPDU／LPDUエンベロープやFlight ID、位置、復号結果、生Payloadを表示します。
 
 ## 受信経路
 

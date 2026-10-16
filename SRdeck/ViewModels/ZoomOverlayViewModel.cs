@@ -1,18 +1,9 @@
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Models;
 using SRdeck.Renderers;
-using CommunityToolkit.Mvvm.Input;
-using SRdeck.Messages;
 
 namespace SRdeck.ViewModels;
-
-public class SpanOption
-{
-    public int Value { get; set; }
-    public string Label { get; set; } = "";
-}
 
 public class ZoomOverlayViewModel : ObservableObject
 {
@@ -24,9 +15,6 @@ public class ZoomOverlayViewModel : ObservableObject
 
     private Visibility _zwVisible = Visibility.Hidden;
     public Visibility ZwVisible { get => _zwVisible; set => SetProperty(ref _zwVisible, value); }
-
-    private int _receiverIndex = 1;
-    public int ReceiverIndex { get => _receiverIndex; set => SetProperty(ref _receiverIndex, value); }
 
     private bool _userPreferredEmbedded;
     public bool UserPreferredEmbedded
@@ -51,7 +39,6 @@ public class ZoomOverlayViewModel : ObservableObject
                 {
                     IsEmbedded = UserPreferredEmbedded;
                 }
-                _toggleEmbedCommand?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -63,33 +50,10 @@ public class ZoomOverlayViewModel : ObservableObject
         set {
             if (IsEmbeddedLocked) value = true;
             if (SetProperty(ref _isEmbedded, value)) {
-                OnPropertyChanged(nameof(EmbedToggleButtonText));
                 if (!IsEmbeddedLocked)
                 {
                     UserPreferredEmbedded = value;
                 }
-            }
-        }
-    }
-
-    public string EmbedToggleButtonText => IsEmbedded ? "↑" : "↓";
-
-    private IRelayCommand? _toggleEmbedCommand;
-    public IRelayCommand ToggleEmbedCommand => _toggleEmbedCommand ??= new RelayCommand(() => IsEmbedded = !IsEmbedded, () => !IsEmbeddedLocked);
-
-    public SpanOption[] SpanOptions => new int[] { 10000, 20000, 50000, 100000, 250000 }
-        .Select(spanValue => new SpanOption { Value = spanValue, Label = $"{(spanValue / 1000.0).ToString("0.#")} kHz" })
-        .ToArray();
-
-    private int _selectedSpan = 50000;
-    public int SelectedSpan
-    {
-        get => _selectedSpan;
-        set
-        {
-            if (SetProperty(ref _selectedSpan, value) && value > 0)
-            {
-                WeakReferenceMessenger.Default.Send(new ZoomSpanChangeMessage(_receiverIndex, value));
             }
         }
     }
@@ -209,12 +173,6 @@ public class ZoomOverlayViewModel : ObservableObject
             
             ZwTunedFreqText = tunedFreqHz.ToString("#,0") + " Hz";
             ZwSpanKHzText = (spanHz / 10000.0).ToString("f3") + " kHz/div";
-            
-            if (_selectedSpan != spanHz)
-            {
-                _selectedSpan = spanHz;
-                OnPropertyChanged(nameof(SelectedSpan));
-            }
         } else {
             ZwBandVisible = Visibility.Hidden;
         }

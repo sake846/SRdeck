@@ -69,6 +69,7 @@ public partial class MainViewModel : ObservableObject
     private void OnPluginWorkspacePropertyChanged(object? sender,
         System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (_lifetimeEnded) return;
         if (e.PropertyName == nameof(PluginWorkspaceViewModel.Plugins))
         {
             ApplyFrequencyDisplayMode(GetActiveFrequencyDisplayMode());
@@ -79,6 +80,7 @@ public partial class MainViewModel : ObservableObject
 
     private void ApplyActiveWaterfallDisplayRequest(bool bandwidthChanged = false)
     {
+        if (_lifetimeEnded) return;
         if (_waterfallDisplayRequestNotifier is not null)
             _waterfallDisplayRequestNotifier.WaterfallDisplayRequestChanged -=
                 OnWaterfallDisplayRequestChanged;
@@ -138,6 +140,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnWaterfallDisplayRequestChanged(object? sender, EventArgs e)
     {
+        if (_lifetimeEnded) return;
         Interlocked.Increment(ref _waterfallDisplayRequestVersion);
         if (Application.Current?.Dispatcher is { } dispatcher)
         {

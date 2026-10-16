@@ -3,16 +3,11 @@ using SRdeck.Models;
 
 namespace SRdeck.Services.Plugins;
 
-public interface IPluginTuningServiceFactory
-{
-    IPluginTuningService Create(string pluginId);
-}
-
 public sealed class PluginTuningServiceFactory(
     Func<IPluginManager> pluginManager,
     IRadioControlStore controlStore,
     IRadioControlUpdatePublisher updatePublisher,
-    Func<ISdrSampleRateController>? sampleRateController = null) : IPluginTuningServiceFactory
+    Func<ISdrSampleRateController>? sampleRateController = null)
 {
     public IPluginTuningService Create(string pluginId) => new PluginTuningService(
         pluginId,

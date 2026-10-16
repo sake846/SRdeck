@@ -9,9 +9,6 @@ namespace SRdeck.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    [ObservableProperty] private double _demodWaveWidth = 10;
-    [ObservableProperty] private double _demodWaveHeight = 10;
-
     public double SpectrumWidth
     {
         get => SpectrumOverlay.SpectrumWidth;

@@ -6,7 +6,6 @@ public class LastState
 {
     public Dictionary<string, FrequencyDisplayMode> PluginFrequencyDisplayModes { get; set; } = new();
     public int FftBatchMode { get; set; } = 0;
-    public DemodWaveMode DemodWaveDisplayMode { get; set; } = DemodWaveMode.Wave;
 
     // --- State Persistence ---
     public int TunedFreqHz { get; set; } = 80000000;

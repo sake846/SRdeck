@@ -19,18 +19,6 @@ public enum DemodulationMode
 }
 
 /// <summary>
-/// 復調波形画面の表示モードを定義する列挙型です。
-/// </summary>
-public enum DemodWaveMode
-{
-    Wave = 0,      // 実時間波形
-    FFT = 1,       // 復調後FFT
-    Lissajous = 2, // リサージュ表示 (45度)
-    Vector = 3,    // ベクトル表示 (位相2倍)
-    Compare = 4    // リサージュ・ベクトル比較表示
-}
-
-/// <summary>
 /// 周波数に関連する表示項目（バンドプラン、局名など）の表示モードを定義する列挙型です。
 /// </summary>
 public enum FrequencyDisplayMode
@@ -81,7 +69,6 @@ public record struct RadioControl
     public bool IsStationNameVisible;
     public bool IsBandPlanVisible;
     public bool IsDebugVisible;
-    public DemodWaveMode DemodWaveDisplayMode;
     public int FftResolutionMode;
     public int FftBatchCount;
     public bool IsGpuFftEnabled;
@@ -119,33 +106,6 @@ public record struct RadioControl
         return Math.Clamp(freqOffset, -offsetLimit, offsetLimit);
     }
 
-    /// <summary>
-    /// 指定された復調モードに応じたデフォルトの Span と Step を設定します。
-    /// </summary>
-    public void SetModeDefaults(DemodulationMode mode)
-    {
-        int span, step;
-        switch (mode)
-        {
-            case DemodulationMode.USB:
-            case DemodulationMode.LSB:
-            case DemodulationMode.USB_Wide:
-            case DemodulationMode.LSB_Wide:
-                span = 50000; step = 1000; break;
-            case DemodulationMode.AM:
-            case DemodulationMode.AM_Wide:
-            case DemodulationMode.FM_Narrow:
-                span = 50000; step = 25000; break;
-            case DemodulationMode.FM_Wide:
-                span = 250000; step = 100000; break;
-            default:
-                span = 50000; step = 1000; break;
-        }
-
-        DemodMode = mode;
-        SpanHz = span;
-        StepHz = step;
-    }
 }
 
 /// <summary>

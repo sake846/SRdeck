@@ -27,7 +27,7 @@ public partial class MainViewModel : ObservableObject
         RadioControl p = _engine.Control;
         p.IsGpuFftEnabled = value;
         PersistFftBatchState(FftBatchMode);
-        _lastStateService.SaveLastState(_lastState);
+        _statePersistence.Save();
         WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(p));
         ApplyFftResolutionLimit();
     }
@@ -38,7 +38,7 @@ public partial class MainViewModel : ObservableObject
         RadioControl p = _engine.Control;
         p.FftResolutionMode = value;
         PersistFftBatchState(FftBatchMode);
-        _lastStateService.SaveLastState(_lastState);
+        _statePersistence.Save();
         WeakReferenceMessenger.Default.Send(new RadioControlUpdateMessage(p));
         ApplyFftResolutionLimit();
     }

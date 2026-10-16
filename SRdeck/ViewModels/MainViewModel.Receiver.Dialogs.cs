@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Models;
 using SRdeck.Messages;
 using SRdeck.Views;
+using SRdeck.Services;
 
 namespace SRdeck.ViewModels;
 
@@ -40,9 +41,8 @@ public partial class MainViewModel : ObservableObject
         RadioControl radioControl = _engine.Control;
         radioControl.MainSpanHz = Display.CurrentMainSpanHz;
         radioControl.BaseMainSpanHz = Display.BaseMainSpanHz;
-        long rounding = Display.CurrentMainRoundingHz;
-        long centerFreqHz = ((newFrequencyHz + (rounding / 2)) / rounding) * rounding;
-        radioControl.CenterFreqHz = (int)centerFreqHz;
+        radioControl.CenterFreqHz = (int)newFrequencyHz;
+        radioControl.CenterFreqHz = TuningCoordinator.RoundInputCenterFrequency(radioControl);
 
         radioControl.TunedFreqHz = (int)newFrequencyHz;
         radioControl.FreqOffsetHz = radioControl.TunedFreqHz - radioControl.CenterFreqHz;

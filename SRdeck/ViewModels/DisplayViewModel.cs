@@ -13,19 +13,6 @@ public sealed partial class DisplayViewModel : ObservableObject
     public const int DefaultFixedMainSpanHz = 7_000_000;
     public const int RtlFixedMainSpanHz = 2_000_000;
 
-    public class ZoomModeOption
-    {
-        public int Value { get; set; }
-        public string Label { get; set; } = "";
-    }
-
-    public List<ZoomModeOption> ZoomModeOptions { get; } = new()
-    {
-        new() { Value = 0, Label = "AUTO" },
-        new() { Value = 1, Label = "NORM" },
-        new() { Value = 2, Label = "HI" }
-    };
-
     public class MainSpanOption
     {
         public int ValueHz { get; set; }

@@ -17,12 +17,7 @@
 
 Microsoft公式から.NET 10 Desktop Runtime (x64)をインストールします。.NET SDKだけを使う開発環境でない限り、Runtimeの種類は「.NET Desktop Runtime」です。
 
-地図機能を使う場合はMicrosoft Edge WebView2 Runtimeも必要です。SDRに応じて、次のドライバー／APIも先に準備します。
-
-- SDRplay: SDRplay API 3.xと製品ドライバー
-- RTL-SDR: WinUSBドライバー、64-bit版`rtlsdr.dll`、必要な`libusb-1.0.dll`
-- HackRF One: WinUSBドライバー、64-bit版`hackrf.dll`、同じHackRF Tools配布物の`libusb-1.0.dll`など
-- RX-888 MK2: WinUSB互換ドライバー、`sr_rx888.dll`、64-bit版`libusb-1.0.dll`、必要に応じて`SDDC_FX3.img`
+地図機能を使う場合はMicrosoft Edge WebView2 Runtimeも必要です。SDR用のドライバーやAPIは機種ごとに異なります。手順は「4. SDRを準備する」を参照してください。
 
 ## 3. ZIPを展開する
 
@@ -61,11 +56,15 @@ SDRplay公式のAPI 3.xを導入します。SRdeckは`sdrplay_api.dll`を同梱�
 
 ### HackRF One
 
-HackRFのWinUSBドライバーを導入し、同じ64-bit HackRF Tools配布物に含まれる`hackrf.dll`、`libusb-1.0.dll`などを`SRdeck.exe`と同じフォルダーへ配置します。SRdeckの公式ZIPにはこれらのネイティブDLLを同梱しません。32-bit版を混在させず、他のSDRアプリがHackRFを開いていない状態で検出してください。
+1. HackRF用のWinUSBドライバーを導入します。
+2. 同じ64-bit版HackRF Tools配布物に含まれる`hackrf.dll`、`libusb-1.0.dll`などを`SRdeck.exe`と同じフォルダーへ配置します。これらのネイティブDLLはSRdeckの公式ZIPには含まれていません。
+3. 32-bit版DLLを混在させないでください。HackRFを使う別のSDRアプリを終了してから、`Detect`を押します。
 
 ### RX-888 MK2
 
-`sr_rx888.dll`と64-bit版`libusb-1.0.dll`を`SRdeck.exe`と同じフォルダーへ配置し、RX-888 MK2の対象インターフェースへWinUSB互換ドライバーを設定します。機器がブートローダー状態で起動する構成では`SDDC_FX3.img`も同じフォルダーへ配置します。ファームウェアを別の場所に置く場合は環境変数`SRDECK_RX888_IMAGE`へ絶対パスを設定してください。
+- `sr_rx888.dll`と64-bit版`libusb-1.0.dll`を`SRdeck.exe`と同じフォルダーへ配置します。
+- RX-888 MK2の対象インターフェースにWinUSB互換ドライバーを設定します。
+- 機器がブートローダー状態で起動する構成では、`SDDC_FX3.img`も同じフォルダーへ配置します。別の場所に置く場合は、環境変数`SRDECK_RX888_IMAGE`にファイルの絶対パスを設定します。
 
 ## 5. 初回起動と動作確認
 

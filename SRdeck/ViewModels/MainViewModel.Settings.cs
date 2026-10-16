@@ -171,7 +171,7 @@ public partial class MainViewModel : ObservableObject
         // Zero means settings have not been loaded yet during construction.
         if (previousSampleRateHz > 0)
         {
-            SdrPlaySampleRateHz = NormalizeSampleRateForDevice(previousSampleRateHz, CurrentSampleRateDeviceKind);
+            SdrPlaySampleRateHz = SdrSampleRatePolicy.Normalize(previousSampleRateHz, CurrentSampleRateDeviceKind);
         }
         // Re-select even when the value did not change but the items were replaced.
         OnPropertyChanged(nameof(SdrPlaySampleRateHz));
@@ -180,7 +180,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnSdrPlaySampleRateHzChanged(int value)
     {
         if (_isSynchronizingSampleRateSelection || _engine?.InitialAppSettings == null) return;
-        int normalizedValue = NormalizeSampleRateForDevice(value, CurrentSampleRateDeviceKind);
+        int normalizedValue = SdrSampleRatePolicy.Normalize(value, CurrentSampleRateDeviceKind);
         if (value != normalizedValue)
         {
             SdrPlaySampleRateHz = normalizedValue;
@@ -248,7 +248,7 @@ public partial class MainViewModel : ObservableObject
 
     internal void SyncSampleRateSelectionFromAppliedControl(int sampleRateHz)
     {
-        if (sampleRateHz <= 0 || NormalizeSampleRateForDevice(sampleRateHz, CurrentSampleRateDeviceKind) != sampleRateHz ||
+        if (sampleRateHz <= 0 || SdrSampleRatePolicy.Normalize(sampleRateHz, CurrentSampleRateDeviceKind) != sampleRateHz ||
             SdrPlaySampleRateHz == sampleRateHz)
         {
             return;

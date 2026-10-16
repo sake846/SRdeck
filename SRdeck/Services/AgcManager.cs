@@ -15,17 +15,6 @@ public interface IAgcManager : IDisposable
         int maximumGain);
 }
 
-public interface IAgcManagerFactory
-{
-    IAgcManager Create(Action applyGainUpdate);
-}
-
-public sealed class AgcManagerFactory : IAgcManagerFactory
-{
-    public IAgcManager Create(Action applyGainUpdate) =>
-        new AgcManager(new GainUpdateWorker(applyGainUpdate));
-}
-
 internal sealed class AgcManager : IAgcManager
 {
     private readonly IGainUpdateWorker _gainUpdateWorker;

@@ -12,12 +12,6 @@ public class FrequencyDisplayOption : ObservableObject
     public string Label { get; init; } = "";
 }
 
-public class ModeConfigOption
-{
-    public int Value { get; set; }
-    public string Label { get; set; } = "";
-}
-
 public class SettingsComboBoxOption<T> : ObservableObject
 {
     private string _label = "";
@@ -31,13 +25,6 @@ public class SettingsComboBoxOption<T> : ObservableObject
 
 public partial class MainViewModel : ObservableObject
 {
-    public List<ModeConfigOption> ModeConfigOptions { get; } = [];
-
-    public List<ModeConfigOption> ModeConfigOptionsWithNone { get; } = new()
-    {
-        new() { Value = -1, Label = "なし" },
-    };
-
     // --- UI Combo Box Options ---
     public List<SettingsComboBoxOption<SdrDeviceType>> SdrDeviceTypeOptions { get; } = new()
     {
@@ -406,15 +393,6 @@ public partial class MainViewModel : ObservableObject
                 else if (option.Value == "AboveNormal") option.Label = language == "en" ? "Above Normal" : "Above Normal (通常以上)";
                 else if (option.Value == "High") option.Label = language == "en" ? "High" : "High (高)";
                 else if (option.Value == "RealTime") option.Label = language == "en" ? "Realtime (Extreme)" : "Realtime (リアルタイム)";
-            }
-        }
-
-        if (ModeConfigOptionsWithNone != null)
-        {
-            var noneOpt = ModeConfigOptionsWithNone.Find(o => o.Value == -1);
-            if (noneOpt != null)
-            {
-                noneOpt.Label = language == "en" ? "None" : "なし";
             }
         }
     }

@@ -24,20 +24,9 @@ public partial class MainViewModel : ObservableObject
     public ISdrEngine GetEngineForSetup() => _engine;
     public void StopAudioOutputForShutdown() => _audioService.StopOutput();
 
-    public ObservableCollection<ReceiverContext> Receivers { get; } = new();
-
-    // 互換性のため残す
-    public ReceiverContext Receiver1 => Receivers.Count > 0 ? Receivers[0] : null!;
-    public ReceiverContext PrimaryReceiver => Receiver1;
-
-    public TunerViewModel Tuner => Receivers.Count > 0 ? Receivers[0].Tuner : null!;
-    public TunerViewModel PrimaryTuner => Tuner;
-    public ZoomOverlayViewModel ZoomOverlay => Receivers.Count > 0 ? Receivers[0].ZoomOverlay : null!;
-    public ZoomOverlayViewModel PrimaryZoomOverlay => ZoomOverlay;
-    public ObservableCollection<SignalMeterSegment> SignalMeterSegments => Receivers.Count > 0 ? Receivers[0].SignalMeterSegments : null!;
-    public ObservableCollection<SignalMeterSegment> PrimarySignalMeterSegments => SignalMeterSegments;
-    public System.Collections.Generic.List<DemodWaveOverlayButton> DemodWaveButtons => Receivers.Count > 0 ? Receivers[0].DemodWaveButtons : null!;
-    public System.Collections.Generic.List<DemodWaveOverlayButton> PrimaryDemodWaveButtons => DemodWaveButtons;
+    public TunerViewModel Tuner { get; }
+    public ZoomOverlayViewModel ZoomOverlay { get; } = new();
+    public ObservableCollection<SignalMeterSegment> SignalMeterSegments { get; } = new();
 
     public SpectrumOverlayViewModel SpectrumOverlay { get; } = new SpectrumOverlayViewModel();
     public WaterfallOverlayViewModel WaterfallOverlay { get; } = new WaterfallOverlayViewModel();
@@ -53,8 +42,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly IDialogService _dialogService;
     private readonly ISettingsService _settingsService;
-    private readonly ILastStateService _lastStateService;
-    private LastState _lastState;
+    private readonly RadioStatePersistence _statePersistence;
 
     private SpectrumClickHandler _spectrumClickHandler = null!;
     private WaterfallClickHandler _waterfallClickHandler = null!;
@@ -63,46 +51,17 @@ public partial class MainViewModel : ObservableObject
 
 
     private readonly InputCoordinationService _inputService = new();
-    private int _sdrPlayRfGainDb = 20;
-    private int _rtlSdrRfGainDb = 100;
-    private int _hackRfRfGainDb = 50;
-    private int _rx888RfGainDb = 100;
 
     public void SyncAndSaveLastState(RadioControl radioControl)
     {
-        if (IsRtlDevice) _rtlSdrRfGainDb = RfGainDb;
-        else if (IsHackRfDevice) _hackRfRfGainDb = RfGainDb;
-        else if (IsRx888Device) _rx888RfGainDb = RfGainDb;
-        else _sdrPlayRfGainDb = RfGainDb;
+        if (IsRtlDevice) _statePersistence.RtlSdrRfGainDb = RfGainDb;
+        else if (IsHackRfDevice) _statePersistence.HackRfRfGainDb = RfGainDb;
+        else if (IsRx888Device) _statePersistence.Rx888RfGainDb = RfGainDb;
+        else _statePersistence.SdrPlayRfGainDb = RfGainDb;
 
-        _lastState.CenterFreqHz = radioControl.CenterFreqHz;
-        _lastState.TunedFreqHz = radioControl.TunedFreqHz;
-        _lastState.DemodMode = radioControl.DemodMode;
-        _lastState.StepHz = radioControl.StepHz;
-        _lastState.SdrPlayRfGainDb = _sdrPlayRfGainDb;
-        _lastState.SdrPlaySensitivity = SdrPlaySensitivity;
-        _lastState.RtlSdrRfGainDb = _rtlSdrRfGainDb;
-        _lastState.HackRfRfGainDb = _hackRfRfGainDb;
-        _lastState.Rx888RfGainDb = _rx888RfGainDb;
-
-        _lastState.WaterfallColorMode = radioControl.WaterfallColorMode;
-
-        _lastState.IsR1Visible = radioControl.IsR1Visible;
-        _lastState.IsPowerOn = radioControl.IsPowerOn;
-        _lastState.IsSpeakerOn = radioControl.IsSpeakerOn;
-        _lastState.IsSquelchOn = radioControl.IsSquelchOn;
-        _lastState.SquelchDb = radioControl.SquelchDb;
-        _lastState.IsZoomWindowVisible = radioControl.IsZoomWindowVisible;
-        _lastState.SpanHz = radioControl.SpanHz;
-        _lastState.MainSpanHz = Display.BaseMainSpanHz;
-
-        _lastState.SpectrumBiasAdj = Display.SpectrumBiasAdj;
-        _lastState.WaterfallBiasAdj = Display.WaterfallBiasAdj;
-        _lastState.SpectrumZoomBiasAdj = Display.SpectrumZoomBiasAdj;
-        _lastState.WaterfallZoomBiasAdj = Display.WaterfallZoomBiasAdj;
-
-
-        _lastStateService.SaveLastState(_lastState);
+        _statePersistence.SaveRadioState(radioControl, SdrPlaySensitivity, new(
+            Display.BaseMainSpanHz, Display.SpectrumBiasAdj, Display.WaterfallBiasAdj,
+            Display.SpectrumZoomBiasAdj, Display.WaterfallZoomBiasAdj));
     }
 
     private (bool isGpuEnabled, int fftResolutionMode, int fftBatchMode) GetDeviceFftState()
@@ -120,9 +79,6 @@ public partial class MainViewModel : ObservableObject
         return (isGpuEnabled, fftResolutionMode, fftBatchMode);
     }
 
-    private void PersistFftBatchState(int fftBatchMode)
-    {
-        _lastState.FftBatchMode = fftBatchMode;
-        _lastStateService.SaveLastState(_lastState);
-    }
+    private void PersistFftBatchState(int fftBatchMode) =>
+        _statePersistence.SaveFftBatchMode(fftBatchMode);
 }

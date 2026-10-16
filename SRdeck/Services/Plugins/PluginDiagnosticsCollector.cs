@@ -88,8 +88,6 @@ internal sealed class PluginDiagnosticsCollector(
         RegisterDrop(sampleCount);
     }
 
-    public void RegisterDisposedDrop(int sampleCount) => RegisterDrop(sampleCount);
-
     public void RegisterDequeued() => Interlocked.Decrement(ref _queueDepth);
 
     public void RegisterQueuedDrop(int sampleCount)

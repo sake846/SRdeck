@@ -15,11 +15,6 @@ public static class AppConstants
     public const int FFT_SIZE = 4096;
 
     /// <summary>
-    /// ズームスパンの段階（Hz）です。
-    /// </summary>
-    public static readonly int[] ZOOM_SPAN_LEVELS = { 250000, 100000, 50000, 20000, 10000 };
-
-    /// <summary>
     /// 最低RSSI（受信信号強度）のdBm値です。
     /// スペクトラムやウォーターフォールの色表示の下限などに使用されます。
     /// </summary>
@@ -34,12 +29,6 @@ public static class AppConstants
     /// スペクトラムおよびウォーターフォールの表示帯域 (7.0MHz) です。
     /// </summary>
     public const float DISPLAY_BW = 7000000f;
-
-    /// <summary>
-    /// スケルチ表示処理における最低レベルの内部数値です。
-    /// デモジュレーター波形表示のオフセット等に使用されます。
-    /// </summary>
-    public const int MIN_DEMOD_SQUELCH_LEVEL = -1500;
 
     /// <summary>
     /// アンテナ端の入力信号強度 (dBm) と内部FFT値の整合性をとるための物理補正定数 (マスターオフセット) です。
@@ -63,34 +52,9 @@ public static class AppConstants
     public const int FFT_SCAN_MARGIN_PERCENT = 10;
 
     /// <summary>
-    /// SDR 起動直後の不安定な信号をパージするために、オーディオ出力を保留するサイクル数です。
-    /// </summary>
-    public const int SDR_STABILIZATION_CYCLES = 20;
-
-    /// <summary>
     /// RSSI 履歴や周波数履歴を記録するための統計グリッドのサイズです。
     /// </summary>
     public const int STATISTICS_GRID_SIZE = 1800;
-
-    /// <summary>
-    /// 短波（HF）帯などで使用される信号のリングバッファサイズです (180秒相当)。
-    /// </summary>
-    public const long SIGNAL_BUFFER_SIZE = 1440000000L;
-
-    /// <summary>
-    /// オーディオ再生のレイテンシを削減するために未再生バッファを間引く閾値（バイト数）です。
-    /// </summary>
-    public const int AUDIO_LATENCY_TRIM_THRESHOLD_BYTES = 25600;
-
-    /// <summary>
-    /// オーディオ再生のレイテンシ削減時に残す未再生バッファの目標値（バイト数）です。
-    /// </summary>
-    public const int AUDIO_LATENCY_TRIM_TARGET_BYTES = 19200;
-
-    /// <summary>
-    /// オーディオ再生のアンダーラン後に再開するまで蓄積する未再生バッファの目標値（バイト数）です。
-    /// </summary>
-    public const int AUDIO_LATENCY_PREFILL_TARGET_BYTES = 19200;
 
     /// <summary>
     /// ADC オーバーフローやクリッピングを防ぐための AGC 制御上限値です（約 -1.0 dBFS）。
@@ -116,16 +80,6 @@ public static class AppConstants
     public const float RSSI_EMA_ALPHA = 0.1f;
 
     /// <summary>
-    /// 受信機の初期 RF 利得 (dB) です。
-    /// </summary>
-    public const int DEFAULT_RF_GAIN_DB = 40;
-
-    /// <summary>
-    /// 初期状態で選択される復調モードです。
-    /// </summary>
-    public const DemodulationMode DEFAULT_DEMOD_MODE = DemodulationMode.AM;
-
-    /// <summary>
     /// メインウィンドウのデフォルトタイトルです。
     /// </summary>
     public const string DEFAULT_WINDOW_TITLE = "SRdeck";
@@ -135,21 +89,6 @@ public static class AppConstants
     /// </summary>
     public const int IQ_RETENTION_SECONDS = 10;
     public const int MAX_HISTORY_SEC = IQ_RETENTION_SECONDS - 1;
-
-    /// <summary>
-    /// ズームウィンドウにおけるスペクトラム描画領域の高さです。
-    /// </summary>
-    public const double ZOOM_FFT_SPECTRUM_HEIGHT = 50.0;
-
-    /// <summary>
-    /// ズームウィンドウにおけるウォーターフォール描画領域の高さです。
-    /// </summary>
-    public const double ZOOM_FFT_WATERFALL_HEIGHT = 100.0;
-
-    /// <summary>
-    /// 選択可能なスパン（表示帯域幅）のプリセットリスト (Hz) です。
-    /// </summary>
-    public static readonly int[] SPAN_LEVELS = { 250000, 100000, 50000, 20000, 10000, 5000, 2000, 1000 };
 
     /// <summary>
     /// 選択可能な周波数ステップのプリセットリスト (Hz) です。
@@ -189,7 +128,6 @@ public static class AppConstants
     /// SDR ドライバに関連する設定定数です。
     /// </summary>
     public const float SDR_PPM_SCALE = 1e-6f;
-    public const int SDR_STOP_WAIT_MS = 100;
     /// <summary>
     /// SDR の周波数切り替えからIQサンプル到達までの推定遅延時間（秒）です。
     /// </summary>

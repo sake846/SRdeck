@@ -39,7 +39,7 @@ public sealed partial class RadioSessionController
         }
 
         bool isRtlDevice = device.Capabilities.IsRtlSdr;
-        var rates = SdrSampleRatePolicy.GetSupportedRates(isRtlDevice);
+        var rates = SdrSampleRatePolicy.GetSupportedRates(device.Capabilities.Kind);
         int sampleRateHz = rates.FirstOrDefault(rate => rate >= minimumSampleRateHz);
         if (sampleRateHz == 0)
         {

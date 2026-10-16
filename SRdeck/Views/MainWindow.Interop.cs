@@ -24,27 +24,6 @@ public partial class MainWindow : Window
         DwmSetWindowAttribute(_windowHandle, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
     }
 
-    public void RefreshHoverStateFromCurrentCursor()
-    {
-        if (_windowHandle == IntPtr.Zero) return;
-
-        var screenPoint = Helpers.Win32Api.GetCursorPosition();
-        POINT clientPoint = new POINT
-        {
-            X = (int)Math.Round(screenPoint.X),
-            Y = (int)Math.Round(screenPoint.Y),
-        };
-
-        if (!ScreenToClient(_windowHandle, ref clientPoint)) return;
-        RECT clientRect = default;
-        if (!GetClientRect(_windowHandle, out clientRect)) return;
-        if (clientPoint.X < 0 || clientPoint.Y < 0 || clientPoint.X >= clientRect.Right || clientPoint.Y >= clientRect.Bottom) return;
-
-        int lParam = (clientPoint.Y << 16) | (clientPoint.X & 0xFFFF);
-        SendMessage(_windowHandle, WM_MOUSEMOVE, IntPtr.Zero, new IntPtr(lParam));
-        SendMessage(_windowHandle, WM_SETCURSOR, _windowHandle, new IntPtr((HTCLIENT & 0xFFFF) | (WM_MOUSEMOVE << 16)));
-    }
-
     private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WM_GETMINMAXINFO)
@@ -102,25 +81,11 @@ public partial class MainWindow : Window
     #region Win32 API Interop
     private const int WM_GETMINMAXINFO = 0x0024;
     private const int WM_MOUSEACTIVATE = 0x0021;
-    private const int WM_MOUSEMOVE = 0x0200;
-    private const int WM_SETCURSOR = 0x0020;
     private const int MONITOR_DEFAULTTONEAREST = 0x00000002;
     private const int MA_ACTIVATE = 1;
-    private const int HTCLIENT = 1;
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromWindow(IntPtr handle, int flags);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern bool GetMonitorInfo(IntPtr hMonitor, MONITORINFO lpmi);

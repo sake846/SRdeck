@@ -71,7 +71,9 @@ IQプリトリガーキャプチャはACARS、ADS-B、アナログ復調、CW Sk
 
 ## ソース公開・バイナリ配布対象外
 
-[Meshtastic](Plugins-Meshtastic)と[ワンセグ](Plugins-OneSeg)は`SRdeckPlugins`ソーススナップショットへ含まれますが、公式SRdeck実行ZIPへDLLを含めません。ソースツリーにある他の開発中／任意配布モジュールも、`PACKAGE-MANIFEST.json`にない限り公式パッケージの一部ではありません。
+[Meshtastic](Plugins-Meshtastic)と[ワンセグ](Plugins-OneSeg)のソースは、`SRdeckPlugins`のソーススナップショットに含まれます。公式SRdeck実行ZIPには、これらのDLLを含めていません。
+
+ほかの開発中・任意配布モジュールも、ZIP内の`PACKAGE-MANIFEST.json`に記載がなければ公式パッケージには含まれません。
 
 ## 受信時の共通注意
 

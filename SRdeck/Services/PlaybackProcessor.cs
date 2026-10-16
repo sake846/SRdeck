@@ -74,8 +74,6 @@ public sealed class PlaybackProcessor : IPlaybackProcessor
                 break;
             }
         }
-
-        _inputSessionState.Stop(InputSessionState.PlayingFile);
     }
 
     private void ProcessPlaybackBlock(PlaybackProcessingRequest request)

@@ -69,11 +69,11 @@ public partial class MainViewModel : ObservableObject
 
         FftBatchMode = 0;
 
-        if (_lastState != null)
+        if (_statePersistence is not null)
         {
-            _lastState.FftBatchMode = 0;
+            _statePersistence.State.FftBatchMode = 0;
             PersistFftBatchState(0);
-            _lastStateService.SaveLastState(_lastState);
+            _statePersistence.Save();
         }
     }
 

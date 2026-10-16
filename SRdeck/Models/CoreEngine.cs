@@ -116,7 +116,7 @@ public partial class CoreEngine : ISdrEngine
     private readonly IAgcManager _agcManager;
     private readonly IAudioService _audioService;
     private readonly ISignalPipeline _signalPipeline;
-    private readonly IRadioProcessingPipeline _processingPipeline;
+    private readonly IProcessingCycleCoordinator _processingPipeline;
     private readonly ITuningCoordinator _tuningCoordinator;
     public IFftProcessor? FftProcessor => _mainFftService.Processor;
     private long _lastMainFftTriggerSample = 0;
@@ -283,14 +283,13 @@ public partial class CoreEngine : ISdrEngine
     public CoreEngine(
         IAudioService audioService,
         IInputSessionStateMachine inputSessionState,
-        ISignalPipelineFactory signalPipelineFactory,
-        IAgcManagerFactory agcManagerFactory,
-        IMainFftServiceFactory mainFftServiceFactory,
+        SignalPipelineFactory signalPipelineFactory,
+        MainFftServiceFactory mainFftServiceFactory,
         IRadioDiagnosticsStore diagnosticsStore,
-        IRadioProcessingPipeline processingPipeline,
+        IProcessingCycleCoordinator processingPipeline,
         IPluginIqDispatcher pluginIqDispatcher,
         ITuningCoordinator tuningCoordinator,
-        ISdrDeviceManagerFactory sdrDeviceManagerFactory,
+        SdrDeviceManagerFactory sdrDeviceManagerFactory,
         IRadioStateStore radioStateStore,
         IRadioControlStore radioControlStore)
     {
@@ -300,7 +299,7 @@ public partial class CoreEngine : ISdrEngine
         _processingPipeline = processingPipeline;
         _pluginIqDispatcher = pluginIqDispatcher;
         _tuningCoordinator = tuningCoordinator;
-        _agcManager = agcManagerFactory.Create(ApplyGainUpdate);
+        _agcManager = new AgcManager(new GainUpdateWorker(ApplyGainUpdate));
         _sdrDeviceManager = sdrDeviceManagerFactory.Create(
             ProcessIncomingSamples,
             HandleGainHardwareChanged,

@@ -13,7 +13,6 @@ public partial class MainViewModel : ObservableObject
     public void SyncViewModelData(RadioControl radioControl)
     {
         DemodMode = radioControl.DemodMode;
-        DemodWaveDisplayMode = radioControl.DemodWaveDisplayMode;
         Tuner.SyncFromCore(radioControl);
 
         Diagnostics.SyncDiagnostics(radioControl, SelectedLnaState.ToString());
@@ -21,8 +20,10 @@ public partial class MainViewModel : ObservableObject
 
     private void HandleEngineStateUpdated()
     {
+        if (_lifetimeEnded) return;
         Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            if (_lifetimeEnded) return;
             RestoreActiveDisplayAfterRetune();
             RadioControl radioControl = _engine.Control;
             bool isParamUpdated = false;

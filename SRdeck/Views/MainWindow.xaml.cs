@@ -138,15 +138,12 @@ public partial class MainWindow : Window
         if (_isCompactMode)
         {
             // コンパクトモード移行時は、強制固定ロックを解除する
-            if (_viewModel.ZoomOverlay != null)
-            {
-                _viewModel.ZoomOverlay.IsEmbeddedLocked = false;
-            }
+            _viewModel.ZoomOverlay.IsEmbeddedLocked = false;
 
             // 埋め込み（Embedded）状態になっている場合は、自動的にフローティング状態（Embedded = false）に変更する
-            if (_viewModel.Receiver1.ZoomOverlay.IsEmbedded)
+            if (_viewModel.ZoomOverlay.IsEmbedded)
             {
-                _viewModel.Receiver1.ZoomOverlay.IsEmbedded = false;
+                _viewModel.ZoomOverlay.IsEmbedded = false;
             }
 
             // WPFメイン表示領域（Spectrum/Waterfall）を折りたたむ
@@ -167,23 +164,6 @@ public partial class MainWindow : Window
             Width = expectedWidth;
             Height = expectedHeight;
         }
-    }
-
-    private void Window_Loaded(object sender, RoutedEventArgs e)
-    {
-    }
-
-    public void FocusWaterfall()
-    {
-        if (WindowState == WindowState.Minimized)
-        {
-            WindowState = WindowState.Normal;
-        }
-
-        Activate();
-        Focus();
-        System.Windows.Input.Mouse.Capture(null);
-        _waterfallView.RestorePointerInteraction();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)

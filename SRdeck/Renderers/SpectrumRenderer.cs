@@ -82,7 +82,7 @@ internal class SpectrumRenderer : IDisposable
             _curveStrokeBrush?.Dispose(); _curveStrokeBrush = null;
             _curveFillBrush?.Dispose(); _curveFillBrush = null;
             _lastCurveColorMode = int.MinValue;
-            _d2dRenderTarget = DirectXManager.Instance.CreateRenderTarget(_lastWidth, _lastHeight);
+            _d2dRenderTarget = new ID2D1RenderTarget(_lastWidth, _lastHeight);
             _bgEmphBrush = _d2dRenderTarget.CreateSolidColorBrush(new Color(45f/255f, 45f/255f, 45f/255f, 1f));
             _bgNormalBrush = _d2dRenderTarget.CreateSolidColorBrush(new Color(70f/255f, 70f/255f, 70f/255f, 1f));
             
@@ -223,7 +223,7 @@ internal class SpectrumRenderer : IDisposable
         EnsureCurveBrushes(rt, p.WaterfallColorMode);
         if (_curveStrokeBrush == null || _curveFillBrush == null) return;
         
-        using var pathGeometry = DirectXManager.Instance.D2DFactory.CreatePathGeometry();
+        using var pathGeometry = new ID2D1PathGeometry();
         using (var sink = pathGeometry.Open())
         {
             sink.BeginFigure(new Vector2(pf[0].X, height), FigureBegin.Filled);
@@ -234,7 +234,7 @@ internal class SpectrumRenderer : IDisposable
         }
         rt.FillGeometry(pathGeometry, _curveFillBrush);
         
-        using var lineGeometry = DirectXManager.Instance.D2DFactory.CreatePathGeometry();
+        using var lineGeometry = new ID2D1PathGeometry();
         using (var sink = lineGeometry.Open())
         {
             sink.BeginFigure(pf[0], FigureBegin.Hollow);

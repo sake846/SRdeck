@@ -22,10 +22,4 @@ namespace SRdeck.Renderers.Compat.Direct2D1
         }
     }
 
-    internal class ID2D1LinearGradientBrush : ID2D1Brush { }
-    internal class ID2D1GradientStopCollection : IDisposable
-    {
-        internal GradientStop[] Stops = Array.Empty<GradientStop>();
-        public void Dispose() { }
-    }
 }

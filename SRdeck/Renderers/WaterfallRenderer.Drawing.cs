@@ -108,23 +108,6 @@ internal partial class WaterfallRenderer
         _d2dWaterfallBitmap!.CopyFromMemory(currentDataRect, _rowByteBuffer!, (uint)(width * 4));
     }
 
-    private unsafe void ClearWaterfallRow(int width)
-    {
-        Array.Clear(_rowByteBuffer!, 0, width * 4);
-
-        fixed (uint* pData = _waterfallData)
-        {
-            int rowOffset = _writeY * width;
-            for (int x = 0; x < width; x++)
-            {
-                pData[rowOffset + x] = 0;
-            }
-        }
-
-        var currentDataRect = new System.Drawing.Rectangle(0, _writeY, width, 1);
-        _d2dWaterfallBitmap!.CopyFromMemory(currentDataRect, _rowByteBuffer!, (uint)(width * 4));
-    }
-
     private void SyncWaterfallScene(int width, int height)
     {
         _d2dRenderTarget!.BeginDraw();

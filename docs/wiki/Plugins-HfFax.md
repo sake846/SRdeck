@@ -1,6 +1,8 @@
 # HF-FAXプラグイン
 
-`HF-FAX`（プラグインID: `hffax`）は、HF気象無線模写（Weather Fax／Wefax）を受信し、グレースケール画像を生成する公式プラグインです。`with-plugins`パッケージに含まれます。
+`HF-FAX`（プラグインID: `hffax`）は、短波の気象ファクシミリ放送を受信し、グレースケール画像を作成します。
+
+Weather Fax（Wefax）に対応する公式プラグインで、`with-plugins`パッケージに含まれます。
 
 ## 主な機能
 

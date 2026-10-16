@@ -36,28 +36,6 @@ public interface ISignalBufferWriter
     void ResetResidualDcRemoval();
 }
 
-public interface ISignalBufferWriterFactory
-{
-    ISignalBufferWriter Create(SignalBlockCompletedHandler blockCompleted);
-}
-
-public sealed class SignalBufferWriterFactory : ISignalBufferWriterFactory
-{
-    private readonly ISignalBufferState _bufferState;
-    private readonly ISignalInputMetrics _inputMetrics;
-
-    public SignalBufferWriterFactory(
-        ISignalBufferState bufferState,
-        ISignalInputMetrics inputMetrics)
-    {
-        _bufferState = bufferState;
-        _inputMetrics = inputMetrics;
-    }
-
-    public ISignalBufferWriter Create(SignalBlockCompletedHandler blockCompleted) =>
-        new SignalBufferWriter(_bufferState, _inputMetrics, blockCompleted);
-}
-
 internal sealed class SignalBufferWriter : ISignalBufferWriter
 {
     private readonly ISignalBufferState _bufferState;

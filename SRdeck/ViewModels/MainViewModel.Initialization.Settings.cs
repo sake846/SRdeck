@@ -73,6 +73,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnPrimaryTunerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (_lifetimeEnded) return;
         if (_isLoadingPpmDisplay || e.PropertyName != nameof(TunerViewModel.TotalPpm)) return;
         if (!IsSdrDetected || _engine.SdrDevice == null || Tuner == null) return;
 

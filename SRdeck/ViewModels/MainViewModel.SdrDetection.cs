@@ -128,7 +128,7 @@ public partial class MainViewModel : ObservableObject
             bool isRtl = deviceKind == SdrDeviceKind.RtlSdr;
             bool isHackRf = deviceKind == SdrDeviceKind.HackRf;
             bool isRx888 = deviceKind == SdrDeviceKind.Rx888;
-            int sampleRateHz = NormalizeSampleRateForDevice(SdrPlaySampleRateHz, deviceKind);
+            int sampleRateHz = SdrSampleRatePolicy.Normalize(SdrPlaySampleRateHz, deviceKind);
             if ((isRtl || isHackRf || isRx888) && !detectedDevice.ApplySampleRate(sampleRateHz))
             {
                 detectedDevice.Dispose();
@@ -216,15 +216,6 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleAgc() => IsAgcEnabled = !IsAgcEnabled;
-
-    internal static int NormalizeSampleRateForDevice(
-        int value,
-        bool isRtlDevice,
-        bool isRx888Device = false) =>
-        SdrSampleRatePolicy.Normalize(value, isRtlDevice, isRx888Device);
-
-    internal static int NormalizeSampleRateForDevice(int value, SdrDeviceKind kind) =>
-        SdrSampleRatePolicy.Normalize(value, kind);
 
     private void SetAgcStateFromSettings(bool isEnabled, AgcReleaseMode releaseMode)
     {

@@ -9,7 +9,6 @@ using SRdeck.Models.Configuration;
 using SRdeck.Renderers;
 using SRdeck.Messages;
 using SRdeck.Configuration;
-using SRdeck.ViewModels.Components;
 
 namespace SRdeck.ViewModels;
 
@@ -126,13 +125,12 @@ public partial class MainViewModel : ObservableObject
         SettingsResetConfirmVisibility = Visibility.Collapsed;
         
         // すべてバックアップして削除/初期化
-        _lastStateService.BackupLastState();
+        _statePersistence.Backup();
         _settingsService.BackupSettings();
         _settingsService.BackupHardwareSettings();
 
         // LastState
-        _lastState = new LastState();
-        _lastStateService.SaveLastState(_lastState);
+        _statePersistence.Reset();
         
         // AppSettings & Hardware
         _settingsService.SaveSettings(new AppSettings());
@@ -152,29 +150,28 @@ public partial class MainViewModel : ObservableObject
         SettingsResetConfirmVisibility = Visibility.Collapsed;
 
         // リセット前にバックアップを作成
-        _lastStateService.BackupLastState();
+        _statePersistence.Backup();
 
 
         // LastState をリセット
-        _lastState = new LastState();
-        _lastStateService.SaveLastState(_lastState);
+        _statePersistence.Reset();
 
         // 現在の状態に即座に反映
         // RadioParameters (radioControl) を構築
         RadioControl radioControl = _engine.Control;
         
-        radioControl.CenterFreqHz = _lastState.CenterFreqHz;
-        radioControl.TunedFreqHz = _lastState.TunedFreqHz;
-        radioControl.DemodMode = _lastState.DemodMode;
-        radioControl.StepHz = _lastState.StepHz;
-        radioControl.WaterfallColorMode = _lastState.WaterfallColorMode;
+        radioControl.CenterFreqHz = _statePersistence.State.CenterFreqHz;
+        radioControl.TunedFreqHz = _statePersistence.State.TunedFreqHz;
+        radioControl.DemodMode = _statePersistence.State.DemodMode;
+        radioControl.StepHz = _statePersistence.State.StepHz;
+        radioControl.WaterfallColorMode = _statePersistence.State.WaterfallColorMode;
         radioControl.IsR1Visible = true;
-        radioControl.IsPowerOn = _lastState.IsPowerOn;
-        radioControl.IsSpeakerOn = _lastState.IsSpeakerOn;
-        radioControl.IsSquelchOn = _lastState.IsSquelchOn;
-        radioControl.SquelchDb = _lastState.SquelchDb;
-        radioControl.IsZoomWindowVisible = _lastState.IsZoomWindowVisible;
-        radioControl.SpanHz = _lastState.SpanHz;
+        radioControl.IsPowerOn = _statePersistence.State.IsPowerOn;
+        radioControl.IsSpeakerOn = _statePersistence.State.IsSpeakerOn;
+        radioControl.IsSquelchOn = _statePersistence.State.IsSquelchOn;
+        radioControl.SquelchDb = _statePersistence.State.SquelchDb;
+        radioControl.IsZoomWindowVisible = _statePersistence.State.IsZoomWindowVisible;
+        radioControl.SpanHz = _statePersistence.State.SpanHz;
         radioControl.IsAfcEnabled = false;
         radioControl.IsMonoMode = false;
         radioControl.IsBandPlanVisible = false;
@@ -183,10 +180,10 @@ public partial class MainViewModel : ObservableObject
         _engine.Control = radioControl;
 
         // 表示バイアス等のリセット
-        Display.SpectrumBiasAdj = _lastState.SpectrumBiasAdj;
-        Display.WaterfallBiasAdj = _lastState.WaterfallBiasAdj;
-        Display.SpectrumZoomBiasAdj = _lastState.SpectrumZoomBiasAdj;
-        Display.WaterfallZoomBiasAdj = _lastState.WaterfallZoomBiasAdj;
+        Display.SpectrumBiasAdj = _statePersistence.State.SpectrumBiasAdj;
+        Display.WaterfallBiasAdj = _statePersistence.State.WaterfallBiasAdj;
+        Display.SpectrumZoomBiasAdj = _statePersistence.State.SpectrumZoomBiasAdj;
+        Display.WaterfallZoomBiasAdj = _statePersistence.State.WaterfallZoomBiasAdj;
         
         IsGpuFftEnabled = _engine.InitialAppSettings.Display.IsGpuFftEnabled;
         FftResolutionMode = _engine.InitialAppSettings.Display.FftResolutionMode;
@@ -216,15 +213,6 @@ public partial class MainViewModel : ObservableObject
             options.Add(new StepOption { ValueHz = hz, Label = label, Index = i });
         }
         return options;
-    }
-
-    internal static List<DemodWaveOverlayButton> GetDefaultDemodWaveButtons()
-    {
-        return new List<DemodWaveOverlayButton>
-        {
-            new() { CommandType = DemodWaveCommandType.Debug },
-            new() { CommandType = DemodWaveCommandType.Station }
-        };
     }
 
     public class StepOption : ObservableObject

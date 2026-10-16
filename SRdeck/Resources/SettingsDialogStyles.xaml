@@ -3,33 +3,11 @@
 
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
-
     <!-- Shared receiver dialog chrome used by WPF selection, editor, and keypad dialogs. -->
     <Style x:Key="ReceiverDialogWindowStyle" TargetType="Window">
         <Setter Property="Background" Value="#FF151515"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="FontFamily" Value="{StaticResource MainFontFamily}"/>
-    </Style>
-
-    <Style x:Key="ReceiverDialogPanelStyle" TargetType="Border">
-        <Setter Property="Background" Value="#FF151515"/>
-        <Setter Property="BorderBrush" Value="#FF2D2D2D"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="4"/>
-    </Style>
-
-    <Style x:Key="ReceiverDialogHeaderStyle" TargetType="Border">
-        <Setter Property="Background" Value="#FF111111"/>
-        <Setter Property="BorderBrush" Value="#14FFFFFF"/>
-        <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        <Setter Property="Padding" Value="10,7"/>
-    </Style>
-
-    <Style x:Key="ReceiverDialogHeaderTextStyle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-        <Setter Property="FontFamily" Value="{StaticResource MainFontFamily}"/>
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="Bold"/>
     </Style>
 
     <Style x:Key="ReceiverDialogListItemStyle" TargetType="ListBoxItem">
@@ -209,28 +187,6 @@
                 <Setter Property="BorderBrush" Value="#FF88CC00"/>
             </Trigger>
         </Style.Triggers>
-    </Style>
-
-    <Style x:Key="GreenActionButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="#FF151515" />
-        <Setter Property="BorderBrush" Value="#FF333333" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="3" Padding="4">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Border" Property="BorderBrush" Value="#FF88CC00" />
-                            <Setter Property="Foreground" Value="White" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <Style x:Key="SettingsComboBoxStyle" TargetType="ComboBox">

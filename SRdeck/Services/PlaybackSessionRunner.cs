@@ -6,7 +6,7 @@ namespace SRdeck.Services;
 public interface IPlaybackSessionRunner
 {
     event EventHandler? PlaybackEnded;
-    void Run(long generation, SemaphoreSlim operationGate, Func<long> getGeneration);
+    Task Run(long generation, SemaphoreSlim operationGate, Func<long> getGeneration);
 }
 
 public sealed class PlaybackSessionRunner : IPlaybackSessionRunner
@@ -24,12 +24,14 @@ public sealed class PlaybackSessionRunner : IPlaybackSessionRunner
 
     public event EventHandler? PlaybackEnded;
 
-    public void Run(long generation, SemaphoreSlim operationGate, Func<long> getGeneration)
+    public Task Run(long generation, SemaphoreSlim operationGate, Func<long> getGeneration)
     {
-        _ = RunCoreAsync(generation, operationGate, getGeneration);
+        Task processing = RunProcessingAsync();
+        _ = CompleteAsync(processing, generation, operationGate, getGeneration);
+        return processing;
     }
 
-    private async Task RunCoreAsync(long generation, SemaphoreSlim operationGate, Func<long> getGeneration)
+    private async Task RunProcessingAsync()
     {
         try
         {
@@ -39,7 +41,11 @@ public sealed class PlaybackSessionRunner : IPlaybackSessionRunner
         {
             Debug.WriteLine($"[PlaybackSessionRunner] Playback loop failed: {exception}");
         }
+    }
 
+    private async Task CompleteAsync(Task processing, long generation, SemaphoreSlim operationGate, Func<long> getGeneration)
+    {
+        await processing;
         bool shouldNotifyEnded = false;
         await operationGate.WaitAsync();
         try

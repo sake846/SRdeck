@@ -2,7 +2,6 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- 1. Basic Colors -->
 
-    <Color x:Key="BrandCyan">#FF00E5FF</Color>
     <Color x:Key="PanelBase">#FF121212</Color>
     <Color x:Key="PanelSurface">#FF1E1E1E</Color>
     <Color x:Key="ControlBase">#FF2A2A2A</Color>
@@ -19,26 +18,11 @@
     <Color x:Key="BgDark">#FF363636</Color>
     <Color x:Key="BgPopup">#FF303030</Color>
     <Color x:Key="BgSelectedDark">#FF4A3C0B</Color>
-    <Color x:Key="BgMediumGray">#FF444444</Color>
-    <Color x:Key="BgActiveHoverAmber">#FF665215</Color>
     <Color x:Key="BrandTitleClose">#FFE81123</Color>
     <Color x:Key="BrandTitleClosePressed">#FF991924</Color>
-    <Color x:Key="LcdBackground">#FFAAB196</Color>
-    <Color x:Key="LcdTextActive">#FF1A1A1A</Color>
-    <Color x:Key="LcdTextOff">#FF8C927A</Color>
-    <Color x:Key="LedOff">#FF333333</Color>
 
     <!-- LED Colors -->
-    <Color x:Key="LedGreen">#FF00FF41</Color>
-    <Color x:Key="LedAmber">#FFFFB900</Color>
     <Color x:Key="LedBlue">#FF00E5FF</Color>
-    <Color x:Key="LedGreenDim">#FF004411</Color>
-    <Color x:Key="LedAmberDim">#FF443300</Color>
-    <Color x:Key="LedBlueDim">#FF003344</Color>
     <Color x:Key="LedRed">#FFFF0000</Color>
-    <Color x:Key="LedRedDim">#FF440000</Color>
     <Color x:Key="LedYellowGreen">#FFB4E632</Color>
-    <Color x:Key="LedYellowGreenDim">#FF3A3A0A</Color>
-    <Color x:Key="LedWarm">#FFFFE6A0</Color>
-    <Color x:Key="LedWarmDim">#FF444422</Color>
 </ResourceDictionary>

@@ -32,46 +32,6 @@ public interface ISignalBlockCoordinator : IDisposable
     ReadOnlyMemory<short> CurrentSamplesQ { get; }
 }
 
-public interface ISignalBlockCoordinatorFactory
-{
-    ISignalBlockCoordinator Create(
-        Action processSignalCycle,
-        Action<int> synchronizePlaybackFrequency,
-        Action<double> updateSystemDb,
-        IAgcManager agcManager);
-}
-
-public sealed class SignalBlockCoordinatorFactory : ISignalBlockCoordinatorFactory
-{
-    private readonly ISignalBufferState _bufferState;
-    private readonly ISignalInputMetrics _inputMetrics;
-    private readonly ISignalProcessingWorkerFactory _processingWorkerFactory;
-
-    public SignalBlockCoordinatorFactory(
-        ISignalBufferState bufferState,
-        ISignalInputMetrics inputMetrics,
-        ISignalProcessingWorkerFactory processingWorkerFactory)
-    {
-        _bufferState = bufferState;
-        _inputMetrics = inputMetrics;
-        _processingWorkerFactory = processingWorkerFactory;
-    }
-
-    public ISignalBlockCoordinator Create(
-        Action processSignalCycle,
-        Action<int> synchronizePlaybackFrequency,
-        Action<double> updateSystemDb,
-        IAgcManager agcManager) =>
-        new SignalBlockCoordinator(
-            _bufferState,
-            _inputMetrics,
-            agcManager,
-            _processingWorkerFactory,
-            processSignalCycle,
-            synchronizePlaybackFrequency,
-            updateSystemDb);
-}
-
 internal sealed class SignalBlockCoordinator : ISignalBlockCoordinator
 {
     internal const int MaximumPendingBlocks = 64;

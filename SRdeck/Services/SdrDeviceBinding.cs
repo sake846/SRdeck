@@ -8,27 +8,6 @@ public interface ISdrDeviceBinding : IDisposable
     void SetDevice(ISdrDevice? device);
 }
 
-public interface ISdrDeviceBindingFactory
-{
-    ISdrDeviceBinding Create(
-        Action<short[], short[], uint> samplesReceived,
-        Action<double, int> gainHardwareChanged,
-        Action deviceRemoved,
-        Action streamStalled,
-        Action<SdrSampleBlock>? sampleBlockReceived = null);
-}
-
-public sealed class SdrDeviceBindingFactory : ISdrDeviceBindingFactory
-{
-    public ISdrDeviceBinding Create(
-        Action<short[], short[], uint> samplesReceived,
-        Action<double, int> gainHardwareChanged,
-        Action deviceRemoved,
-        Action streamStalled,
-        Action<SdrSampleBlock>? sampleBlockReceived = null) =>
-        new SdrDeviceBinding(samplesReceived, gainHardwareChanged, deviceRemoved, streamStalled, sampleBlockReceived);
-}
-
 internal sealed class SdrDeviceBinding : ISdrDeviceBinding
 {
     private readonly Action<short[], short[], uint> _samplesReceived;

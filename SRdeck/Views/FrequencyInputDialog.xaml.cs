@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using SRdeckPlugin.Wpf;
 
 namespace SRdeck.Views
 {
@@ -90,17 +91,20 @@ namespace SRdeck.Views
             InputText += c;
         }
 
+        internal static bool TryParseInput(string input, string unit, out long frequencyHz) =>
+            FrequencyInputParser.TryParse(input, unit switch
+            {
+                "GHz" => FrequencyInputUnit.GigaHertz,
+                "MHz" => FrequencyInputUnit.MegaHertz,
+                "kHz" => FrequencyInputUnit.KiloHertz,
+                _ => FrequencyInputUnit.Hz
+            }, out frequencyHz) && frequencyHz <= 2_000_000_000;
+
         private void ConfirmInput(string unit)
         {
-            if (double.TryParse(InputText, out double value))
+            if (TryParseInput(InputText, unit, out long frequencyHz))
             {
-                double multiplier = 1.0;
-                if (unit == "GHz") multiplier = 1000000000.0;
-                else if (unit == "MHz") multiplier = 1000000.0;
-                else if (unit == "kHz") multiplier = 1000.0;
-                else if (unit == "Hz") multiplier = 1.0;
-
-                ResultFrequencyHz = (long)Math.Round(value * multiplier);
+                ResultFrequencyHz = frequencyHz;
                 DialogResult = true;
                 Close();
             }

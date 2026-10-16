@@ -63,30 +63,6 @@ public partial class MainViewModel : ObservableObject
     // --- Display Options ---
     public ObservableCollection<FrequencyDisplayOption> FrequencyDisplayOptions { get; } = new();
     [ObservableProperty] private FrequencyDisplayOption? _selectedFrequencyDisplayOption;
-    [ObservableProperty] private DemodWaveMode _demodWaveDisplayMode;
-    [ObservableProperty] private DemodWaveMode _demodWaveDisplayMode2;
-
-    public string DemodWaveTimeLabel => DemodWaveDisplayMode switch
-    {
-        DemodWaveMode.FFT => "1/3 Oct",
-        DemodWaveMode.Lissajous => "500 msec",
-        DemodWaveMode.Vector => "500 msec",
-        DemodWaveMode.Compare => "500 msec",
-        _ => "500 msec"
-    };
-
-    public string DemodWaveTimeLabel2 => DemodWaveDisplayMode2 switch
-    {
-        DemodWaveMode.FFT => "1/3 Oct",
-        DemodWaveMode.Lissajous => "500 msec",
-        DemodWaveMode.Vector => "500 msec",
-        DemodWaveMode.Compare => "500 msec",
-        _ => "500 msec"
-    };
-
-    partial void OnDemodWaveDisplayModeChanged(DemodWaveMode value) => OnPropertyChanged(nameof(DemodWaveTimeLabel));
-    partial void OnDemodModeChanged(DemodulationMode value) => OnPropertyChanged(nameof(DemodWaveTimeLabel));
-    partial void OnDemodWaveDisplayMode2Changed(DemodWaveMode value) => OnPropertyChanged(nameof(DemodWaveTimeLabel2));
 
     partial void OnIsBandPlanVisibleChanged(bool value)
     {
@@ -125,21 +101,19 @@ public partial class MainViewModel : ObservableObject
     {
         string? pluginId = _pluginManager.ActivePluginId;
         if (pluginId is null) return;
-        _lastState.PluginFrequencyDisplayModes ??= new();
-        _lastState.PluginFrequencyDisplayModes[pluginId] = (IsBandPlanVisible, IsStationNameVisible) switch
+        FrequencyDisplayMode mode = (IsBandPlanVisible, IsStationNameVisible) switch
         {
             (true, true) => FrequencyDisplayMode.Both,
             (true, false) => FrequencyDisplayMode.BandOnly,
             (false, true) => FrequencyDisplayMode.StationOnly,
             _ => FrequencyDisplayMode.None
         };
-        _lastStateService.SaveLastState(_lastState);
+        _statePersistence.SaveFrequencyDisplayMode(pluginId, mode);
     }
 
     private FrequencyDisplayMode GetActiveFrequencyDisplayMode() =>
-        _pluginManager.ActivePluginId is { } pluginId &&
-        _lastState.PluginFrequencyDisplayModes?.TryGetValue(pluginId, out var mode) == true
-            ? mode : FrequencyDisplayMode.None;
+        _pluginManager.ActivePluginId is { } pluginId
+            ? _statePersistence.GetFrequencyDisplayMode(pluginId) : FrequencyDisplayMode.None;
 
     private bool _isUpdatingDisplayOption;
     partial void OnSelectedFrequencyDisplayOptionChanged(FrequencyDisplayOption? value)

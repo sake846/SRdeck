@@ -454,8 +454,8 @@ public sealed class PluginManager : IPluginManager
 
 public sealed class PluginHostContextFactory(
     TimeProvider timeProvider,
-    IPluginSettingsStoreFactory settingsStoreFactory,
-    IPluginTuningServiceFactory tuningServiceFactory,
+    JsonPluginSettingsStoreFactory settingsStoreFactory,
+    PluginTuningServiceFactory tuningServiceFactory,
     IPluginAudioSinkFactory audioSinkFactory,
     IPluginMetricsRegistry metricsRegistry,
     Func<IPluginIqDispatcher> iqDispatcherFactory,

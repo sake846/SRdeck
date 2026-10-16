@@ -57,7 +57,7 @@ internal partial class WaterfallRenderer : IDisposable
         lock (_lockObj)
         {
             _d2dRenderTarget?.Dispose(); _d2dWaterfallBitmap?.Dispose(); _d2dWaterfallBitmap = null; _writeY = 0;
-            _d2dRenderTarget = DirectXManager.Instance.CreateRenderTarget(_lastWidth, _lastHeight);
+            _d2dRenderTarget = new ID2D1RenderTarget(_lastWidth, _lastHeight);
             var bmpProps = new BitmapProperties(new PixelFormat(Format.B8G8R8A8_UNorm, AlphaMode.Ignore));
             _d2dWaterfallBitmap = _d2dRenderTarget.CreateBitmap(new SizeI(_lastWidth, _lastHeight), IntPtr.Zero, 0, bmpProps);
             if (_waterfallData == null || _waterfallData.Length != _lastWidth * _lastHeight) _waterfallData = new uint[_lastWidth * _lastHeight];

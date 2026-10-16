@@ -20,11 +20,6 @@ internal static class SdrSampleRatePolicy
         _ => SdrPlayRates
     };
 
-    public static IReadOnlyList<int> GetSupportedRates(bool isRtlDevice, bool isRx888Device = false) =>
-        GetSupportedRates(isRx888Device
-            ? SdrDeviceKind.Rx888
-            : isRtlDevice ? SdrDeviceKind.RtlSdr : SdrDeviceKind.SdrPlay);
-
     public static int Normalize(int sampleRateHz, SdrDeviceKind kind)
     {
         IReadOnlyList<int> rates = GetSupportedRates(kind);
@@ -37,11 +32,6 @@ internal static class SdrSampleRatePolicy
         };
         return rates.Contains(sampleRateHz) ? sampleRateHz : fallback;
     }
-
-    public static int Normalize(int sampleRateHz, bool isRtlDevice, bool isRx888Device = false) =>
-        Normalize(sampleRateHz, isRx888Device
-            ? SdrDeviceKind.Rx888
-            : isRtlDevice ? SdrDeviceKind.RtlSdr : SdrDeviceKind.SdrPlay);
 
     public static int GetMainSpanHz(int sampleRateHz, bool isRtlDevice, bool isRx888Device = false) =>
         isRtlDevice || isRx888Device ? sampleRateHz : (int)(sampleRateHz * 0.875);

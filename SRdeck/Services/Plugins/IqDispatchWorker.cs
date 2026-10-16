@@ -70,7 +70,7 @@ internal sealed class IqDispatchWorker : IDisposable
     {
         if (Volatile.Read(ref _disposed) != 0)
         {
-            _diagnostics.RegisterDisposedDrop(lease.Metadata.SampleCount);
+            _diagnostics.RegisterDrop(lease.Metadata.SampleCount);
             return false;
         }
         if (_diagnostics.TakePendingDiscontinuity())

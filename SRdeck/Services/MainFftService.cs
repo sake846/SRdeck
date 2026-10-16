@@ -82,12 +82,7 @@ public interface IMainFftService : IDisposable
     void ResetMetrics();
 }
 
-public interface IMainFftServiceFactory
-{
-    IMainFftService Create(Action completed);
-}
-
-public sealed class MainFftServiceFactory : IMainFftServiceFactory
+public sealed class MainFftServiceFactory
 {
     private readonly IMainFftWorkerFactory _workerFactory;
     private readonly IRadioDiagnosticsStore _diagnosticsStore;

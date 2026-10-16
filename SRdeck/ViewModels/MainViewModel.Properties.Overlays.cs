@@ -28,26 +28,6 @@ public partial class MainViewModel : ObservableObject
         CommonOverlayVisibility = Visibility.Collapsed;
     }
 
-    // --- Confirm Overlay ---
-    [ObservableProperty] private Visibility _confirmOverlayVisibility = Visibility.Collapsed;
-    [ObservableProperty] private string _confirmOverlayMessageText = string.Empty;
-    [ObservableProperty] private string _confirmOverlayTitle = string.Empty;
-    [ObservableProperty] private System.Windows.Input.ICommand? _confirmOverlayOkCommand;
-
-    [RelayCommand]
-    private void CloseConfirmOverlay()
-    {
-        ConfirmOverlayVisibility = Visibility.Collapsed;
-    }
-
-    public void ShowConfirm(string title, string message, System.Windows.Input.ICommand okCommand)
-    {
-        ConfirmOverlayTitle = title;
-        ConfirmOverlayMessageText = message;
-        ConfirmOverlayOkCommand = okCommand;
-        ConfirmOverlayVisibility = Visibility.Visible;
-    }
-
     // --- Settings Reset Confirm ---
     [ObservableProperty] private Visibility _settingsResetConfirmVisibility = Visibility.Collapsed;
     [ObservableProperty] private string _settingsResetConfirmTitle = "リセットの確認";

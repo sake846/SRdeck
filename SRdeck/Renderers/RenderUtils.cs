@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using SRdeck.Models;
 
 namespace SRdeck.Renderers;
 
@@ -10,8 +9,6 @@ namespace SRdeck.Renderers;
 /// </summary>
 public static class RenderUtils
 {
-    private const float FULL_BW = AppConstants.FULL_BW;
-    
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float FreqToX(float hzOffset, double width, float displayBw)
     {

@@ -99,27 +99,6 @@ public partial class MainViewModel : ObservableObject
         ZoomOverlay.SyncOverlayContent(radioControl, zoomWindowWidth1, 1);
     }
 
-    private void ResolveMutualRepulsion(ref double x1, ref double x2, double waterfallWidth, double zoomWindowWidth1, double zoomWindowWidth2)
-    {
-        double minX = ZOOM_WINDOW_MIN_PADDING;
-        double maxX1 = waterfallWidth - zoomWindowWidth1 - ZOOM_WINDOW_MIN_PADDING;
-        double maxX2 = waterfallWidth - zoomWindowWidth2 - ZOOM_WINDOW_MIN_PADDING;
-        double minDist = ((zoomWindowWidth1 + zoomWindowWidth2) / 2.0) + ZOOM_WINDOW_CONFLICT_DIST;
-        double currentDist = Math.Abs(x1 - x2);
-        
-        if (currentDist < minDist)
-        {
-            double push = minDist - currentDist;
-            if (x1 <= x2) { x1 -= push / 2.0; x2 += push / 2.0; }
-            else { x1 += push / 2.0; x2 -= push / 2.0; }
-            
-            if (x1 < minX) { double extra = minX - x1; x1 = minX; x2 += extra; }
-            if (x1 > maxX1) { double extra = x1 - maxX1; x1 = maxX1; x2 -= extra; }
-            if (x2 < minX) { double extra = minX - x2; x2 = minX; x1 += extra; }
-            if (x2 > maxX2) { double extra = x2 - maxX2; x2 = maxX2; x1 -= extra; }
-        }
-    }
-
     private void ResolveZoomConflict(ref double x, ref double y, Rect otherWindow, Rect boxRect1, Rect boxRect2, double waterfallWidth, double zoomWindowWidth, double zoomWindowHeight)
     {
         Rect self = new Rect(x, y, zoomWindowWidth, zoomWindowHeight);

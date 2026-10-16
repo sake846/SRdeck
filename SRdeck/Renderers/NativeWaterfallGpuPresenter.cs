@@ -10,7 +10,6 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
     private D3DImageInterop? _interop;
     private uint[] _rowPixels = Array.Empty<uint>();
     private uint[] _historyPixels = Array.Empty<uint>();
-    private NativeGpuDrawApi.LineVertex[] _idleVertices = new NativeGpuDrawApi.LineVertex[12];
     private float[]? _maxFftDat;
     private int _width = 10;
     private int _height = 10;
@@ -165,25 +164,6 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
         }
     }
 
-    public unsafe void RenderIdle()
-    {
-        if (!IsReady) return;
-        float split = Math.Max(1, (float)Math.Round(_height * 0.38));
-        uint blue = 0xFF0D3D80u;
-        uint red = 0xFFFF1010u;
-
-        int n = 0;
-        AddIdleRect(ref n, 0, 0, _width, split, blue);
-        AddIdleRect(ref n, 0, split, _width, _height, red);
-        if (!_interop!.TryBeginUpdate(out var update)) return;
-        using (update)
-        fixed (NativeGpuDrawApi.LineVertex* ptr = _idleVertices)
-        {
-            try { _ = NativeGpuDrawApi.DrawTriangles(_nativeSurface, (IntPtr)ptr, n, 1, 0xFF000000u); }
-            catch { return; }
-        }
-    }
-
     public void RenderBlank()
     {
         if (!IsReady) return;
@@ -280,16 +260,6 @@ internal sealed class NativeWaterfallGpuPresenter : IDisposable
             try { _ = NativeGpuDrawApi.UploadBgraSurface(_nativeSurface, (IntPtr)ptr, _width, _height); }
             catch { return; }
         }
-    }
-
-    private void AddIdleRect(ref int n, float x0, float y0, float x1, float y1, uint color)
-    {
-        _idleVertices[n++] = new NativeGpuDrawApi.LineVertex(x0, y0, color);
-        _idleVertices[n++] = new NativeGpuDrawApi.LineVertex(x1, y0, color);
-        _idleVertices[n++] = new NativeGpuDrawApi.LineVertex(x1, y1, color);
-        _idleVertices[n++] = new NativeGpuDrawApi.LineVertex(x0, y0, color);
-        _idleVertices[n++] = new NativeGpuDrawApi.LineVertex(x1, y1, color);
-        _idleVertices[n++] = new NativeGpuDrawApi.LineVertex(x0, y1, color);
     }
 
     private long GetBlockDelta(long blockSequence)

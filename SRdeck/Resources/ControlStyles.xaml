@@ -4,7 +4,6 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Brushes.xaml" />
         <ResourceDictionary Source="Fonts.xaml" />
-        <ResourceDictionary Source="Converters.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <!-- Base Styles -->
@@ -56,122 +55,6 @@
                 <Setter Property="Opacity" Value="0.5"/>
             </Trigger>
         </Style.Triggers>
-    </Style>
-
-    <Style x:Key="MainActionButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource BgDarkBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderOffBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid>
-                        <Border Margin="-1" CornerRadius="10" Background="#FF000000" Opacity="0.4"/>
-                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
-                            <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0"/>
-                        </Border>
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
-                <Setter Property="Background" Value="{StaticResource BgActiveAmberBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderActiveBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource TextActiveBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="{x:Static sys:Boolean.TrueString}">
-                <Setter Property="Background" Value="{StaticResource BgActiveAmberBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderActiveBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource TextActiveBrush}"/>
-            </DataTrigger>
-            <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Background" Value="#FF282828"/>
-                <Setter Property="BorderBrush" Value="#FF404040"/>
-                <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
-            </Trigger>
-            <MultiDataTrigger>
-                <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsEnabled}" Value="False"/>
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True"/>
-                </MultiDataTrigger.Conditions>
-                <Setter Property="Background" Value="{StaticResource BgActiveAmberBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderActiveBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource TextActiveBrush}"/>
-                <Setter Property="Opacity" Value="1.0" />
-            </MultiDataTrigger>
-            <MultiDataTrigger>
-                <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsEnabled}" Value="False"/>
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="{x:Static sys:Boolean.TrueString}"/>
-                </MultiDataTrigger.Conditions>
-                <Setter Property="Background" Value="{StaticResource BgActiveAmberBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderActiveBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource TextActiveBrush}"/>
-                <Setter Property="Opacity" Value="1.0" />
-            </MultiDataTrigger>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource BgOffHoverBrush}"/>
-            </Trigger>
-            <MultiDataTrigger>
-                <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True"/>
-                </MultiDataTrigger.Conditions>
-                <Setter Property="Background" Value="{StaticResource BgHoverAmberBrush}"/>
-            </MultiDataTrigger>
-            <Trigger Property="IsPressed" Value="True">
-                <Setter Property="Background" Value="{StaticResource BgPressedAmberBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderActiveBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource TextActiveBrush}"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-
-    <Style x:Key="GridContextMenuStyle" TargetType="ContextMenu">
-        <Setter Property="Background" Value="{StaticResource PanelBaseBrush}"/>
-        <Setter Property="BorderBrush" Value="#FF88CC00"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="2"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
-                        <ItemsPresenter />
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <Style x:Key="GridMenuItemStyle" TargetType="MenuItem">
-        <Setter Property="Background" Value="{StaticResource ControlBaseBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="FontFamily" Value="{StaticResource MainFontFamily}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BgMediumGrayBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Margin" Value="1"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="MenuItem">
-                    <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" Width="55" Height="22">
-                        <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource BgMediumGrayBrush}"/>
-                            <Setter TargetName="border" Property="BorderBrush" Value="#FF888888"/>
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <Style TargetType="GroupBox">

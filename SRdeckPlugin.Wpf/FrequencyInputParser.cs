@@ -6,7 +6,8 @@ public enum FrequencyInputUnit
 {
     Hz,
     KiloHertz,
-    MegaHertz
+    MegaHertz,
+    GigaHertz
 }
 
 public static class FrequencyInputParser
@@ -21,7 +22,12 @@ public static class FrequencyInputParser
         if (text.Length > 0)
         {
             char suffix = text[^1];
-            if (suffix is 'm' or 'M')
+            if (suffix is 'g' or 'G')
+            {
+                unit = FrequencyInputUnit.GigaHertz;
+                text = text[..^1];
+            }
+            else if (suffix is 'm' or 'M')
             {
                 unit = FrequencyInputUnit.MegaHertz;
                 text = text[..^1];
@@ -44,6 +50,7 @@ public static class FrequencyInputParser
 
         double multiplier = unit switch
         {
+            FrequencyInputUnit.GigaHertz => 1_000_000_000d,
             FrequencyInputUnit.MegaHertz => 1_000_000d,
             FrequencyInputUnit.KiloHertz => 1_000d,
             _ => 1d

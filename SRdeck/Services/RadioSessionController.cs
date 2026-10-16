@@ -23,6 +23,7 @@ public sealed partial class RadioSessionController : IRadioSessionController, IS
     private readonly IPlaybackSessionStarter _playbackSessionStarter;
     private readonly IPlaybackSessionRunner _playbackSessionRunner;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
+    private Task _playbackProcessing = Task.CompletedTask;
     private long _generation;
 
     public RadioSessionController(
@@ -51,6 +52,7 @@ public sealed partial class RadioSessionController : IRadioSessionController, IS
         try
         {
             _generation++;
+            await StopPlaybackProcessingAsync();
             return await _sdrSessionStarter.StartAsync();
         }
         finally
@@ -65,10 +67,11 @@ public sealed partial class RadioSessionController : IRadioSessionController, IS
         try
         {
             long generation = ++_generation;
+            await StopPlaybackProcessingAsync();
             RadioSessionStartResult result = await _playbackSessionStarter.StartAsync(filePath, startSeconds);
             if (result.Success)
             {
-                _playbackSessionRunner.Run(generation, _operationGate, () => _generation);
+                _playbackProcessing = _playbackSessionRunner.Run(generation, _operationGate, () => _generation);
             }
             return result;
         }
@@ -84,6 +87,7 @@ public sealed partial class RadioSessionController : IRadioSessionController, IS
         try
         {
             _generation++;
+            await StopPlaybackProcessingAsync();
             // Device shutdown can wait for native SDR callbacks to finish.
             // Never perform that potentially blocking work on the WPF UI thread.
             await Task.Run(_transitionCoordinator.StopCurrentSession);
@@ -92,5 +96,12 @@ public sealed partial class RadioSessionController : IRadioSessionController, IS
         {
             _operationGate.Release();
         }
+    }
+
+    private async Task StopPlaybackProcessingAsync()
+    {
+        if (_engine.IsPlaying) _engine.StopPlaybackSession();
+        // Wait for processing only: its completion callback needs the gate held here.
+        await _playbackProcessing;
     }
 }

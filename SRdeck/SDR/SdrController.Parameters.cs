@@ -175,14 +175,6 @@ public partial class SdrController
         return SdrPlayApi.Bw_MHzT.BW_0_200;
     }
 
-    private byte GetDefaultLnaState(byte hwVer) => hwVer switch
-    {
-        SdrPlayApi.SDRPLAY_RSP1A_ID => 2,
-        SdrPlayApi.SDRPLAY_RSPdx_ID or SdrPlayApi.SDRPLAY_RSPdxR2_ID => 0,
-        SdrPlayApi.SDRPLAY_RSP2_ID or SdrPlayApi.SDRPLAY_RSPduo_ID => 1,
-        _ => 0
-    };
-
     private bool StartStreaming()
     {
         StartSampleDispatcher();

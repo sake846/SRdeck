@@ -121,7 +121,7 @@ dotnet build SRdeckPlugin.Example\SRdeckPlugin.Example.csproj -c Release
 
 標準チャネル例は`docs/samples/SRdeckPlugin.ChannelExample`にあります。同調要求、チャネルID、中心周波数、帯域、出力サンプルレートを一つの定義から作り、周波数オーバーレイとも一致させてください。
 
-## 7. コールバックを実処理へ育てる
+## 7. コールバックに処理を追加する
 
 `ConsumeAsync`では、次の順序を保つとテストしやすくなります。
 

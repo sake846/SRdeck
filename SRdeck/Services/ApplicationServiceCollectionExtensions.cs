@@ -20,8 +20,8 @@ internal static class ApplicationServiceCollectionExtensions
         services
             .AddSingleton(TimeProvider.System)
             .AddSingleton(pluginModules)
-            .AddSingleton<IPluginSettingsStoreFactory, JsonPluginSettingsStoreFactory>()
-            .AddSingleton<IPluginTuningServiceFactory>(sp => new PluginTuningServiceFactory(
+            .AddSingleton<JsonPluginSettingsStoreFactory>()
+            .AddSingleton<PluginTuningServiceFactory>(sp => new PluginTuningServiceFactory(
                 () => sp.GetRequiredService<IPluginManager>(),
                 sp.GetRequiredService<IRadioControlStore>(),
                 sp.GetRequiredService<IRadioControlUpdatePublisher>(),
@@ -36,8 +36,8 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<IPluginMetricsRegistry, PluginMetricsRegistry>()
             .AddSingleton<IPluginHostContextFactory>(sp => new PluginHostContextFactory(
                 sp.GetRequiredService<TimeProvider>(),
-                sp.GetRequiredService<IPluginSettingsStoreFactory>(),
-                sp.GetRequiredService<IPluginTuningServiceFactory>(),
+                sp.GetRequiredService<JsonPluginSettingsStoreFactory>(),
+                sp.GetRequiredService<PluginTuningServiceFactory>(),
                 sp.GetRequiredService<IPluginAudioSinkFactory>(),
                  sp.GetRequiredService<IPluginMetricsRegistry>(),
                  () => sp.GetRequiredService<IPluginIqDispatcher>(),
@@ -66,13 +66,10 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<IEffectiveSampleRateTracker, EffectiveSampleRateTracker>()
             .AddSingleton<IIqSampleExtremaCalculator, IqSampleExtremaCalculator>()
             .AddSingleton<ISignalInputMetrics, SignalInputMetrics>()
-            .AddSingleton<ISdrDeviceBindingFactory, SdrDeviceBindingFactory>()
-            .AddSingleton<ISdrDeviceManagerFactory, SdrDeviceManagerFactory>()
+            .AddSingleton<SdrDeviceManagerFactory>()
             .AddSingleton<ISignalBufferManager, SignalBufferManager>()
             .AddSingleton<ISignalBufferState, SignalBufferState>()
-            .AddSingleton<ISignalBufferWriterFactory, SignalBufferWriterFactory>()
-            .AddSingleton<ISignalBlockCoordinatorFactory, SignalBlockCoordinatorFactory>()
-            .AddSingleton<ISignalPipelineFactory, SignalPipelineFactory>()
+            .AddSingleton<SignalPipelineFactory>()
             .AddSingleton<IProcessingCycleCoordinator, ProcessingCycleCoordinator>()
             .AddSingleton<IRadioStateStore, RadioStateStore>()
             .AddSingleton<IRadioControlStore, RadioControlStore>()
@@ -102,14 +99,12 @@ internal static class ApplicationServiceCollectionExtensions
             .AddSingleton<ISignalProcessingWorkerFactory, SignalProcessingWorkerFactory>()
             .AddSingleton<IPlaybackProcessor, PlaybackProcessor>()
             .AddSingleton<IAudioService, AudioService>()
-            .AddSingleton<IAgcManagerFactory, AgcManagerFactory>()
             .AddSingleton<IMainFftWorkerFactory, MainFftWorkerFactory>()
-            .AddSingleton<IMainFftServiceFactory, MainFftServiceFactory>()
+            .AddSingleton<MainFftServiceFactory>()
             .AddSingleton<IGpuUsageMonitor, GpuUsageMonitor>()
             .AddSingleton<ICpuUsageMonitor, CpuUsageMonitor>()
             .AddSingleton<IRadioDiagnosticsStore, RadioDiagnosticsStore>()
-            .AddSingleton<IRadioDiagnosticsCollector, RadioDiagnosticsCollector>()
-            .AddSingleton<IRadioProcessingPipeline, RadioProcessingPipeline>();
+            .AddSingleton<IRadioDiagnosticsCollector, RadioDiagnosticsCollector>();
 
     public static IServiceCollection AddPresentationServices(
         this IServiceCollection services) =>

@@ -20,10 +20,6 @@ public record class RadioControlUpdateMessage(
 /// </summary>
 public record class BiasUpdateMessage(int SpectrumBiasAdj, int WaterfallBiasAdj, int SpectrumZoomBiasAdj, int WaterfallZoomBiasAdj);
 /// <summary>
-/// ズームウィンドウのスパン設定変更を伝えるためのメッセージです。
-/// </summary>
-public record class ZoomSpanChangeMessage(int ReceiverIndex, int NewSpanHz);
-/// <summary>
 /// 拡大画面の描画モード（オート/ノーマル/ハイレゾ）の変更を伝えるためのメッセージです。
 /// </summary>
 public record class ZoomModeUpdateMessage(int ReceiverIndex, int Mode);
