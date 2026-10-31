@@ -65,6 +65,7 @@ public sealed record MainFftResult(
     MainFftTiming Timing)
 {
     public FftPowerSummary? PowerSummary { get; init; }
+    public int SampleRateHz { get; init; }
 }
 
 public interface IMainFftWorker : IDisposable
@@ -93,7 +94,8 @@ internal sealed class MainFftWorker : IMainFftWorker
         long Generation,
         long MetricsEpoch,
         int CenterFrequencyHz,
-        long WaterfallBlockSequence);
+        long WaterfallBlockSequence,
+        int SampleRateHz);
 
     private const int MaximumPendingMetadataEntries = 64;
     private static readonly AsyncLocal<MainFftWorker?> ExecutingWorker = new();
@@ -287,7 +289,8 @@ internal sealed class MainFftWorker : IMainFftWorker
                         request.Generation,
                         request.MetricsEpoch,
                         request.InputCenterFreqHz,
-                        request.WaterfallBlockSequence);
+                        request.WaterfallBlockSequence,
+                        request.Control.FsHz);
                     PrunePendingMetadataLocked();
                 }
 
@@ -315,7 +318,11 @@ internal sealed class MainFftWorker : IMainFftWorker
                 noiseFloor,
                 hasMatchedFrame ? completedMetadata.CenterFrequencyHz : request.InputCenterFreqHz,
                 hasMatchedFrame ? completedMetadata.WaterfallBlockSequence : request.WaterfallBlockSequence,
-                timing) { PowerSummary = _processor.LastPowerSummary };
+                timing)
+                {
+                    PowerSummary = _processor.LastPowerSummary,
+                    SampleRateHz = hasMatchedFrame ? completedMetadata.SampleRateHz : request.Control.FsHz
+                };
         }
         catch (Exception ex)
         {

@@ -16,6 +16,7 @@ if errorlevel 1 (
 
 echo Restoring SRdeck...
 dotnet restore "SRdeck.sln" ^
+    -m:1 ^
     -p:Configuration=%BUILD_CONFIGURATION% ^
     -p:Platform=x64
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
@@ -24,6 +25,7 @@ if not "%BUILD_EXIT_CODE%"=="0" goto end
 echo Building SRdeck and native DLLs in %BUILD_CONFIGURATION% x64...
 dotnet build "SRdeck.sln" ^
     --configuration "%BUILD_CONFIGURATION%" ^
+    -m:1 ^
     --no-restore ^
     -p:Platform=x64
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"

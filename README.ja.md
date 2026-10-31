@@ -25,7 +25,7 @@ SRdeckはSRdeck SDRスイートのホストアプリケーションと、公開�
 
 ## リリースメタデータ
 
-- リリースバージョン: `1.0.8`
+- リリースバージョン: `1.0.9`
 
 ## 内容
 
@@ -100,8 +100,8 @@ build.bat
 
 対応するGitHub Releaseには、フレームワーク依存のWindows x64パッケージを2種類添付します。
 
-- `SRdeck-1.0.8-win-x64-host-only.zip` — オプションプラグインを含まないホストアプリケーション
-- `SRdeck-1.0.8-win-x64-with-plugins.zip` — 公開対象プラグインを同梱したホストアプリケーション
+- `SRdeck-1.0.9-win-x64-host-only.zip` — オプションプラグインを含まないホストアプリケーション
+- `SRdeck-1.0.9-win-x64-with-plugins.zip` — 公開対象プラグインを同梱したホストアプリケーション
 
 パッケージには`SRdeck.exe`、権利・セキュリティ文書、依存関係の通知、
 `PACKAGE-MANIFEST.json`を含みます。実行前に.NET 10 Desktop Runtime (x64)を

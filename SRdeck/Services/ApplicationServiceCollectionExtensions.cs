@@ -43,7 +43,8 @@ internal static class ApplicationServiceCollectionExtensions
                  () => sp.GetRequiredService<IPluginIqDispatcher>(),
                  sp.GetRequiredService<IPluginNotificationService>(),
                  sp.GetRequiredService<SRdeckPlugin.Contracts.IPluginDispatcher>(),
-                 sp.GetRequiredService<IRadioStateStore>()))
+                 sp.GetRequiredService<IRadioStateStore>(),
+                 () => sp.GetRequiredService<ISdrEngine>()))
             .AddSingleton<IPluginManager>(sp => new PluginManager(
                 sp.GetRequiredService<IReadOnlyList<IPluginModule>>(),
                 sp.GetRequiredService<IPluginHostContextFactory>()))

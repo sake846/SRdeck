@@ -24,6 +24,8 @@ public sealed record MainFftFrame(
     long WaterfallBlockSequence)
 {
     public FftPowerSummary? PowerSummary { get; init; }
+    public int SampleRateHz { get; init; }
+    public DateTimeOffset TimestampUtc { get; init; }
 }
 
 internal sealed class MainFftFrameSlot(MainFftFrame frame)
@@ -303,7 +305,11 @@ internal sealed class MainFftService : IMainFftService, IMainFftFrameLeaseOwner
                     result.NoiseFloorFftData,
                     result.FullResFftData,
                     result.CenterFrequencyHz,
-                    result.WaterfallBlockSequence) { PowerSummary = result.PowerSummary });
+                    result.WaterfallBlockSequence)
+                    {
+                        PowerSummary = result.PowerSummary, SampleRateHz = result.SampleRateHz,
+                        TimestampUtc = DateTimeOffset.UtcNow
+                    });
                 SetWriteBuffersLocked(TakeReusableBuffersLocked(previous));
                 published = true;
             }

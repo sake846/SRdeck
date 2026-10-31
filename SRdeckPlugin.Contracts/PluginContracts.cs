@@ -124,6 +124,7 @@ public interface IPluginHostContext
     IPluginRuntimeDiagnostics RuntimeDiagnostics => NullPluginRuntimeDiagnostics.Instance;
     IPluginNotificationService Notifications { get; }
     IPluginReceiverTelemetry? ReceiverTelemetry => null;
+    IPluginSpectrumService Spectrum => NullPluginSpectrumService.Instance;
 }
 
 /// <summary>

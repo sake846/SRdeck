@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using SRdeckPlugin.Contracts;
 using SRdeckPlugin.Sdk;
 using SRdeck.Services;
+using SRdeck.Models;
 
 namespace SRdeck.Services.Plugins;
 
@@ -13,7 +14,14 @@ public sealed record PluginRuntimeInfo(
     PluginLifecycleState State,
     bool IsCompatible,
     string? LastError,
-    string? SelectedProfileId = null);
+    string? SelectedProfileId = null)
+{
+    public string SelectionDisplayName => Descriptor.Id is
+        "arib-t61" or "arib-t79" or "arib-t80" or "arib-t86" or "arib-t102" or "arib-t114" or
+        "arib-t115" or "arib-t116" or "c4fm" or "dmr" or "dstar" or "taxi" or "private-railway"
+            ? $"＿{Descriptor.DisplayName}"
+            : Descriptor.DisplayName;
+}
 
 public sealed record PluginPerformanceConfiguration(
     string PluginId,
@@ -461,7 +469,8 @@ public sealed class PluginHostContextFactory(
     Func<IPluginIqDispatcher> iqDispatcherFactory,
     IPluginNotificationService notificationService,
     IPluginDispatcher dispatcher,
-    IRadioStateStore radioStateStore) : IPluginHostContextFactory
+    IRadioStateStore radioStateStore,
+    Func<IRadioRenderContext>? renderContextFactory = null) : IPluginHostContextFactory
 {
     public IPluginHostContext Create(string pluginId) =>
         new PluginHostContext(
@@ -475,7 +484,8 @@ public sealed class PluginHostContextFactory(
             new HostPluginRuntimeDiagnostics(pluginId, iqDispatcherFactory),
             dispatcher,
             notificationService,
-            new RadioStatePluginTelemetry(radioStateStore));
+            new RadioStatePluginTelemetry(radioStateStore),
+            renderContextFactory is null ? null : new HostSpectrumService(renderContextFactory));
 }
 
 internal sealed class RadioStatePluginTelemetry(IRadioStateStore radioStateStore) : IPluginReceiverTelemetry
@@ -548,7 +558,11 @@ internal sealed record PluginHostContext(
     IPluginRuntimeDiagnostics RuntimeDiagnostics,
     IPluginDispatcher Dispatcher,
     IPluginNotificationService Notifications,
-    IPluginReceiverTelemetry? ReceiverTelemetry = null) : IPluginHostContext;
+    IPluginReceiverTelemetry? ReceiverTelemetry = null,
+    IPluginSpectrumService? SpectrumService = null) : IPluginHostContext
+{
+    public IPluginSpectrumService Spectrum => SpectrumService ?? NullPluginSpectrumService.Instance;
+}
 
 internal sealed class TracePluginLogger(string pluginId) : IPluginLogger
 {

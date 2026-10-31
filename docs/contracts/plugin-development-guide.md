@@ -203,6 +203,12 @@ Stop復帰後に旧ストリームの結果を発行してはならない。
 `RuntimeDiagnostics`、方式固有メトリクス記録を `Metrics` から取得できる。これらは利用可能性または
 Null実装を考慮し、DSPの成立条件として必須にしない。
 
+共有FFTを可視化や周波数解析に再利用する場合は、任意の `IPluginHostContext.Spectrum` を利用できる。
+入力帯域全体、画面の表示帯域、任意の絶対周波数範囲を指定し、出力点数とピーク／電力平均を選択する。
+返却値は表示と同じdBm基準で、保持可能なコピーと周波数座標・入力条件・FFT公開時刻を持つ。
+未対応ホストや有効FFTがない場合は `null` を返す。画面への追従ではFFT識別子だけでなく範囲の変更も確認する。
+詳細と利用例は [共有スペクトラムサービス](spectrum-service-contract.md) を参照する。
+
 `WaterfallTimeMode` は `Uncompressed`（FFT更新1回につき1行、時間方向の集約なし）、
 `ThreeMinutes`、`OneHour` の3値を持つ。プロバイダーがない場合および未定義値の場合は
 `ThreeMinutes` とし、`PreferredDisplayBandwidthHz` が `null` の場合は拡大しない。
