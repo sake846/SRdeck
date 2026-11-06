@@ -89,7 +89,9 @@ public partial class SdrController
             Volatile.Write(ref _droppedCallbackCount, 0);
             Volatile.Write(ref _enqueuedSampleBlocks, 0);
             Volatile.Write(ref _dequeuedSampleBlocks, 0);
-            _sampleClock = new SdrSampleClock();
+            uint decimation = _rxChannelParamsA.CtrlParams.Decimation.Enable != 0
+                ? _rxChannelParamsA.CtrlParams.Decimation.DecimationFactor : 1u;
+            _sampleClock = new SdrSampleClock(uint.MaxValue / Math.Max(1u, decimation));
             _sampleQueueCancellation = new CancellationTokenSource();
             _sampleQueue = Channel.CreateBounded<QueuedSampleBlock>(
                 new BoundedChannelOptions(SampleQueueCapacity)

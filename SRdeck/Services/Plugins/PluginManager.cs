@@ -16,11 +16,7 @@ public sealed record PluginRuntimeInfo(
     string? LastError,
     string? SelectedProfileId = null)
 {
-    public string SelectionDisplayName => Descriptor.Id is
-        "arib-t61" or "arib-t79" or "arib-t80" or "arib-t86" or "arib-t102" or "arib-t114" or
-        "arib-t115" or "arib-t116" or "c4fm" or "dmr" or "dstar" or "taxi" or "private-railway"
-            ? $"＿{Descriptor.DisplayName}"
-            : Descriptor.DisplayName;
+    public string SelectionDisplayName => Descriptor.DisplayName;
 }
 
 public sealed record PluginPerformanceConfiguration(

@@ -20,10 +20,10 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <TextBlock Grid.ColumnSpan="2" Text="保存した IQ WAV を再生します。中心周波数と開始位置を確認してください。"
+        <TextBlock Grid.ColumnSpan="2" Text="保存した IQ WAV を再生します。録音終了後、分割録音は最初のファイルを選ぶと連番を続けて再生します。中心周波数と開始位置を確認してください。"
                    TextWrapping="Wrap" Margin="0,0,0,12" />
         <TextBlock Grid.Row="1" Text="ファイル" VerticalAlignment="Center" />
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FilePath}" IsReadOnly="True"
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FilePath, Mode=OneWay}" IsReadOnly="True"
                  Style="{DynamicResource PluginTextBoxStyle}" />
         <TextBlock Grid.Row="2" Text="形式" VerticalAlignment="Center" />
         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FormatText}" Margin="4,6" />

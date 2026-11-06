@@ -279,6 +279,11 @@ public partial class CoreEngine : ISdrEngine
         get => _agcManager.ReleaseMode;
         set => _agcManager.ReleaseMode = value;
     }
+    public AgcControlSettings AgcControlSettings
+    {
+        get => _agcManager.ControlSettings;
+        set => _agcManager.ControlSettings = value;
+    }
 
     public CoreEngine(
         IAudioService audioService,

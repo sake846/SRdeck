@@ -78,6 +78,8 @@ public class HardwareSettings
         set => agcReleaseMode = Enum.IsDefined(value) ? value : AgcReleaseMode.Slow;
     }
 
+    public List<AgcSensitivityProfile> AgcSensitivityProfiles { get; set; } = AgcSensitivityProfile.CreateDefaults();
+
 
 
 }

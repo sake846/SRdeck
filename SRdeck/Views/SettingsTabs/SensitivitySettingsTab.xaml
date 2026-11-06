@@ -1,0 +1,83 @@
+<UserControl x:Class="SRdeck.Views.SettingsTabs.SensitivitySettingsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:models="clr-namespace:SRdeck.Models"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="600"
+             Foreground="{StaticResource TextPrimaryBrush}" FontFamily="{StaticResource MainFontFamily}">
+    <StackPanel Margin="10,12">
+        <TextBlock Text="{DynamicResource Desc_AgcSensitivity}" Foreground="{StaticResource TextDimBrush}"
+                   FontSize="10" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource Label_AgcProfile}" Foreground="{StaticResource TextPrimaryBrush}"
+                       VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" Width="170" Height="26" SelectedValuePath="Tag"
+                      SelectedValue="{Binding SelectedAgcSensitivityMode, Mode=TwoWay}">
+                <ComboBoxItem Content="{DynamicResource AgcMode_Fast}" Tag="{x:Static models:AgcReleaseMode.Fast}" />
+                <ComboBoxItem Content="{DynamicResource AgcMode_Medium}" Tag="{x:Static models:AgcReleaseMode.Medium}" />
+                <ComboBoxItem Content="{DynamicResource AgcMode_Slow}" Tag="{x:Static models:AgcReleaseMode.Slow}" />
+            </ComboBox>
+        </Grid>
+
+        <Border Background="#FF151515" BorderBrush="#FF333333" BorderThickness="1" CornerRadius="4" Padding="12,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="{DynamicResource Label_SensitivityAttack}" VerticalAlignment="Center" Margin="0,4,8,4" />
+                <TextBox Grid.Row="0" Grid.Column="1" Width="120" Height="26" Margin="4,2"
+                         Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                         Text="{Binding SelectedAgcSensitivityProfile.AttackSeconds, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.###}}" />
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource Unit_Seconds}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+
+                <TextBlock Grid.Row="1" Text="{DynamicResource Label_SensitivityRelease}" VerticalAlignment="Center" Margin="0,4,8,4" />
+                <TextBox Grid.Row="1" Grid.Column="1" Width="120" Height="26" Margin="4,2"
+                         Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                         Text="{Binding SelectedAgcSensitivityProfile.ReleaseSeconds, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.###}}" />
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource Unit_Seconds}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+
+                <TextBlock Grid.Row="2" Text="{DynamicResource Label_AgcHold}" VerticalAlignment="Center" Margin="0,4,8,4" />
+                <TextBox Grid.Row="2" Grid.Column="1" Width="120" Height="26" Margin="4,2"
+                         Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                         Text="{Binding SelectedAgcSensitivityProfile.HoldSeconds, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.###}}" />
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource Unit_Seconds}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+
+                <TextBlock Grid.Row="3" Text="{DynamicResource Label_AgcUpperThreshold}" VerticalAlignment="Center" Margin="0,4,8,4" />
+                <TextBox Grid.Row="3" Grid.Column="1" Width="120" Height="26" Margin="4,2"
+                         Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                         Text="{Binding SelectedAgcSensitivityProfile.UpperThresholdDbfs, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.0}}" />
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="dBFS" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+
+                <TextBlock Grid.Row="4" Text="{DynamicResource Label_AgcLowerThreshold}" VerticalAlignment="Center" Margin="0,4,8,4" />
+                <TextBox Grid.Row="4" Grid.Column="1" Width="120" Height="26" Margin="4,2"
+                         Style="{StaticResource ReceiverDialogTextBoxStyle}"
+                         Text="{Binding SelectedAgcSensitivityProfile.LowerThresholdDbfs, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.0}}" />
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="dBFS" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+            </Grid>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <TextBlock Text="{DynamicResource Desc_AgcDefault}" Foreground="{StaticResource TextDimBrush}"
+                       FontSize="10" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <Button Content="{DynamicResource Btn_Default}" Style="{StaticResource FlatButtonStyle}"
+                    Width="90" Height="26" Command="{Binding ResetAgcSensitivityProfilesCommand}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

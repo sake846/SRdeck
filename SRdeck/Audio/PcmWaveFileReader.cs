@@ -90,6 +90,7 @@ internal sealed class PcmWaveFileReader : IDisposable
             switch (chunkId)
             {
                 case "fmt ":
+                    if (chunkSize < 16) throw new InvalidDataException("WAV fmt chunk is too short.");
                     short audioFormat = reader.ReadInt16();
                     short channels = reader.ReadInt16();
                     int sampleRate = reader.ReadInt32();
@@ -115,6 +116,7 @@ internal sealed class PcmWaveFileReader : IDisposable
         }
 
         if (format == null || dataOffset < 0) throw new InvalidDataException("WAV fmt/data chunk not found.");
+        if (dataLength % format.BlockAlign != 0) throw new InvalidDataException("WAV data ends inside a sample frame.");
         return (format, dataOffset, dataLength);
     }
 }

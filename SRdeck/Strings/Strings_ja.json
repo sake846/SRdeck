@@ -19,7 +19,25 @@
       "Option_FilterOff": "Off (フィルターなし)",
       "Option_MwOnly": "MW (中波) のみ有効",
       "Option_FmOnly": "FM のみ有効",
-      "Option_BothEnabled": "両方有効 (MW + FM)"
+      "Option_BothEnabled": "両方有効 (MW + FM)",
+      "AgcMode_Off": "制御なし",
+      "AgcMode_Fast": "高速",
+      "AgcMode_Medium": "中速",
+      "AgcMode_Slow": "低速",
+      "AgcMode_AttackOnly": "アタックのみ"
+    },
+    "SensitivityTab": {
+      "Tab_Sensitivity": "感度設定",
+      "Desc_AgcSensitivity": "上限を超えるとアタックし、下限を下回るとホールド後にリリースします。時間はゲイン変更の間隔です。アタック0秒は即時です。",
+      "Label_AgcProfile": "感度制御:",
+      "Label_SensitivityAttack": "アタック時間:",
+      "Label_SensitivityRelease": "リリース時間:",
+      "Label_AgcHold": "ホールド時間:",
+      "Label_AgcUpperThreshold": "制御開始上限:",
+      "Label_AgcLowerThreshold": "制御開始下限:",
+      "Desc_AgcDefault": "全モードの設定値を既定値に戻します。",
+      "Btn_Default": "デフォルト",
+      "Unit_Seconds": "秒"
     },
     "DisplayTab": {
       "Tab_Display": "画面表示",
@@ -82,8 +100,8 @@
       "Label_AmAgc": "■ AM AGC 定数",
       "Label_SsbAgc": "■ SSB AGC 定数",
       "Label_FmAgc": "■ FM AGC 定数",
-      "Label_AgcAttack": "アタック (Ka):",
-      "Label_AgcRelease": "リリース (Kr):"
+      "Label_AgcAttack": "アタック:",
+      "Label_AgcRelease": "リリース:"
     },
     "MapTab": {
       "Tab_Map": "地図",

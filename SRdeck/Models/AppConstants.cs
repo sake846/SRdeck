@@ -57,7 +57,7 @@ public static class AppConstants
     public const int STATISTICS_GRID_SIZE = 1800;
 
     /// <summary>
-    /// ADC オーバーフローやクリッピングを防ぐための AGC 制御上限値です（約 -1.0 dBFS）。
+    /// ADC オーバーフローやクリッピングを防ぐための AGC 制御上限値です（約 -6.0 dBFS）。
     /// </summary>
     public const short AGC_UPPER_THRESHOLD = 16423;
 
@@ -67,8 +67,7 @@ public static class AppConstants
     public const short AGC_LOWER_THRESHOLD = 4125;
 
     /// <summary>
-    /// AGC の各リリースモードで、最後の過大入力またはリリースから
-    /// 次のリリース制御まで待機する秒数です。
+    /// AGC の初期プロファイルに使うリリース間隔（秒）です。
     /// </summary>
     public const double AGC_RELEASE_FAST_SECONDS = 0.1;
     public const double AGC_RELEASE_MEDIUM_SECONDS = 1.0;

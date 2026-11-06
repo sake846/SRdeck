@@ -10,7 +10,7 @@ public partial class FftProcessor
         if (runner is null || runner.MaxBatchSize != batch)
         {
             runner?.Dispose();
-            runner = _gpuFfts[mode] = new GpuFftRunner(_fftSizes[mode], _fftSizeBs[mode], batch, window.hData);
+            runner = _gpuFfts[mode] = new GpuFftRunner(FftResolutionPolicy.GetFftSize(mode), _fftSizeBs[mode], batch, window.hData);
         }
         return runner;
     }
@@ -23,11 +23,11 @@ public partial class FftProcessor
         if (mode < 0 || mode >= MAX_RESOLUTION_MODES) mode = 0;
         int batch = Math.Clamp(control.FftBatchCount <= 0 ? 10 : control.FftBatchCount, 1, MAX_BATCH_COUNT);
         int step = batch == 1 ? 0 : control.FsHz / 10 / batch;
-        GpuSpectrumRequest? request = batch == 1 ? CreateSpectrumRequest(control, requestedWidth, _fftSizes[mode]) : null;
+        GpuSpectrumRequest? request = batch == 1 ? CreateSpectrumRequest(control, requestedWidth, FftResolutionPolicy.GetFftSize(mode)) : null;
         lock (_gpuLock)
         {
             ClearPoolsExcept(mode);
-            var window = _hamsPool[mode][0] ??= new HanningWindow(_fftSizes[mode]);
+            var window = _hamsPool[mode][0] ??= new HanningWindow(FftResolutionPolicy.GetFftSize(mode));
             bool reused = _gpuFfts[mode] is { } previous && previous.MaxBatchSize == batch;
             var runner = GetGpuRunner(mode, batch, window);
             var report = runner.ConfigureCalibration(batch, step, request, allowMeasurement: false);
@@ -43,7 +43,7 @@ public partial class FftProcessor
                 report = runner.ConfigureCalibration(batch, step, request, allowMeasurement: true);
             }
             Console.WriteLine(report.Entry is { } entry
-                ? $"FFT calibration ({report.Source}): {_fftSizes[mode]:N0} x {batch}, profile {entry.Profile}, " +
+                ? $"FFT calibration ({report.Source}): {FftResolutionPolicy.GetFftSize(mode):N0} x {batch}, profile {entry.Profile}, " +
                   $"median {entry.MedianMs:F2} ms, p95 {entry.P95Ms:F2} ms, CPU {entry.CpuMedianMs:F2} ms, GPU {entry.GpuMedianMs:F2} ms"
                 : $"FFT calibration: {report.Source}; using the reference path");
         }

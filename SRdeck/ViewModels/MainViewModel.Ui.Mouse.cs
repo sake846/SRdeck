@@ -7,6 +7,7 @@ using SRdeck.Models;
 using SRdeck.Messages;
 using SRdeck.ViewModels.Components;
 using SRdeck.Renderers;
+using SRdeck.Models.SDR;
 
 namespace SRdeck.ViewModels;
 
@@ -143,8 +144,7 @@ public partial class MainViewModel : ObservableObject
         int sampleRateHz = radioControl.FsHz > 0 ? radioControl.FsHz : (_engine.SdrDevice?.FsHz ?? (int)AppConstants.FULL_BW);
         sampleRateHz = Math.Max(currentSpanHz, sampleRateHz);
 
-        int fftMode = Math.Clamp(FftResolutionMode, 0, _fftResolutionSizes.Length - 1);
-        int fftBinCount = Math.Max(1, _fftResolutionSizes[fftMode]);
+        int fftBinCount = FftResolutionPolicy.GetFftSize(FftResolutionMode);
         int maxSpanHz = Display.BaseMainSpanHz;
         int minSpanHz = Math.Min(maxSpanHz, Math.Max(1, (int)Math.Ceiling(width * ((double)sampleRateHz / fftBinCount))));
         double zoomFactor = Math.Pow(1.2, Math.Abs(deltaY) / 100.0);

@@ -332,11 +332,11 @@
                                               SelectedValue="{Binding AgcReleaseMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                               IsEnabled="{Binding IsSdrDetected}"
                                               Style="{DynamicResource PluginComboBoxStyle}">
-                                        <ComboBoxItem Content="制御なし" Tag="{x:Static models:AgcReleaseMode.Off}"/>
-                                        <ComboBoxItem Content="高速 (0.1秒)" Tag="{x:Static models:AgcReleaseMode.Fast}"/>
-                                        <ComboBoxItem Content="中速 (1秒)" Tag="{x:Static models:AgcReleaseMode.Medium}"/>
-                                        <ComboBoxItem Content="低速 (10秒)" Tag="{x:Static models:AgcReleaseMode.Slow}"/>
-                                        <ComboBoxItem Content="アタックのみ" Tag="{x:Static models:AgcReleaseMode.AttackOnly}"/>
+                                        <ComboBoxItem Content="{DynamicResource AgcMode_Off}" Tag="{x:Static models:AgcReleaseMode.Off}"/>
+                                        <ComboBoxItem Content="{DynamicResource AgcMode_Fast}" Tag="{x:Static models:AgcReleaseMode.Fast}"/>
+                                        <ComboBoxItem Content="{DynamicResource AgcMode_Medium}" Tag="{x:Static models:AgcReleaseMode.Medium}"/>
+                                        <ComboBoxItem Content="{DynamicResource AgcMode_Slow}" Tag="{x:Static models:AgcReleaseMode.Slow}"/>
+                                        <ComboBoxItem Content="{DynamicResource AgcMode_AttackOnly}" Tag="{x:Static models:AgcReleaseMode.AttackOnly}"/>
                                     </ComboBox>
 
                                     <!-- Row 4: Sensitivity / Gain Slider -->
@@ -377,7 +377,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
-                                        <Slider Grid.Column="0" Width="120" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                        <Slider Grid.Column="0" Width="200" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
                                                 Value="{Binding SdrPlaySensitivity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 ToolTip="左: 強信号向け / 右: 微弱信号向け"
                                                 VerticalAlignment="Center" Margin="2,0,4,0"/>
@@ -399,7 +399,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto" MinWidth="44"/>
                                         </Grid.ColumnDefinitions>
-                                        <Slider Grid.Column="0" Width="120" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                        <Slider Grid.Column="0" Width="200" Style="{DynamicResource PluginSliderStyle}" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
                                                  Value="{Binding DirectRfGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 VerticalAlignment="Center" Margin="2,0,4,0"/>
                                         <TextBlock Grid.Column="1" Text="{Binding DirectRfGainDb}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontWeight="Normal" FontFamily="{StaticResource DisplayFontFamily}" VerticalAlignment="Center" HorizontalAlignment="Left"/>

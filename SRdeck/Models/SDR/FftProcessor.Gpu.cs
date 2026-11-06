@@ -9,7 +9,7 @@ public partial class FftProcessor
     public void CalculateSingleFft(IqSampleRingBuffer buffer, int referencePtr, int mode, bool isGpuEnabled, float[] outputBuffer, RadioControl control)
     {
         if (mode < 0 || mode >= MAX_RESOLUTION_MODES) mode = 0;
-        int fftSize = _fftSizes[mode];
+        int fftSize = FftResolutionPolicy.GetFftSize(mode);
         int fftSizeB = _fftSizeBs[mode];
 
         var ham = _renderHams[mode] ?? (_renderHams[mode] = new HanningWindow(fftSize));

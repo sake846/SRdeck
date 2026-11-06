@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 
 namespace SRdeck.Audio;
@@ -15,10 +16,6 @@ public class WavFilePlayer : IAudioFileReader
     private readonly List<(long sampleIndex, float SystemGainDb, int CenterFrequencyHz)> _gainLog = new();
     private int _gainLogIndex;
     private long _currentSampleIndex;
-
-    private const int MaxSequenceFiles = 99;
-    private const int SequencePatternLength = 3; // "-01" など
-    private const int SequenceNumberLength = 2;  // "01" など
 
     public string? CurrentFileName { get; private set; }
     public bool IsPlaying { get; private set; }
@@ -172,38 +169,46 @@ public class WavFilePlayer : IAudioFileReader
         string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(CurrentFileName);
         string extension = Path.GetExtension(CurrentFileName);
 
-        // ファイル名末尾が "-01.wav" のような形式かチェック
-        if (fileNameWithoutExtension.Length < SequencePatternLength)
+        int separatorIndex = fileNameWithoutExtension.LastIndexOf('-');
+        if (separatorIndex < 0) return false;
+        ReadOnlySpan<char> suffix = fileNameWithoutExtension.AsSpan(separatorIndex + 1);
+        if (suffix.Length < 2 ||
+            !int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out int sequenceNumber) ||
+            sequenceNumber <= 0 || sequenceNumber == int.MaxValue) return false;
+
+        int nextNumber = sequenceNumber + 1;
+        string prefix = fileNameWithoutExtension[..(separatorIndex + 1)];
+        string nextFilePath = Path.Combine(path,
+            $"{prefix}{nextNumber.ToString($"D{suffix.Length}", CultureInfo.InvariantCulture)}{extension}");
+        if (!File.Exists(nextFilePath)) return false;
+
+        PcmWaveFileReader nextReader = new(nextFilePath);
+        bool readerTransferred = false;
+        try
         {
-            return false;
-        }
+            if (nextReader.WaveFormat is not { Channels: 2, BitsPerSample: 16 })
+                throw new InvalidDataException("連番ファイルの形式が IQ WAV（16 bit PCM・2チャンネル）ではありません。");
+            if (_reader is { } currentReader &&
+                currentReader.WaveFormat.SampleRate != nextReader.WaveFormat.SampleRate)
+                throw new InvalidDataException("連番IQ WAVのサンプルレートが一致しません。");
 
-        ReadOnlySpan<char> suffix = fileNameWithoutExtension.AsSpan(fileNameWithoutExtension.Length - SequencePatternLength);
-        if (suffix[0] == '-' && int.TryParse(suffix[1..], out int sequenceNumber))
+            int nextFrequencyHz = IqPlaybackFileInspector.TryReadCenterFrequencyHz(nextFilePath) ?? 0;
+            if (CurrentRfFrequencyHz > 0 && nextFrequencyHz > 0 && CurrentRfFrequencyHz != nextFrequencyHz)
+                throw new InvalidDataException("連番IQ WAVの中心周波数が一致しません。");
+
+            Close();
+            _reader = nextReader;
+            readerTransferred = true;
+            CurrentFileName = nextFilePath;
+            EnsureBufferMatchesReaderFormat();
+            LoadGainLog(nextFilePath);
+            IsPlaying = true;
+            return true;
+        }
+        finally
         {
-            if (sequenceNumber >= MaxSequenceFiles)
-            {
-                return false;
-            }
-
-            int nextNumber = sequenceNumber + 1;
-            string prefix = fileNameWithoutExtension[..^SequenceNumberLength];
-            string nextFilePath = Path.Combine(path, $"{prefix}{nextNumber:D2}{extension}");
-
-            if (File.Exists(nextFilePath))
-            {
-                Close();
-                _reader = new PcmWaveFileReader(nextFilePath);
-                if (_reader.WaveFormat is not { Channels: 2, BitsPerSample: 16 })
-                    throw new InvalidDataException("連番ファイルの形式が IQ WAV（16 bit PCM・2チャンネル）ではありません。");
-                CurrentFileName = nextFilePath;
-                EnsureBufferMatchesReaderFormat();
-                LoadGainLog(nextFilePath);
-                IsPlaying = true;
-                return true;
-            }
+            if (!readerTransferred) nextReader.Dispose();
         }
-        return false;
     }
 
     /// <summary>

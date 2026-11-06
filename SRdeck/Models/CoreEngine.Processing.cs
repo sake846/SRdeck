@@ -21,10 +21,10 @@ public partial class CoreEngine
     {
         var totalStopwatch = Stopwatch.StartNew();
         var diagnostics = Diagnostics;
-        CycleControlContext cycleControl = PrepareCycleControl(ref diagnostics);
+        SignalBlockContext inputBlock = _signalPipeline.CurrentReadContext;
+        CycleControlContext cycleControl = PrepareCycleControl(ref diagnostics, inputBlock);
         RadioControl control = cycleControl.Control;
         int inputCenterFreqHz = cycleControl.InputCenterFreqHz;
-        SignalBlockContext inputBlock = _signalPipeline.CurrentReadContext;
         int inputSampleRateHz = inputBlock.SampleRateHz > 0 ? inputBlock.SampleRateHz : control.FsHz;
         _pluginIqDispatcher.TryPublish(new PluginIqPublishRequest(
             IqBuffer,
@@ -64,17 +64,26 @@ public partial class CoreEngine
 
     private readonly record struct CycleControlContext(RadioControl Control, int InputCenterFreqHz);
 
-    private CycleControlContext PrepareCycleControl(ref RadioDiagnostics diagnostics)
+    private CycleControlContext PrepareCycleControl(
+        ref RadioDiagnostics diagnostics,
+        SignalBlockContext inputBlock)
     {
         int playbackSampleRateHz = IsPlaying ? _audioService.PlaybackSampleRateHz : 0;
         RadioControl control = _radioControlStore.CreateProcessingSnapshot(
             playbackSampleRateHz,
             GetMaxAvailableHistorySec());
+        control.FftResolutionMode = FftResolutionPolicy.ClampMode(
+            control.FftResolutionMode,
+            control.FsHz,
+            control.FftBatchCount,
+            control.IsGpuFftEnabled);
 
         SyncParametersWithUi(ref control, ref diagnostics, BufferRPtrNext);
         int configuredInputCenterFreqHz = GetInputCenterFrequency(control);
         int inputCenterFreqHz = IsPlaying
-            ? configuredInputCenterFreqHz
+            ? inputBlock.CenterFrequencyHz > 0
+                ? inputBlock.CenterFrequencyHz
+                : configuredInputCenterFreqHz
             : SdrDevicePolicy.ResolveActiveInputCenterFrequency(
                 _sdrDeviceManager.ActiveCenterFrequencyHz,
                 configuredInputCenterFreqHz);
@@ -91,7 +100,10 @@ public partial class CoreEngine
         return control;
     }
 
-    private bool TrySubmitMainFft(RadioControl control, int inputCenterFreqHz, Stopwatch cycleStopwatch)
+    private bool TrySubmitMainFft(
+        RadioControl control,
+        int inputCenterFreqHz,
+        Stopwatch cycleStopwatch)
     {
         if (!_mainFftService.TrySubmit(new MainFftSubmission(
             IqBuffer,

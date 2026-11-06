@@ -25,6 +25,8 @@ public partial class MainViewModel : ObservableObject
             LoadPpmDisplayValue();
             _engine.MinGainReduction = hardwareSettings.MinGainReduction;
             _engine.RfAgcEnabled = hardwareSettings.RfAgcEnabled;
+            LoadAgcSensitivityProfiles(hardwareSettings.AgcSensitivityProfiles);
+            ApplyAgcSensitivityProfile(hardwareSettings.AgcReleaseMode);
             _engine.AgcReleaseMode = hardwareSettings.AgcReleaseMode;
             LoadSdrPlayDeviceSettings(hardwareSettings);
             SetAgcStateFromSettings(

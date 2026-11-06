@@ -1,9 +1,11 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Configuration;
 using SRdeck.Messages;
 using SRdeck.Models;
+using SRdeck.Models.Configuration;
 using SRdeck.SDR;
 
 namespace SRdeck.ViewModels;
@@ -22,7 +24,14 @@ public partial class MainViewModel : ObservableObject
     private bool _isAgcEnabled;
     [ObservableProperty]
     private AgcReleaseMode _agcReleaseMode = AgcReleaseMode.Slow;
+    [ObservableProperty]
+    private AgcSensitivityProfile? _selectedAgcSensitivityProfile;
+    [ObservableProperty]
+    private AgcReleaseMode _selectedAgcSensitivityMode = AgcReleaseMode.Slow;
+    public ObservableCollection<AgcSensitivityProfile> AgcSensitivityProfiles { get; } = new();
     private bool _isLoadingAgcState;
+    private bool _isLoadingAgcSensitivityProfiles;
+    private bool _isResettingAgcSensitivityProfiles;
 
     public bool IsSdrSettingsVisible => IsSdrDetected;
 
@@ -63,6 +72,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (_engine == null || _isLoadingAgcState) return;
 
+        ApplyAgcSensitivityProfile(value);
+
         bool isEnabled = value != AgcReleaseMode.Off;
         if (IsAgcEnabled != isEnabled)
         {
@@ -74,6 +85,91 @@ public partial class MainViewModel : ObservableObject
             _engine.AgcReleaseMode = value;
         }
         SaveAgcSettings();
+    }
+
+    partial void OnSelectedAgcSensitivityProfileChanged(AgcSensitivityProfile? value)
+    {
+        if (value is not null && SelectedAgcSensitivityMode != value.Mode)
+            SelectedAgcSensitivityMode = value.Mode;
+        if (value?.Mode == AgcReleaseMode)
+        {
+            _engine.AgcControlSettings = value.ControlSettings;
+        }
+    }
+
+    partial void OnSelectedAgcSensitivityModeChanged(AgcReleaseMode value)
+    {
+        SelectedAgcSensitivityProfile = AgcSensitivityProfiles.FirstOrDefault(item => item.Mode == value);
+    }
+
+    private void LoadAgcSensitivityProfiles(IEnumerable<AgcSensitivityProfile>? profiles)
+    {
+        _isLoadingAgcSensitivityProfiles = true;
+        try
+        {
+            foreach (AgcSensitivityProfile profile in AgcSensitivityProfiles)
+                profile.PropertyChanged -= OnAgcSensitivityProfilePropertyChanged;
+            AgcSensitivityProfiles.Clear();
+
+            List<AgcSensitivityProfile> defaultProfiles = AgcSensitivityProfile.CreateDefaults();
+            foreach (AgcReleaseMode mode in AgcSensitivityProfile.EditableModes)
+            {
+                AgcSensitivityProfile profile = profiles?.FirstOrDefault(item => item.Mode == mode)
+                    ?? defaultProfiles.First(item => item.Mode == mode);
+                profile.PropertyChanged += OnAgcSensitivityProfilePropertyChanged;
+                AgcSensitivityProfiles.Add(profile);
+            }
+
+            AgcReleaseMode selectedMode = AgcSensitivityProfile.EditableModes.Contains(AgcReleaseMode)
+                ? AgcReleaseMode
+                : AgcReleaseMode.Slow;
+            SelectedAgcSensitivityMode = selectedMode;
+            SelectedAgcSensitivityProfile = AgcSensitivityProfiles.FirstOrDefault(item => item.Mode == selectedMode);
+        }
+        finally
+        {
+            _isLoadingAgcSensitivityProfiles = false;
+        }
+    }
+
+    private void OnAgcSensitivityProfilePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_isLoadingAgcSensitivityProfiles || _isResettingAgcSensitivityProfiles) return;
+        if (sender is AgcSensitivityProfile profile && profile.Mode == AgcReleaseMode)
+            _engine.AgcControlSettings = profile.ControlSettings;
+
+        SaveAgcSensitivityProfiles();
+    }
+
+    private void ApplyAgcSensitivityProfile(AgcReleaseMode mode)
+    {
+        AgcSensitivityProfile? profile = AgcSensitivityProfiles.FirstOrDefault(item => item.Mode == mode);
+        _engine.AgcControlSettings = profile?.ControlSettings ?? AgcSensitivityProfile.CreateDefault(mode).ControlSettings;
+    }
+
+    private void SaveAgcSensitivityProfiles()
+    {
+        SdrDeviceType deviceType = GetEffectiveHardwareSettingsDeviceType();
+        HardwareSettings settings = _settingsService.LoadHardwareSettings(deviceType);
+        settings.AgcSensitivityProfiles = AgcSensitivityProfiles.ToList();
+        _settingsService.SaveHardwareSettings(settings, deviceType);
+    }
+
+    [RelayCommand]
+    private void ResetAgcSensitivityProfiles()
+    {
+        _isResettingAgcSensitivityProfiles = true;
+        try
+        {
+            foreach (AgcSensitivityProfile profile in AgcSensitivityProfiles)
+                profile.ResetToDefaults();
+        }
+        finally
+        {
+            _isResettingAgcSensitivityProfiles = false;
+        }
+        ApplyAgcSensitivityProfile(AgcReleaseMode);
+        SaveAgcSensitivityProfiles();
     }
 
     [RelayCommand]
@@ -174,6 +270,8 @@ public partial class MainViewModel : ObservableObject
             LoadPpmDisplayValue();
             _engine.MinGainReduction = hardwareSettings.MinGainReduction;
             _engine.RfAgcEnabled = hardwareSettings.RfAgcEnabled;
+            LoadAgcSensitivityProfiles(hardwareSettings.AgcSensitivityProfiles);
+            ApplyAgcSensitivityProfile(hardwareSettings.AgcReleaseMode);
             _engine.AgcReleaseMode = hardwareSettings.AgcReleaseMode;
             LoadSdrPlayDeviceSettings(hardwareSettings);
             SetAgcStateFromSettings(
@@ -226,6 +324,9 @@ public partial class MainViewModel : ObservableObject
             AgcReleaseMode = isEnabled
                 ? (releaseMode == AgcReleaseMode.Off ? AgcReleaseMode.Slow : releaseMode)
                 : AgcReleaseMode.Off;
+            SelectedAgcSensitivityMode = AgcSensitivityProfile.EditableModes.Contains(AgcReleaseMode)
+                ? AgcReleaseMode
+                : AgcReleaseMode.Slow;
         }
         finally { _isLoadingAgcState = false; }
     }

@@ -1,6 +1,6 @@
 # 公式プラグイン一覧
 
-公開版の`with-plugins`パッケージには、次の15プラグインが含まれます。リリースごとの正確な同梱物はZIP内の`PACKAGE-MANIFEST.json`を確認してください。
+公開版の`with-plugins`パッケージには、次の16プラグインが含まれます。リリースごとの正確な同梱物はZIP内の`PACKAGE-MANIFEST.json`を確認してください。
 
 ## 一覧
 
@@ -11,10 +11,9 @@
 | `acars` | 航空データ通信（ACARS） | VHF ACARS、AM-MSK、2400 bit/s | 機体、ラベル、本文、位置、履歴 | [ACARS](Plugins-Acars) |
 | `adsb` | 航空機監視（ADS-B） | 1090 MHz Mode S DF17／DF18 | ICAO、Callsign、高度、速度、CPR位置 | [ADS-B](Plugins-AdsB) |
 | `ais` | 船舶監視（AIS） | 161.975／162.025 MHz、GMSK | MMSI、船名、位置、速度、航跡 | [AIS](Plugins-Ais) |
-| `aprs` | アマチュア無線（APRS） | NFM／Bell 202 AFSK 1200／AX.25 | 局名、位置、メッセージ、地図、履歴 | [APRS](Plugins-Aprs) |
+| `aprs` | アマチュア無線（APRS） | AFSK 1200・GMSK 9600（G3RUH）／AX.25 | 局名、位置、メッセージ、地図、履歴 | [APRS](Plugins-Aprs) |
 | `analog` | アナログ音声（AM/FM/SSB） | AM、FM、USB／LSB | 48 kHz PCM音声、信号診断 | [アナログ復調](Plugins-Analog) |
 | `arib-t98` | 簡易無線（ARIB STD-T98） | デジタル簡易無線、4FSK／π/4 QPSK | 制御情報、FEC、秘話解析、IQ録音、4FSK音声（AMBEドングル必須） | [T98](https://github.com/sake846/SRdeckPlugins/blob/main/SRdeckPlugin.AribT98/README.ja.md) |
-| `arib-t102` | 業務無線（T102/B54/NXDN） | 狭帯域業務無線・放送連絡・NXDN 6.25 kHz通常通信、4FSK | 制御情報、呼出・GPS・状態・テキスト、NXDNのRAN・発着信ID、IQ録音、音声（AMBE接続必須） | [T102/B54・NXDN](https://github.com/sake846/SRdeckPlugins/blob/main/SRdeckPlugin.AribT102/README.ja.md) |
 | `cw` | アマチュア無線（モールス通信） | 10／20／50 kHz帯域のCW | モールス復号、Callsign、SNR、注釈 | [CW Skimmer](Plugins-Cw) |
 | `signal-workbench` | 未知信号の解析ワークベンチ | 選択した6～200 kHz帯域 | 未同期IQ、周波数偏移分布、FSK解析、シンボルレート候補 | [信号解析](Plugins-Signal-Workbench) |
 | `activity-heatmap` | 周波数ごとの活動ヒートマップ | 現在の受信帯域全体 | dBmで活動判定、1・6・24時間の推移 | [活動ヒートマップ](Plugins-Activity-Heatmap) |
@@ -37,15 +36,6 @@
 ARIB STD-T98は4FSKとπ/4 QPSKを受信します。4FSKの音声にはDVStickなどのAMBEドングルを接続し、
 プラグインのCOMポートとボーレートを設定してください。ドングルがない場合は音声を出力しません。
 PSKの音声は未対応です。[T98のガイド](https://github.com/sake846/SRdeckPlugins/blob/main/SRdeckPlugin.AribT98/README.ja.md)を参照してください。
-
-### 狭帯域業務無線・放送連絡を受信したい
-
-ARIB STD-T102/B54はT102第1編・第2編とB54を選択し、対象局の周波数とPN9初期値を設定して使用します。
-タクシー無線、業務無線、アマチュア無線（NXDN）、放送連絡（B54）の用途別に受信設定を保存・復元できます。
-NXDNは方式「NXDN 6.25 kHz（通常通信）」でRAN・発着信ID・通話/終話とAMBE+2音声を復号します。
-12.5 kHz・トランキング追従・暗号音声は未対応です。
-音声にはDVStickなどのAMBEドングルが必須です。未接続時も制御情報・メッセージの受信とIQ録音は利用できます。
-詳細は[T102/B54のガイド](https://github.com/sake846/SRdeckPlugins/blob/main/SRdeckPlugin.AribT102/README.ja.md)を参照してください。
 
 ### 航空通信を観測したい
 
@@ -96,7 +86,7 @@ IQプリトリガーキャプチャはACARS、ADS-B、アナログ復調、CW Sk
 
 [Meshtastic](Plugins-Meshtastic)と[ワンセグ](Plugins-OneSeg)のソースは、`SRdeckPlugins`のソーススナップショットに含まれます。公式SRdeck実行ZIPには、これらのDLLを含めていません。
 
-ほかの開発中・任意配布モジュールも、ZIP内の`PACKAGE-MANIFEST.json`に記載がなければ公式パッケージには含まれません。
+公開ZIPに含まれるプラグインとバージョンは、各ZIP内の`PACKAGE-MANIFEST.json`で確認できます。
 
 ## 受信時の共通注意
 

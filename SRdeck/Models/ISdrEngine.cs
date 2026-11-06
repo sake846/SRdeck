@@ -21,6 +21,7 @@ namespace SRdeck.Models
         int MinGainReduction { get; set; }
         int RfAgcEnabled { get; set; }
         AgcReleaseMode AgcReleaseMode { get; set; }
+        AgcControlSettings AgcControlSettings { get; set; }
 
 
         double SystemDb { get; set; }

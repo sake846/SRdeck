@@ -63,7 +63,7 @@ public partial class FftProcessor : IFftProcessor
     public const float BASE_FFT_BIAS = -165.5f;
 
     // 定数定義
-    private const int MAX_RESOLUTION_MODES = 11;
+    private const int MAX_RESOLUTION_MODES = FftResolutionPolicy.ModeCount;
     private const int MAX_FFT_SIZE = 4194304;
     private const float REFERENCE_FFT_SIZE = 4096f;
     private const float DB_SCALE = 20.0f;
@@ -89,7 +89,6 @@ public partial class FftProcessor : IFftProcessor
     private short[] _packedRingI = Array.Empty<short>();
     private short[] _packedRingQ = Array.Empty<short>();
     
-    private readonly int[] _fftSizes = { 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304 };
     private readonly int[] _fftSizeBs = { 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22 };
 
     // 直近の診断結果
@@ -154,7 +153,7 @@ public partial class FftProcessor : IFftProcessor
         if (batchSize > MAX_BATCH_COUNT) batchSize = MAX_BATCH_COUNT;
         int stepSize = (int)(control.FsHz / 10 / batchSize);
 
-        int fftSize = _fftSizes[mode];
+        int fftSize = FftResolutionPolicy.GetFftSize(mode);
         int fftSizeB = _fftSizeBs[mode];
 
         var hams = _hamsPool[mode];

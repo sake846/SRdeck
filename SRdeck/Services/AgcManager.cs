@@ -8,6 +8,7 @@ public interface IAgcManager : IDisposable
 {
     int CurrentGainDb { get; set; }
     AgcReleaseMode ReleaseMode { get; set; }
+    AgcControlSettings ControlSettings { get; set; }
     void EvaluateManualGain(
         IqSampleExtrema extrema,
         SdrDeviceCapabilities deviceCapabilities,
@@ -20,7 +21,9 @@ internal sealed class AgcManager : IAgcManager
     private readonly IGainUpdateWorker _gainUpdateWorker;
     private readonly Func<long> _getTimestamp;
     private int _releaseMode = (int)AgcReleaseMode.Slow;
+    private AgcControlSettings _controlSettings = AgcControlSettings.Default;
     private long _nextReleaseTimestamp;
+    private long _nextAttackTimestamp = long.MinValue;
 
     public AgcManager(IGainUpdateWorker gainUpdateWorker)
         : this(gainUpdateWorker, Stopwatch.GetTimestamp)
@@ -31,10 +34,23 @@ internal sealed class AgcManager : IAgcManager
     {
         _gainUpdateWorker = gainUpdateWorker;
         _getTimestamp = getTimestamp;
-        _nextReleaseTimestamp = getTimestamp() + GetReleaseDelayTicks(AgcReleaseMode.Slow);
+        _nextReleaseTimestamp = getTimestamp() + GetSecondsTicks(ControlSettings.HoldSeconds);
     }
 
     public int CurrentGainDb { get; set; }
+
+    public AgcControlSettings ControlSettings
+    {
+        get => Volatile.Read(ref _controlSettings);
+        set
+        {
+            Volatile.Write(ref _controlSettings, value ?? AgcControlSettings.Default);
+            Interlocked.Exchange(ref _nextAttackTimestamp, long.MinValue);
+            Interlocked.Exchange(
+                ref _nextReleaseTimestamp,
+                _getTimestamp() + GetSecondsTicks(ControlSettings.HoldSeconds));
+        }
+    }
 
     public AgcReleaseMode ReleaseMode
     {
@@ -45,8 +61,9 @@ internal sealed class AgcManager : IAgcManager
             Volatile.Write(ref _releaseMode, (int)normalized);
             long nextRelease = normalized == AgcReleaseMode.AttackOnly
                 ? long.MaxValue
-                : _getTimestamp() + GetReleaseDelayTicks(normalized);
+                : _getTimestamp() + GetSecondsTicks(ControlSettings.HoldSeconds);
             Interlocked.Exchange(ref _nextReleaseTimestamp, nextRelease);
+            Interlocked.Exchange(ref _nextAttackTimestamp, long.MinValue);
         }
     }
 
@@ -66,6 +83,7 @@ internal sealed class AgcManager : IAgcManager
         int minimumGain = deviceCapabilities.IsRtlSdr || deviceCapabilities.IsHackRf || deviceCapabilities.IsRx888
             ? 0 : configuredMinimumGain;
         AgcReleaseMode releaseMode = ReleaseMode;
+        AgcControlSettings settings = ControlSettings;
         var input = new ManualAgcInput(
             extrema.MaxI,
             extrema.MinI,
@@ -74,17 +92,23 @@ internal sealed class AgcManager : IAgcManager
             CurrentGainDb,
             minimumGain,
             maximumGain,
-            AppConstants.AGC_UPPER_THRESHOLD,
-            AppConstants.AGC_LOWER_THRESHOLD,
+            settings.UpperThreshold,
+            settings.LowerThreshold,
             deviceKind);
         long now = _getTimestamp();
-        long releaseDelayTicks = GetReleaseDelayTicks(releaseMode);
-        if (ManualAgcPolicy.IsOver(input))
+        long attackDelayTicks = GetSecondsTicks(settings.AttackSeconds);
+        long releaseDelayTicks = GetSecondsTicks(settings.ReleaseSeconds);
+        bool isOver = ManualAgcPolicy.IsOver(input);
+        if (isOver)
         {
-            // Attack is immediate. Keep postponing release while overload remains.
+            // Keep the release hold running from the last overloaded block.
             Interlocked.Exchange(
                 ref _nextReleaseTimestamp,
-                releaseMode == AgcReleaseMode.AttackOnly ? long.MaxValue : now + releaseDelayTicks);
+                releaseMode == AgcReleaseMode.AttackOnly ? long.MaxValue : now + GetSecondsTicks(settings.HoldSeconds));
+        }
+        else
+        {
+            Interlocked.Exchange(ref _nextAttackTimestamp, long.MinValue);
         }
 
         int nextGain = ManualAgcPolicy.CalculateNextGain(input);
@@ -102,22 +126,19 @@ internal sealed class AgcManager : IAgcManager
                 now < Interlocked.Read(ref _nextReleaseTimestamp)) return;
             Interlocked.Exchange(ref _nextReleaseTimestamp, now + releaseDelayTicks);
         }
+        else if (isOver)
+        {
+            long nextAttack = Interlocked.Read(ref _nextAttackTimestamp);
+            if (nextAttack != long.MinValue && now < nextAttack) return;
+            Interlocked.Exchange(ref _nextAttackTimestamp, now + attackDelayTicks);
+        }
 
         CurrentGainDb = nextGain;
         _gainUpdateWorker.RequestUpdate();
     }
 
-    private static long GetReleaseDelayTicks(AgcReleaseMode mode)
-    {
-        double seconds = mode switch
-        {
-            AgcReleaseMode.Fast => AppConstants.AGC_RELEASE_FAST_SECONDS,
-            AgcReleaseMode.Medium => AppConstants.AGC_RELEASE_MEDIUM_SECONDS,
-            AgcReleaseMode.Slow => AppConstants.AGC_RELEASE_SLOW_SECONDS,
-            _ => AppConstants.AGC_RELEASE_SLOW_SECONDS
-        };
-        return (long)(seconds * Stopwatch.Frequency);
-    }
+    private static long GetSecondsTicks(double seconds) =>
+        (long)(Math.Clamp(double.IsFinite(seconds) ? seconds : 0, 0, 3600) * Stopwatch.Frequency);
 
 
     public void Dispose() => _gainUpdateWorker.Dispose();

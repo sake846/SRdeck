@@ -31,6 +31,7 @@ namespace SRdeck.Views
             }
 #endif
 
+            AddTab("Tab_Sensitivity", new SettingsTabs.SensitivitySettingsTab());
             AddTab("Tab_Startup", new SettingsTabs.StartupSettingsTab());
             AddTab("Tab_Map", new SettingsTabs.MapSettingsTab());
             AddTab("Tab_System", new SettingsTabs.SystemSettingsTab());

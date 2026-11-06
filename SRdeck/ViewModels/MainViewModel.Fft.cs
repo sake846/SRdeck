@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using SRdeck.Models;
+using SRdeck.Models.SDR;
 using SRdeck.Messages;
 
 namespace SRdeck.ViewModels;
@@ -31,8 +32,6 @@ public partial class MainViewModel : ObservableObject
             set => SetProperty(ref _isEnabled, value); 
         }
     }
-
-    private static readonly int[] _fftResolutionSizes = { 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304 };
 
     public ObservableCollection<FftResolutionOption> FftResolutionOptions { get; } = new()
     {
@@ -110,18 +109,6 @@ public partial class MainViewModel : ObservableObject
     internal static int GetMaximumFftResolutionMode(
         int sampleRateHz,
         int batchCount,
-        bool isGpuEnabled)
-    {
-        int safeSampleRateHz = Math.Max(1, sampleRateHz);
-        int safeBatchCount = Math.Clamp(batchCount, 1, 32);
-        double maximumFftPoints = 0.3 * safeSampleRateHz / safeBatchCount;
-        int maximumMode = 0;
-        for (int index = 0; index < _fftResolutionSizes.Length; index++)
-            if (_fftResolutionSizes[index] <= maximumFftPoints)
-                maximumMode = index;
-
-        // CPU FFTs above 32K can monopolize the processing worker even when
-        // the sample-rate window would otherwise permit them.
-        return isGpuEnabled ? maximumMode : Math.Min(maximumMode, 3);
-    }
+        bool isGpuEnabled) => FftResolutionPolicy.GetMaximumMode(
+            sampleRateHz, batchCount, isGpuEnabled);
 }

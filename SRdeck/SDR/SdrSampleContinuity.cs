@@ -3,7 +3,7 @@ using SRdeck.Models;
 namespace SRdeck.SDR;
 
 /// <summary>Used on the producer thread before a callback can be dropped.</summary>
-internal sealed class SdrSampleClock
+internal sealed class SdrSampleClock(uint deviceSampleMask = uint.MaxValue)
 {
     private long _sequence;
     private long _nextSample;
@@ -15,16 +15,16 @@ internal sealed class SdrSampleClock
         if (!reset && firstDeviceSample is uint first && _nextDeviceSample is uint expected && first != expected)
         {
             discontinuity = true;
-            uint gap = unchecked(first - expected);
-            // A normal uint wrap is contiguous. Backward jumps are resets,
-            // not billions of lost samples.
-            if (gap <= int.MaxValue) _nextSample += gap;
+            uint gap = unchecked(first - expected) & deviceSampleMask;
+            // SDRplay divides its wrapping 32-bit counter by the decimation factor.
+            // Backward jumps are resets, not billions of lost samples.
+            if (gap <= deviceSampleMask / 2) _nextSample += gap;
         }
 
         var metadata = new SdrSampleMetadata(++_sequence, _nextSample, discontinuity);
         _nextSample += Math.Max(0, count);
         _nextDeviceSample = firstDeviceSample is uint position
-            ? unchecked(position + (uint)Math.Max(0, count)) : null;
+            ? unchecked(position + (uint)Math.Max(0, count)) & deviceSampleMask : null;
         return metadata;
     }
 }

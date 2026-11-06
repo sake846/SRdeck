@@ -20,7 +20,25 @@
       "Option_FilterOff": "Off (None)",
       "Option_MwOnly": "MW (Medium Wave) Only",
       "Option_FmOnly": "FM Only",
-      "Option_BothEnabled": "Both Enabled (MW + FM)"
+      "Option_BothEnabled": "Both Enabled (MW + FM)",
+      "AgcMode_Off": "Off",
+      "AgcMode_Fast": "Fast",
+      "AgcMode_Medium": "Medium",
+      "AgcMode_Slow": "Slow",
+      "AgcMode_AttackOnly": "Attack only"
+    },
+    "SensitivityTab": {
+      "Tab_Sensitivity": "Sensitivity",
+      "Desc_AgcSensitivity": "Gain steps attack above the upper threshold and release after the hold time below the lower threshold. Attack and release times are the intervals between gain changes; 0 seconds means immediate attack.",
+      "Label_AgcProfile": "Sensitivity mode:",
+      "Label_SensitivityAttack": "Attack time:",
+      "Label_SensitivityRelease": "Release time:",
+      "Label_AgcHold": "Hold time:",
+      "Label_AgcUpperThreshold": "Control upper limit:",
+      "Label_AgcLowerThreshold": "Control lower limit:",
+      "Desc_AgcDefault": "Restore all modes to their default values.",
+      "Btn_Default": "Defaults",
+      "Unit_Seconds": "s"
     },
     "DisplayTab": {
       "Tab_Display": "Display",
@@ -83,8 +101,8 @@
       "Label_AmAgc": "■ AM AGC Constants",
       "Label_SsbAgc": "■ SSB AGC Constants",
       "Label_FmAgc": "■ FM AGC Constants",
-      "Label_AgcAttack": "Attack (Ka):",
-      "Label_AgcRelease": "Release (Kr):"
+      "Label_AgcAttack": "Attack:",
+      "Label_AgcRelease": "Release:"
     },
     "MapTab": {
       "Tab_Map": "Map",
